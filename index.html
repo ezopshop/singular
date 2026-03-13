@@ -15,7 +15,6 @@
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;height:100vh;overflow:hidden;}
-
 #boot{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg);z-index:100;transition:opacity .8s ease,transform .8s ease;}
 #boot.fade-out{opacity:0;transform:scale(1.04);pointer-events:none;}
 .boot-logo{font-family:'DM Serif Display',serif;font-size:3.5rem;letter-spacing:.3em;opacity:.9;margin-bottom:.25rem;}
@@ -29,32 +28,24 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;heig
 .btn-local:hover{color:var(--text);border-color:var(--text-muted);}
 .boot-note{font-size:.6rem;color:var(--text-dim);margin-top:1.25rem;line-height:1.7;}
 .boot-reconnect{margin-top:1rem;font-size:.62rem;color:#34d399;letter-spacing:.1em;cursor:pointer;text-decoration:underline;display:none;}
-
 #universe{position:fixed;inset:0;opacity:0;transition:opacity 1s ease;pointer-events:none;}
 #universe.active{opacity:1;pointer-events:all;}
-
 #canvas{position:absolute;inset:0;cursor:grab;}
 #canvas.grabbing{cursor:grabbing;}
-
 #status{position:fixed;top:1.5rem;left:1.5rem;display:flex;align-items:center;gap:.5rem;font-size:.6rem;letter-spacing:.15em;color:var(--text-dim);text-transform:uppercase;z-index:20;}
 .status-dot{width:5px;height:5px;border-radius:50%;background:var(--text-dim);transition:background .3s;}
 .status-dot.connected{background:#34d399;box-shadow:0 0 6px #34d399;}
-
 #topright{position:fixed;top:1.5rem;right:1.5rem;text-align:right;font-size:.6rem;letter-spacing:.1em;color:var(--text-dim);text-transform:uppercase;line-height:1.9;z-index:20;}
-
 #hint{position:fixed;bottom:5.5rem;left:50%;transform:translateX(-50%);font-size:.62rem;letter-spacing:.2em;color:var(--text-dim);text-transform:uppercase;transition:opacity .5s;white-space:nowrap;pointer-events:none;z-index:20;}
-
 #input-bar{position:fixed;bottom:2.5rem;left:50%;transform:translateX(-50%);width:min(600px,85vw);display:flex;align-items:center;background:var(--bg2);border:.5px solid var(--border-bright);border-radius:12px;overflow:hidden;box-shadow:0 0 40px rgba(167,139,250,.08);z-index:20;}
 #input-field{flex:1;padding:1rem 1.25rem;background:transparent;border:none;outline:none;color:var(--text);font-family:'DM Mono',monospace;font-size:.78rem;letter-spacing:.03em;}
 #input-field::placeholder{color:var(--text-muted);}
 #input-send{padding:.75rem 1.25rem;background:transparent;border:none;border-left:.5px solid var(--border);color:var(--core);cursor:pointer;font-size:1rem;transition:background .2s;}
 #input-send:hover{background:rgba(167,139,250,.1);}
-
 #zoom-controls{position:fixed;bottom:2.5rem;right:1.5rem;display:flex;flex-direction:column;gap:.4rem;z-index:20;}
 .zoom-btn{width:32px;height:32px;background:var(--bg2);border:.5px solid var(--border-bright);border-radius:6px;color:var(--text-muted);cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;transition:color .2s;}
 .zoom-btn:hover{color:var(--text);}
-
-#panel{position:fixed;top:50%;right:-380px;transform:translateY(-50%);width:320px;max-height:76vh;background:var(--panel);border:.5px solid var(--border-bright);border-radius:12px;padding:1.5rem;transition:right .4s cubic-bezier(.16,1,.3,1);overflow-y:auto;z-index:50;backdrop-filter:blur(24px);}
+#panel{position:fixed;top:50%;right:-400px;transform:translateY(-50%);width:320px;max-height:76vh;background:var(--panel);border:.5px solid var(--border-bright);border-radius:12px;padding:1.5rem;transition:right .4s cubic-bezier(.16,1,.3,1);overflow-y:auto;z-index:50;backdrop-filter:blur(24px);}
 #panel.open{right:1.5rem;}
 .panel-close{position:absolute;top:1rem;right:1rem;background:transparent;border:none;color:var(--text-muted);cursor:pointer;font-size:.9rem;font-family:'DM Mono',monospace;}
 .panel-close:hover{color:var(--text);}
@@ -64,9 +55,10 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;heig
 .panel-section{margin-bottom:.85rem;}
 .panel-section-label{font-size:.52rem;letter-spacing:.25em;text-transform:uppercase;color:var(--text-muted);margin-bottom:.35rem;}
 .panel-section-body{font-size:.66rem;color:var(--text-muted);line-height:1.7;}
-.panel-tags{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.35rem;}
-.panel-tag{font-size:.56rem;padding:.18rem .5rem;border:.5px solid rgba(245,158,11,.3);border-radius:4px;color:#f59e0b;cursor:pointer;}
-.panel-relations{display:flex;flex-direction:column;gap:.3rem;margin-top:.35rem;}
+.panel-chips{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.35rem;}
+.panel-chip{font-size:.56rem;padding:.18rem .5rem;border-radius:4px;cursor:pointer;transition:opacity .2s;}
+.panel-chip:hover{opacity:.7;}
+.panel-rels{display:flex;flex-direction:column;gap:.3rem;margin-top:.35rem;}
 .panel-rel{font-size:.6rem;padding:.3rem .6rem;background:rgba(52,211,153,.04);border:.5px solid rgba(52,211,153,.15);border-radius:6px;color:var(--text-muted);cursor:pointer;transition:background .2s;}
 .panel-rel:hover{background:rgba(52,211,153,.1);}
 ::-webkit-scrollbar{width:3px;}
@@ -94,10 +86,13 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;heig
 <div id="universe">
   <canvas id="canvas"></canvas>
   <div id="status"><div class="status-dot" id="status-dot"></div><span id="status-text">bağlanıyor...</span></div>
-  <div id="topright"><div id="node-count">0 node</div><div id="zoom-label" style="font-size:.55rem;color:var(--text-dim)">zoom 100%</div></div>
+  <div id="topright">
+    <div id="node-count">0 kayıt</div>
+    <div id="zoom-label" style="font-size:.55rem;color:var(--text-dim)">zoom 100%</div>
+  </div>
   <div id="hint">Evreni başlatmak için bir şey yaz</div>
   <div id="input-bar">
-    <input id="input-field" type="text" placeholder="Bir soru sor, bir şey söyle, bir karar yaz…" autocomplete="off"/>
+    <input id="input-field" type="text" placeholder="Bir şey yaz, bir soru sor, bir karar ver…" autocomplete="off"/>
     <button id="input-send" onclick="handleInput()">→</button>
   </div>
   <div id="zoom-controls">
@@ -107,7 +102,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;heig
   </div>
   <div id="panel">
     <button class="panel-close" onclick="closePanel()">✕</button>
-    <div id="panel-badge" class="panel-badge">entry</div>
+    <div id="panel-badge" class="panel-badge">—</div>
     <div class="panel-title" id="panel-title">—</div>
     <div class="panel-meta" id="panel-meta">—</div>
     <div id="panel-body"></div>
@@ -125,628 +120,754 @@ const FOLDER_NAME = 'SINGULAR';
 const SESSION_KEY = 'singular_session';
 
 // ══════════════════════════════════════
-// NODE VISUAL CONFIG
+// VISUAL CONFIG (renderer reads this — does not shape data model)
 // ══════════════════════════════════════
-const TYPE_COLOR = {
-  core:     { fill:'rgba(167,139,250,0.15)', stroke:'#a78bfa', dot:'#a78bfa' },
-  question: { fill:'rgba(96,165,250,0.1)',   stroke:'#60a5fa', dot:'#60a5fa' },
-  answer:   { fill:'rgba(52,211,153,0.08)',  stroke:'#34d399', dot:'#34d399' },
-  tag:      { fill:'rgba(245,158,11,0.08)',  stroke:'#f59e0b', dot:'#f59e0b' },
-  person:   { fill:'rgba(244,114,182,0.1)',  stroke:'#f472b6', dot:'#f472b6' },
-  action:   { fill:'rgba(192,132,252,0.08)', stroke:'#c084fc', dot:'#c084fc' },
-  decision: { fill:'rgba(167,139,250,0.15)', stroke:'#a78bfa', dot:'#a78bfa' },
-  note:     { fill:'rgba(148,163,184,0.06)', stroke:'#94a3b8', dot:'#94a3b8' }
-};
-const TYPE_R = { core:28, question:11, answer:10, tag:9, person:12, action:10, decision:10, note:9 };
-
-// ══════════════════════════════════════
-// STATE
-// ══════════════════════════════════════
-const S = {
-  mode:null, accessToken:null, tokenExpiry:null,
-  driveFileId:null, driveFolderId:null, universe:null,
-  nodes:[], links:[],
-  // viewport
-  scale:1, ox:0, oy:0,
-  // interaction
-  dragging:false, lastX:0, lastY:0,
-  selectedId:null,
-  animating:true
+const VIS = {
+  entry: {
+    question: { fill:'rgba(96,165,250,0.1)',   stroke:'#60a5fa', r:11 },
+    note:     { fill:'rgba(148,163,184,0.07)', stroke:'#94a3b8', r:9  },
+    decision: { fill:'rgba(167,139,250,0.15)', stroke:'#a78bfa', r:10 },
+    default:  { fill:'rgba(52,211,153,0.08)',  stroke:'#34d399', r:10 }
+  },
+  entity: {
+    person:   { fill:'rgba(244,114,182,0.1)',  stroke:'#f472b6', r:8  },
+    place:    { fill:'rgba(96,165,250,0.08)',  stroke:'#60a5fa', r:7  },
+    time:     { fill:'rgba(251,191,36,0.08)',  stroke:'#fbbf24', r:7  },
+    topic:    { fill:'rgba(245,158,11,0.08)',  stroke:'#f59e0b', r:8  },
+    project:  { fill:'rgba(192,132,252,0.1)',  stroke:'#c084fc', r:9  },
+    decision: { fill:'rgba(167,139,250,0.12)', stroke:'#a78bfa', r:8  },
+    default:  { fill:'rgba(148,163,184,0.06)', stroke:'#94a3b8', r:7  }
+  },
+  link: {
+    mentions: 'rgba(244,114,182,0.2)',
+    tagged:   'rgba(245,158,11,0.2)',
+    follows:  'rgba(167,139,250,0.1)',
+    relates:  'rgba(52,211,153,0.2)',
+    core:     'rgba(167,139,250,0.06)'
+  }
 };
 
 // ══════════════════════════════════════
-// SESSION
+// ════════════════════════════════════
+// DATA LAYER
 // ══════════════════════════════════════
-function saveSession() {
-  if (S.mode!=='google') return;
-  sessionStorage.setItem(SESSION_KEY, JSON.stringify({
-    mode:S.mode, accessToken:S.accessToken, tokenExpiry:S.tokenExpiry,
-    driveFileId:S.driveFileId, driveFolderId:S.driveFolderId
-  }));
-}
-function loadSession() {
-  try {
-    const d = JSON.parse(sessionStorage.getItem(SESSION_KEY)||'null');
-    if (!d) return null;
-    if (d.tokenExpiry && Date.now()>d.tokenExpiry) { sessionStorage.removeItem(SESSION_KEY); return null; }
-    return d;
-  } catch { return null; }
-}
 
-// ══════════════════════════════════════
-// UNIVERSE MODEL
-// ══════════════════════════════════════
+// ── Universe schema ──────────────────
 function createUniverse() {
-  return { meta:{version:'0.5',created:new Date().toISOString(),updated:new Date().toISOString()}, profile:{name:null}, entries:[], links:[] };
-}
-function createEntry(text) {
-  const raw = localParse(text);
-  return { id:'e_'+Date.now()+'_'+Math.random().toString(36).slice(2,5), text, created:new Date().toISOString(), raw, status:{saved:false} };
-}
-function localParse(text) {
-  const t = text.trim();
-  let type = 'note';
-  if (t.endsWith('?')) type='question';
-  else if (/^(yap|tamamla|ara|bul|git|al|hatırlat)/i.test(t)) type='action';
-  else if (t.startsWith('@')) type='person';
-  else if (/^#\w/.test(t)) type='tag';
-  else if (/(karar verdim|yapacağım|planım)/i.test(t)) type='decision';
-  else type='answer';
-  const tags=(t.match(/#[\wğüşıöçĞÜŞİÖÇ]+/g)||[]).map(x=>x.slice(1));
-  const mentions=(t.match(/@[\wğüşıöçĞÜŞİÖÇ]+/g)||[]).map(x=>x.slice(1));
-  return {type,tags,mentions};
-}
-
-// ══════════════════════════════════════
-// PHYSICS NODE
-// ══════════════════════════════════════
-function makeNode(entry, x, y) {
   return {
-    id: entry.id,
-    entry,
-    x: x + (Math.random()-0.5)*40,
-    y: y + (Math.random()-0.5)*40,
-    vx:0, vy:0,
-    r: TYPE_R[entry.raw?.type||'note'] || 10,
-    pinned: entry.id === 'core'
+    meta: {
+      version: '0.6',
+      created: new Date().toISOString(),
+      updated: new Date().toISOString()
+    },
+    entries: [],   // user inputs — raw, always preserved
+    entities: [],  // extracted nodes: person, place, time, topic, project, decision
+    links: []      // relations between entries and entities
   };
 }
 
-function addTagRelations(entry) {
-  if (!entry.raw.tags.length && !entry.raw.mentions.length) return;
-  S.universe.entries.forEach(e => {
+// ── Entry ─────────────────────────────
+function createEntry(text) {
+  const kind = detectKind(text);
+  return {
+    id: newId('e'),
+    text,                          // raw text — never modified
+    created_at: new Date().toISOString(),
+    kind,
+    entity_ids: [],                // filled after entity resolution
+    tag_ids: [],                   // filled after tag resolution
+    raw: {}                        // reserved for future semantic data
+  };
+}
+
+function detectKind(text) {
+  const t = text.trim();
+  if (t.endsWith('?')) return 'question';
+  if (/(karar verdim|yapacağım|planım|kararım)/i.test(t)) return 'decision';
+  if (/^(yap|tamamla|ara|bul|git|al|hatırlat)/i.test(t)) return 'action';
+  return 'note';
+}
+
+// ── Entity ────────────────────────────
+// Canonical: same slug → same entity (no duplicates)
+function resolveEntity(type, label) {
+  const slug = slugify(label);
+  const existing = U.entities.find(e => e.type === type && e.slug === slug);
+  if (existing) return existing;
+  const entity = {
+    id: newId('ent'),
+    type,            // person | place | time | topic | project | decision
+    label,           // display name
+    slug,            // canonical key
+    created_at: new Date().toISOString(),
+    entry_count: 0   // how many entries reference this
+  };
+  U.entities.push(entity);
+  return entity;
+}
+
+// ── Link ──────────────────────────────
+function createLink(fromId, toId, type) {
+  // Deduplicate: same from+to+type → skip
+  const exists = U.links.find(l => l.from === fromId && l.to === toId && l.type === type);
+  if (exists) return exists;
+  const link = {
+    id: newId('l'),
+    from: fromId,
+    to: toId,
+    type,   // mentions | tagged | follows | relates
+    created_at: new Date().toISOString()
+  };
+  U.links.push(link);
+  return link;
+}
+
+// ══════════════════════════════════════
+// PARSER v1 — rule-based, deterministic
+// ══════════════════════════════════════
+const TIME_TOKENS = /\b(bugün|yarın|dün|pazartesi|salı|çarşamba|perşembe|cuma|cumartesi|pazar|bu hafta|gelecek hafta|bu ay|ocak|şubat|mart|nisan|mayıs|haziran|temmuz|ağustos|eylül|ekim|kasım|aralık|\d{1,2}[./]\d{1,2}|\d{4})\b/gi;
+
+function parseEntry(entry) {
+  const text = entry.text;
+  const newEntityIds = [];
+  const newTagIds = [];
+
+  // 1. @mentions → person entities
+  const mentions = text.match(/@([\wğüşıöçĞÜŞİÖÇ]+)/g) || [];
+  mentions.forEach(m => {
+    const label = m.slice(1);
+    const entity = resolveEntity('person', label);
+    entity.entry_count++;
+    const link = createLink(entry.id, entity.id, 'mentions');
+    if (!newEntityIds.includes(entity.id)) newEntityIds.push(entity.id);
+    _ = link; // used
+  });
+
+  // 2. #tags → topic entities
+  const tags = text.match(/#([\wğüşıöçĞÜŞİÖÇ]+)/g) || [];
+  tags.forEach(t => {
+    const label = t.slice(1);
+    const entity = resolveEntity('topic', label);
+    entity.entry_count++;
+    createLink(entry.id, entity.id, 'tagged');
+    if (!newEntityIds.includes(entity.id)) newEntityIds.push(entity.id);
+    if (!newTagIds.includes(entity.id)) newTagIds.push(entity.id);
+  });
+
+  // 3. Time tokens → time entities
+  const timeMatches = text.match(TIME_TOKENS) || [];
+  const uniqueTimes = [...new Set(timeMatches.map(t => t.toLowerCase()))];
+  uniqueTimes.forEach(t => {
+    const entity = resolveEntity('time', t);
+    entity.entry_count++;
+    createLink(entry.id, entity.id, 'mentions');
+    if (!newEntityIds.includes(entity.id)) newEntityIds.push(entity.id);
+  });
+
+  // 4. follows — link to previous entry chronologically
+  const entries = U.entries;
+  const idx = entries.findIndex(e => e.id === entry.id);
+  if (idx > 0) {
+    const prev = entries[idx - 1];
+    createLink(prev.id, entry.id, 'follows');
+  }
+
+  // 5. relates — entries sharing any entity
+  entries.forEach(e => {
     if (e.id === entry.id) return;
-    const sharedTags = entry.raw.tags.filter(t => e.raw.tags?.includes(t));
-    const sharedM = entry.raw.mentions.filter(m => e.raw.mentions?.includes(m));
-    if (sharedTags.length || sharedM.length) {
-      const exists = S.universe.links.find(l =>
-        (l.from===entry.id&&l.to===e.id)||(l.from===e.id&&l.to===entry.id));
-      if (!exists) {
-        const link = {from:entry.id, to:e.id, type:'tag', via:[...sharedTags,...sharedM]};
-        S.universe.links.push(link);
-        S.links.push(link);
-      }
+    const shared = newEntityIds.filter(eid => e.entity_ids.includes(eid));
+    if (shared.length > 0) {
+      createLink(entry.id, e.id, 'relates');
     }
+  });
+
+  // Write back resolved ids
+  entry.entity_ids = newEntityIds;
+  entry.tag_ids = newTagIds;
+}
+
+// ══════════════════════════════════════
+// GRAPH MODEL — derived from data, not coupled to it
+// ══════════════════════════════════════
+// Each graph node wraps an entry or entity
+// gNode: { id, kind:'entry'|'entity'|'core', ref, x, y, vx, vy, r, pinned }
+
+const G = {
+  nodes: [],
+  renderLinks: []  // computed from U.links for renderer
+};
+
+function buildGraphFromUniverse() {
+  G.nodes = [];
+  G.renderLinks = [];
+
+  // Core node
+  G.nodes.push({ id:'core', kind:'core', ref:null, x:0, y:0, vx:0, vy:0, r:28, pinned:true });
+
+  // Entry nodes
+  U.entries.forEach(e => {
+    G.nodes.push(spawnNode('entry', e, e.id));
+  });
+
+  // Entity nodes
+  U.entities.forEach(ent => {
+    G.nodes.push(spawnNode('entity', ent, ent.id));
+  });
+
+  // Render links from data links
+  rebuildRenderLinks();
+}
+
+function spawnNode(kind, ref, id) {
+  const angle = Math.random() * Math.PI * 2;
+  const dist = 80 + Math.random() * 180;
+  return {
+    id, kind, ref,
+    x: Math.cos(angle)*dist, y: Math.sin(angle)*dist,
+    vx:0, vy:0,
+    r: nodeR(kind, ref),
+    pinned: false
+  };
+}
+
+function nodeR(kind, ref) {
+  if (kind === 'core') return 28;
+  if (kind === 'entry') {
+    const v = VIS.entry[ref.kind] || VIS.entry.default;
+    return v.r;
+  }
+  if (kind === 'entity') {
+    const v = VIS.entity[ref.type] || VIS.entity.default;
+    return v.r;
+  }
+  return 9;
+}
+
+function addToGraph(kind, ref) {
+  const existing = G.nodes.find(n => n.id === ref.id);
+  if (existing) return existing;
+  const node = spawnNode(kind, ref, ref.id);
+  G.nodes.push(node);
+  return node;
+}
+
+function rebuildRenderLinks() {
+  G.renderLinks = U.links.map(l => ({
+    from: l.from, to: l.to, type: l.type
+  }));
+  // Core → all entry nodes
+  U.entries.forEach(e => {
+    G.renderLinks.push({ from:'core', to:e.id, type:'core' });
   });
 }
 
 // ══════════════════════════════════════
-// FORCE SIMULATION — minimal, fast
+// PHYSICS
 // ══════════════════════════════════════
-const FORCE = {
-  repulsion: 1800,
-  linkDist:  120,
-  linkK:     0.04,
-  centerK:   0.008,
-  damping:   0.82,
-  minEnergy: 0.15
-};
+const FORCE = { repulsion:1600, linkDist:110, linkK:0.035, centerK:0.006, damping:0.82 };
 
 function tick() {
-  const nodes = S.nodes;
+  const nodes = G.nodes;
   const n = nodes.length;
   if (n < 2) return;
 
-  // Repulsion: O(n²) but fast for <2000 nodes
-  for (let i = 0; i < n; i++) {
-    const a = nodes[i];
-    if (a.pinned) continue;
-    for (let j = i+1; j < n; j++) {
-      const b = nodes[j];
-      let dx = a.x - b.x, dy = a.y - b.y;
-      const dist2 = dx*dx + dy*dy || 1;
-      if (dist2 > 90000) continue; // skip distant pairs
-      const force = FORCE.repulsion / dist2;
-      const d = Math.sqrt(dist2);
-      dx /= d; dy /= d;
-      a.vx += dx*force; a.vy += dy*force;
-      if (!b.pinned) { b.vx -= dx*force; b.vy -= dy*force; }
+  // Repulsion
+  for (let i=0; i<n; i++) {
+    const a=nodes[i]; if(a.pinned) continue;
+    for (let j=i+1; j<n; j++) {
+      const b=nodes[j];
+      let dx=a.x-b.x, dy=a.y-b.y;
+      const d2=dx*dx+dy*dy||1;
+      if(d2>80000) continue;
+      const f=FORCE.repulsion/d2, d=Math.sqrt(d2);
+      dx/=d; dy/=d;
+      a.vx+=dx*f; a.vy+=dy*f;
+      if(!b.pinned){b.vx-=dx*f; b.vy-=dy*f;}
     }
   }
 
-  // Attraction along links
-  S.links.forEach(link => {
-    const a = S.nodes.find(n=>n.id===link.from);
-    const b = S.nodes.find(n=>n.id===link.to);
-    if (!a||!b) return;
+  // Link attraction
+  G.renderLinks.forEach(l => {
+    const a=G.nodes.find(n=>n.id===l.from);
+    const b=G.nodes.find(n=>n.id===l.to);
+    if(!a||!b) return;
     const dx=b.x-a.x, dy=b.y-a.y;
     const dist=Math.sqrt(dx*dx+dy*dy)||1;
     const f=(dist-FORCE.linkDist)*FORCE.linkK;
     const fx=dx/dist*f, fy=dy/dist*f;
-    if(!a.pinned){a.vx+=fx;a.vy+=fy;}
-    if(!b.pinned){b.vx-=fx;b.vy-=fy;}
+    if(!a.pinned){a.vx+=fx; a.vy+=fy;}
+    if(!b.pinned){b.vx-=fx; b.vy-=fy;}
   });
 
-  // Core attraction
-  const core = nodes.find(n=>n.id==='core');
-  const cx = core?.x||0, cy = core?.y||0;
-  nodes.forEach(n => {
-    if (n.pinned) return;
-    n.vx += (cx - n.x) * FORCE.centerK;
-    n.vy += (cy - n.y) * FORCE.centerK;
-    n.vx *= FORCE.damping;
-    n.vy *= FORCE.damping;
-    n.x += n.vx;
-    n.y += n.vy;
+  // Center pull + integrate
+  nodes.forEach(n=>{
+    if(n.pinned) return;
+    n.vx+=(0-n.x)*FORCE.centerK;
+    n.vy+=(0-n.y)*FORCE.centerK;
+    n.vx*=FORCE.damping; n.vy*=FORCE.damping;
+    n.x+=n.vx; n.y+=n.vy;
   });
 }
 
 // ══════════════════════════════════════
 // CANVAS RENDERER
 // ══════════════════════════════════════
-let canvas, ctx, W, H, raf;
-let clusterMap = {}; // tagId → [{x,y}] for cluster centers
+let canvas, ctx, W, H;
+const VP = { scale:1, ox:0, oy:0 };
+let selectedId = null;
 
 function initCanvas() {
   canvas = document.getElementById('canvas');
-  W = canvas.width = window.innerWidth;
-  H = canvas.height = window.innerHeight;
-  ctx = canvas.getContext('2d');
-  S.ox = W/2; S.oy = H/2;
-  window.addEventListener('resize', ()=>{
-    W=canvas.width=window.innerWidth;
-    H=canvas.height=window.innerHeight;
-  });
+  W=canvas.width=window.innerWidth; H=canvas.height=window.innerHeight;
+  ctx=canvas.getContext('2d');
+  VP.ox=W/2; VP.oy=H/2;
+  window.addEventListener('resize',()=>{ W=canvas.width=window.innerWidth; H=canvas.height=window.innerHeight; });
   setupInteraction();
-  loop();
+  (function loop(){ tick(); draw(); requestAnimationFrame(loop); })();
 }
 
-function worldToScreen(wx, wy) {
-  return { x: (wx)*S.scale + S.ox, y: (wy)*S.scale + S.oy };
-}
-function screenToWorld(sx, sy) {
-  return { x: (sx-S.ox)/S.scale, y: (sy-S.oy)/S.scale };
-}
-
-function loop() {
-  tick();
-  draw();
-  raf = requestAnimationFrame(loop);
-}
+function w2s(wx,wy){ return { x:wx*VP.scale+VP.ox, y:wy*VP.scale+VP.oy }; }
+function s2w(sx,sy){ return { x:(sx-VP.ox)/VP.scale, y:(sy-VP.oy)/VP.scale }; }
 
 function draw() {
   ctx.clearRect(0,0,W,H);
 
-  // Background radial
-  const grad = ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H)*0.7);
-  grad.addColorStop(0,'rgba(14,8,32,1)');
-  grad.addColorStop(1,'rgba(4,4,12,1)');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0,0,W,H);
+  // BG
+  const bg=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H)*.7);
+  bg.addColorStop(0,'rgba(14,8,32,1)'); bg.addColorStop(1,'rgba(4,4,12,1)');
+  ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
 
-  // Orbit rings
-  const core = S.nodes.find(n=>n.id==='core');
-  if (core) {
-    const sp = worldToScreen(core.x, core.y);
-    [130,230,350,490,680].forEach(r => {
-      ctx.beginPath();
-      ctx.arc(sp.x, sp.y, r*S.scale, 0, Math.PI*2);
-      ctx.strokeStyle='rgba(167,139,250,0.04)';
-      ctx.lineWidth=0.5;
-      ctx.stroke();
-    });
-
-    // Core glow
-    const cg = ctx.createRadialGradient(sp.x,sp.y,0,sp.x,sp.y,52*S.scale);
-    cg.addColorStop(0,'rgba(167,139,250,0.2)');
-    cg.addColorStop(1,'rgba(167,139,250,0)');
-    ctx.fillStyle=cg;
-    ctx.beginPath();
-    ctx.arc(sp.x,sp.y,52*S.scale,0,Math.PI*2);
-    ctx.fill();
-
-    // Core pulse
-    const now = Date.now()/1000;
-    const pr = (28 + (now%2)/2 * 30) * S.scale;
-    const po = 0.3 - (now%2)/2 * 0.3;
-    ctx.beginPath();
-    ctx.arc(sp.x,sp.y,pr,0,Math.PI*2);
-    ctx.strokeStyle=`rgba(167,139,250,${po})`;
-    ctx.lineWidth=0.8;
-    ctx.stroke();
-
-    // Core ring
-    ctx.beginPath();
-    ctx.arc(sp.x,sp.y,28*S.scale,0,Math.PI*2);
-    ctx.strokeStyle='rgba(167,139,250,0.4)';
-    ctx.lineWidth=0.5;
-    ctx.stroke();
-
-    // Core dot
-    ctx.beginPath();
-    ctx.arc(sp.x,sp.y,4*S.scale,0,Math.PI*2);
-    ctx.fillStyle='#a78bfa';
-    ctx.fill();
-  }
+  const coreNode=G.nodes.find(n=>n.id==='core');
+  if(coreNode) drawCore(coreNode);
 
   // Links
-  ctx.save();
-  S.links.forEach(link => {
-    const a=S.nodes.find(n=>n.id===link.from);
-    const b=S.nodes.find(n=>n.id===link.to);
+  G.renderLinks.forEach(l=>{
+    const a=G.nodes.find(n=>n.id===l.from);
+    const b=G.nodes.find(n=>n.id===l.to);
     if(!a||!b) return;
-    const sa=worldToScreen(a.x,a.y), sb=worldToScreen(b.x,b.y);
-    // Frustum cull
-    if(sa.x<-100&&sb.x<-100) return;
-    if(sa.x>W+100&&sb.x>W+100) return;
-    ctx.beginPath();
-    ctx.moveTo(sa.x,sa.y);
-    ctx.lineTo(sb.x,sb.y);
-    if(link.type==='tag') {
-      ctx.strokeStyle='rgba(245,158,11,0.18)';
-      ctx.setLineDash([3*S.scale,5*S.scale]);
-    } else {
-      ctx.strokeStyle='rgba(167,139,250,0.08)';
-      ctx.setLineDash([]);
-    }
-    ctx.lineWidth=0.5;
-    ctx.stroke();
-    ctx.setLineDash([]);
+    const sa=w2s(a.x,a.y), sb=w2s(b.x,b.y);
+    if(sa.x<-200&&sb.x<-200||sa.x>W+200&&sb.x>W+200) return;
+    ctx.beginPath(); ctx.moveTo(sa.x,sa.y); ctx.lineTo(sb.x,sb.y);
+    ctx.strokeStyle=VIS.link[l.type]||'rgba(167,139,250,0.06)';
+    ctx.lineWidth=l.type==='relates'?0.8:0.4;
+    if(l.type==='tagged'||l.type==='relates'){ ctx.setLineDash([3*VP.scale,5*VP.scale]); }
+    else ctx.setLineDash([]);
+    ctx.stroke(); ctx.setLineDash([]);
   });
-  ctx.restore();
 
-  // Core links (entry → core)
-  if (core) {
-    const sp=worldToScreen(core.x,core.y);
-    S.nodes.forEach(n => {
-      if(n.id==='core') return;
-      const sn=worldToScreen(n.x,n.y);
-      if(sn.x<-100||sn.x>W+100||sn.y<-100||sn.y>H+100) return;
-      ctx.beginPath();
-      ctx.moveTo(sp.x,sp.y);
-      ctx.lineTo(sn.x,sn.y);
-      ctx.strokeStyle='rgba(167,139,250,0.06)';
-      ctx.lineWidth=0.4;
-      ctx.stroke();
-    });
-  }
-
-  // Clustering: zoom-out shows cluster bubbles
-  if (S.scale < 0.5) {
-    drawClusters();
-    return; // skip individual nodes at very low zoom
-  }
+  // Cluster view at low zoom
+  if(VP.scale < 0.45) { drawClusters(); return; }
 
   // Nodes
-  S.nodes.forEach(n => {
-    if(n.id==='core') return;
-    const sp=worldToScreen(n.x,n.y);
-    // Frustum cull
-    if(sp.x<-50||sp.x>W+50||sp.y<-50||sp.y>H+50) return;
-
-    const type=n.entry.raw?.type||'note';
-    const col=TYPE_COLOR[type]||TYPE_COLOR.note;
-    const r=n.r*S.scale;
-
-    // Node fill
-    ctx.beginPath();
-    ctx.arc(sp.x,sp.y,r,0,Math.PI*2);
-    ctx.fillStyle=col.fill;
-    ctx.fill();
-    ctx.strokeStyle= n.id===S.selectedId ? '#fff' : col.stroke;
-    ctx.lineWidth= n.id===S.selectedId ? 1.2 : 0.6;
-    ctx.stroke();
-
-    // Decision = diamond overlay
-    if(type==='decision') {
-      const s=r*0.7;
-      ctx.beginPath();
-      ctx.moveTo(sp.x,sp.y-s);ctx.lineTo(sp.x+s,sp.y);
-      ctx.lineTo(sp.x,sp.y+s);ctx.lineTo(sp.x-s,sp.y);
-      ctx.closePath();
-      ctx.strokeStyle=col.stroke;ctx.lineWidth=0.5;ctx.stroke();
-    }
-
-    // Center dot
-    ctx.beginPath();
-    ctx.arc(sp.x,sp.y,2.5*Math.min(S.scale,1),0,Math.PI*2);
-    ctx.fillStyle=col.dot;ctx.fill();
-
-    // Label — only when zoom allows
-    if(S.scale>0.55) {
-      const label=n.entry.text;
-      const short=label.length>20?label.slice(0,20)+'…':label;
-      ctx.font=`${Math.max(8,9*S.scale)}px 'DM Mono',monospace`;
-      ctx.fillStyle='rgba(226,224,240,0.5)';
-      ctx.textAlign='center';
-      ctx.fillText(short, sp.x, sp.y+r+11*Math.min(S.scale,1));
-    }
+  G.nodes.forEach(n=>{
+    if(n.kind==='core') return;
+    const sp=w2s(n.x,n.y);
+    if(sp.x<-60||sp.x>W+60||sp.y<-60||sp.y>H+60) return;
+    drawNode(n, sp);
   });
 
-  // Core label
-  if(core && S.scale>0.4) {
-    const sp=worldToScreen(core.x,core.y);
+  document.getElementById('zoom-label').textContent=`zoom ${Math.round(VP.scale*100)}%`;
+}
+
+function drawCore(n) {
+  const sp=w2s(n.x,n.y);
+  // Glow
+  const cg=ctx.createRadialGradient(sp.x,sp.y,0,sp.x,sp.y,52*VP.scale);
+  cg.addColorStop(0,'rgba(167,139,250,0.18)'); cg.addColorStop(1,'rgba(167,139,250,0)');
+  ctx.fillStyle=cg; ctx.beginPath(); ctx.arc(sp.x,sp.y,52*VP.scale,0,Math.PI*2); ctx.fill();
+  // Orbit rings
+  [130,230,350,490].forEach(r=>{
+    ctx.beginPath(); ctx.arc(sp.x,sp.y,r*VP.scale,0,Math.PI*2);
+    ctx.strokeStyle='rgba(167,139,250,0.04)'; ctx.lineWidth=0.5; ctx.stroke();
+  });
+  // Pulse
+  const now=Date.now()/1000;
+  const pr=(28+(now%2)*16)*VP.scale;
+  const po=0.35-(now%2)*0.35;
+  ctx.beginPath(); ctx.arc(sp.x,sp.y,pr,0,Math.PI*2);
+  ctx.strokeStyle=`rgba(167,139,250,${po})`; ctx.lineWidth=0.8; ctx.stroke();
+  // Ring
+  ctx.beginPath(); ctx.arc(sp.x,sp.y,28*VP.scale,0,Math.PI*2);
+  ctx.strokeStyle='rgba(167,139,250,0.35)'; ctx.lineWidth=0.5; ctx.stroke();
+  // Dot
+  ctx.beginPath(); ctx.arc(sp.x,sp.y,4*VP.scale,0,Math.PI*2);
+  ctx.fillStyle='#a78bfa'; ctx.fill();
+  // Label
+  if(VP.scale>0.4){
     ctx.font=`7px 'DM Mono',monospace`;
-    ctx.fillStyle='rgba(167,139,250,0.3)';
-    ctx.textAlign='center';
-    ctx.letterSpacing='4px';
-    ctx.fillText('SINGULAR',sp.x,sp.y+44*S.scale);
-    ctx.letterSpacing='0px';
+    ctx.fillStyle='rgba(167,139,250,0.28)';
+    ctx.textAlign='center'; ctx.letterSpacing='4px';
+    ctx.fillText('SINGULAR',sp.x,sp.y+44*VP.scale); ctx.letterSpacing='0px';
+  }
+}
+
+function drawNode(n, sp) {
+  const isSelected = n.id===selectedId;
+  let vis;
+  if(n.kind==='entry') vis=VIS.entry[n.ref.kind]||VIS.entry.default;
+  else vis=VIS.entity[n.ref.type]||VIS.entity.default;
+  const r=n.r*VP.scale;
+
+  // Node glow on select
+  if(isSelected){
+    const sg=ctx.createRadialGradient(sp.x,sp.y,0,sp.x,sp.y,r*2.5);
+    sg.addColorStop(0,'rgba(255,255,255,0.08)'); sg.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.fillStyle=sg; ctx.beginPath(); ctx.arc(sp.x,sp.y,r*2.5,0,Math.PI*2); ctx.fill();
   }
 
-  // Zoom label
-  document.getElementById('zoom-label').textContent=`zoom ${Math.round(S.scale*100)}%`;
+  ctx.beginPath(); ctx.arc(sp.x,sp.y,r,0,Math.PI*2);
+  ctx.fillStyle=vis.fill; ctx.fill();
+  ctx.strokeStyle=isSelected?'#fff':vis.stroke;
+  ctx.lineWidth=isSelected?1.2:0.6; ctx.stroke();
+
+  // Entity type marker — small inner ring
+  if(n.kind==='entity'){
+    ctx.beginPath(); ctx.arc(sp.x,sp.y,r*0.45,0,Math.PI*2);
+    ctx.strokeStyle=vis.stroke; ctx.lineWidth=0.5; ctx.stroke();
+  }
+
+  // Decision diamond
+  if((n.kind==='entry'&&n.ref.kind==='decision')||(n.kind==='entity'&&n.ref.type==='decision')){
+    const s=r*0.65;
+    ctx.beginPath(); ctx.moveTo(sp.x,sp.y-s); ctx.lineTo(sp.x+s,sp.y);
+    ctx.lineTo(sp.x,sp.y+s); ctx.lineTo(sp.x-s,sp.y); ctx.closePath();
+    ctx.strokeStyle=vis.stroke; ctx.lineWidth=0.5; ctx.stroke();
+  }
+
+  // Center dot
+  ctx.beginPath(); ctx.arc(sp.x,sp.y,Math.max(1.5,2.2*Math.min(VP.scale,1)),0,Math.PI*2);
+  ctx.fillStyle=vis.stroke; ctx.fill();
+
+  // Label
+  if(VP.scale>0.5){
+    const label = n.kind==='entry' ? n.ref.text : n.ref.label;
+    const short = label.length>20 ? label.slice(0,20)+'…' : label;
+    ctx.font=`${Math.max(8,9*Math.min(VP.scale,1.2))}px 'DM Mono',monospace`;
+    ctx.fillStyle= n.kind==='entity' ? 'rgba(226,224,240,0.35)' : 'rgba(226,224,240,0.5)';
+    ctx.textAlign='center';
+    ctx.fillText(short, sp.x, sp.y+r+11*Math.min(VP.scale,1));
+  }
 }
 
 function drawClusters() {
-  // Group nodes by tag
+  // Group entry nodes by first tag entity
   const groups = {};
-  S.nodes.forEach(n => {
-    if(n.id==='core') return;
-    const tags=n.entry.raw?.tags||[];
-    const key=tags.length?tags[0]:'misc';
+  G.nodes.forEach(n=>{
+    if(n.kind!=='entry') return;
+    const tagId=n.ref.tag_ids?.[0];
+    const key=tagId ? (U.entities.find(e=>e.id===tagId)?.label||'misc') : 'misc';
     if(!groups[key]) groups[key]=[];
     groups[key].push(n);
   });
-
   Object.entries(groups).forEach(([key,nodes])=>{
-    if(nodes.length<2) return;
+    if(nodes.length<1) return;
     let cx=0,cy=0;
     nodes.forEach(n=>{cx+=n.x;cy+=n.y;});
-    cx/=nodes.length;cy/=nodes.length;
-    const sp=worldToScreen(cx,cy);
-    const r=Math.max(30,nodes.length*8)*S.scale;
-
+    cx/=nodes.length; cy/=nodes.length;
+    const sp=w2s(cx,cy);
+    const r=Math.max(35,nodes.length*10)*VP.scale;
     const g=ctx.createRadialGradient(sp.x,sp.y,0,sp.x,sp.y,r);
-    g.addColorStop(0,'rgba(96,165,250,0.15)');
-    g.addColorStop(1,'rgba(96,165,250,0)');
-    ctx.fillStyle=g;
-    ctx.beginPath();ctx.arc(sp.x,sp.y,r,0,Math.PI*2);ctx.fill();
-
-    ctx.font=`${Math.max(9,10*S.scale)}px 'DM Mono',monospace`;
-    ctx.fillStyle='rgba(96,165,250,0.6)';
-    ctx.textAlign='center';
-    ctx.fillText(`#${key} (${nodes.length})`,sp.x,sp.y);
+    g.addColorStop(0,'rgba(96,165,250,0.12)'); g.addColorStop(1,'rgba(96,165,250,0)');
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(sp.x,sp.y,r,0,Math.PI*2); ctx.fill();
+    ctx.font=`${Math.max(9,11*VP.scale)}px 'DM Mono',monospace`;
+    ctx.fillStyle='rgba(96,165,250,0.55)'; ctx.textAlign='center';
+    ctx.fillText(`${key} (${nodes.length})`,sp.x,sp.y);
   });
 }
 
 // ══════════════════════════════════════
-// INTERACTION — pan + node drag
+// INTERACTION
 // ══════════════════════════════════════
-function hitNode(sx, sy) {
-  const w = screenToWorld(sx, sy);
-  let hit = null, minD = Infinity;
-  S.nodes.forEach(n => {
-    const d = Math.hypot(n.x - w.x, n.y - w.y);
-    if (d < (n.r + 10) / S.scale && d < minD) { minD = d; hit = n; }
+function hitNode(sx,sy) {
+  const w=s2w(sx,sy); let hit=null, minD=Infinity;
+  G.nodes.forEach(n=>{
+    const d=Math.hypot(n.x-w.x,n.y-w.y);
+    if(d<(n.r+10)/VP.scale&&d<minD){minD=d;hit=n;}
   });
   return hit;
 }
 
 function setupInteraction() {
-  let dragNode = null;
-  let wasDragged = false;
-  let downX = 0, downY = 0;
+  let dragNode=null, wasDragged=false, downX=0, downY=0;
 
-  // ── MOUSE ──
-  canvas.addEventListener('mousedown', e => {
-    downX = e.clientX; downY = e.clientY;
-    wasDragged = false;
-    dragNode = hitNode(e.clientX, e.clientY);
-    if (dragNode) {
-      dragNode._wasPinned = dragNode.pinned;
-      dragNode.pinned = true;
-      dragNode.vx = 0; dragNode.vy = 0;
-      canvas.style.cursor = 'grabbing';
-    } else {
-      S.dragging = true;
-      S.lastX = e.clientX; S.lastY = e.clientY;
-      canvas.classList.add('grabbing');
-    }
+  canvas.addEventListener('mousedown',e=>{
+    downX=e.clientX; downY=e.clientY; wasDragged=false;
+    dragNode=hitNode(e.clientX,e.clientY);
+    if(dragNode){ dragNode._wp=dragNode.pinned; dragNode.pinned=true; dragNode.vx=dragNode.vy=0; canvas.style.cursor='grabbing'; }
+    else{ VP._drag=true; VP._lx=e.clientX; VP._ly=e.clientY; canvas.classList.add('grabbing'); }
   });
-
-  window.addEventListener('mousemove', e => {
-    const dx = e.clientX - downX, dy = e.clientY - downY;
-    if (Math.abs(dx) + Math.abs(dy) > 3) wasDragged = true;
-
-    if (dragNode) {
-      const w = screenToWorld(e.clientX, e.clientY);
-      dragNode.x = w.x; dragNode.y = w.y;
-      dragNode.vx = 0; dragNode.vy = 0;
-    } else if (S.dragging) {
-      S.ox += e.clientX - S.lastX;
-      S.oy += e.clientY - S.lastY;
-      S.lastX = e.clientX; S.lastY = e.clientY;
-    }
+  window.addEventListener('mousemove',e=>{
+    if(Math.abs(e.clientX-downX)+Math.abs(e.clientY-downY)>3) wasDragged=true;
+    if(dragNode){ const w=s2w(e.clientX,e.clientY); dragNode.x=w.x; dragNode.y=w.y; dragNode.vx=dragNode.vy=0; }
+    else if(VP._drag){ VP.ox+=e.clientX-VP._lx; VP.oy+=e.clientY-VP._ly; VP._lx=e.clientX; VP._ly=e.clientY; }
   });
-
-  window.addEventListener('mouseup', e => {
-    if (dragNode) {
-      // Alt key = permanent pin, otherwise release to physics
-      if (e.altKey) {
-        dragNode.pinned = true; // keep pinned
-      } else {
-        dragNode.pinned = dragNode._wasPinned || false;
-      }
-      if (!wasDragged) {
-        S.selectedId = dragNode.id;
-        openPanel(dragNode.entry);
-      }
-      dragNode = null;
-      canvas.style.cursor = 'grab';
-    } else if (S.dragging) {
-      if (!wasDragged) handleClick(e.clientX, e.clientY);
-      S.dragging = false;
-      canvas.classList.remove('grabbing');
+  window.addEventListener('mouseup',e=>{
+    if(dragNode){
+      dragNode.pinned=e.altKey||dragNode._wp||false;
+      if(!wasDragged){ selectedId=dragNode.id; openPanel(dragNode); }
+      dragNode=null; canvas.style.cursor='grab';
+    } else if(VP._drag){
+      if(!wasDragged) handleClick(e.clientX,e.clientY);
+      VP._drag=false; canvas.classList.remove('grabbing');
     }
-    wasDragged = false;
+    wasDragged=false;
   });
-
-  // ── WHEEL ZOOM ──
-  canvas.addEventListener('wheel', e => {
+  canvas.addEventListener('wheel',e=>{
     e.preventDefault();
-    const f = e.deltaY > 0 ? 0.88 : 1.14;
-    const wx = (e.clientX - S.ox) / S.scale, wy = (e.clientY - S.oy) / S.scale;
-    S.scale = Math.max(0.08, Math.min(6, S.scale * f));
-    S.ox = e.clientX - wx * S.scale; S.oy = e.clientY - wy * S.scale;
-  }, { passive: false });
+    const f=e.deltaY>0?0.88:1.14;
+    const wx=(e.clientX-VP.ox)/VP.scale, wy=(e.clientY-VP.oy)/VP.scale;
+    VP.scale=Math.max(0.08,Math.min(6,VP.scale*f));
+    VP.ox=e.clientX-wx*VP.scale; VP.oy=e.clientY-wy*VP.scale;
+  },{passive:false});
 
-  // ── TOUCH ──
-  let touches = {}, pinchDist = 0, touchDragNode = null, touchWasDragged = false, touchDownX = 0, touchDownY = 0;
-
-  canvas.addEventListener('touchstart', e => {
-    [...e.touches].forEach(t => { touches[t.identifier] = { x: t.clientX, y: t.clientY }; });
-    if (e.touches.length === 2) {
-      const a = e.touches[0], b = e.touches[1];
-      pinchDist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-      touchDragNode = null;
-    } else if (e.touches.length === 1) {
-      const t = e.touches[0];
-      touchDownX = t.clientX; touchDownY = t.clientY; touchWasDragged = false;
-      touchDragNode = hitNode(t.clientX, t.clientY);
-      if (touchDragNode) {
-        touchDragNode._wasPinned = touchDragNode.pinned;
-        touchDragNode.pinned = true;
-        touchDragNode.vx = 0; touchDragNode.vy = 0;
-      } else {
-        S.dragging = true; S.lastX = t.clientX; S.lastY = t.clientY;
-      }
+  // Touch
+  let tDragNode=null, tWasDragged=false, tDownX=0, tDownY=0, pinchDist=0, tTouches={};
+  canvas.addEventListener('touchstart',e=>{
+    [...e.touches].forEach(t=>{tTouches[t.identifier]={x:t.clientX,y:t.clientY};});
+    if(e.touches.length===2){
+      pinchDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+      tDragNode=null;
+    } else if(e.touches.length===1){
+      const t=e.touches[0]; tDownX=t.clientX; tDownY=t.clientY; tWasDragged=false;
+      tDragNode=hitNode(t.clientX,t.clientY);
+      if(tDragNode){tDragNode._wp=tDragNode.pinned;tDragNode.pinned=true;tDragNode.vx=tDragNode.vy=0;}
+      else{VP._drag=true;VP._lx=t.clientX;VP._ly=t.clientY;}
     }
   });
-
-  canvas.addEventListener('touchmove', e => {
+  canvas.addEventListener('touchmove',e=>{
     e.preventDefault();
-    if (e.touches.length === 2) {
-      const a = e.touches[0], b = e.touches[1];
-      const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-      const f = d / pinchDist; pinchDist = d;
-      const mx = (a.clientX + b.clientX) / 2, my = (a.clientY + b.clientY) / 2;
-      const wx = (mx - S.ox) / S.scale, wy = (my - S.oy) / S.scale;
-      S.scale = Math.max(0.08, Math.min(6, S.scale * f));
-      S.ox = mx - wx * S.scale; S.oy = my - wy * S.scale;
-    } else if (e.touches.length === 1) {
-      const t = e.touches[0];
-      const dx = t.clientX - touchDownX, dy = t.clientY - touchDownY;
-      if (Math.abs(dx) + Math.abs(dy) > 4) touchWasDragged = true;
-      if (touchDragNode) {
-        const w = screenToWorld(t.clientX, t.clientY);
-        touchDragNode.x = w.x; touchDragNode.y = w.y;
-        touchDragNode.vx = 0; touchDragNode.vy = 0;
-      } else if (S.dragging) {
-        S.ox += t.clientX - S.lastX; S.oy += t.clientY - S.lastY;
-        S.lastX = t.clientX; S.lastY = t.clientY;
-      }
+    if(e.touches.length===2){
+      const a=e.touches[0],b=e.touches[1];
+      const d=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);
+      const f=d/pinchDist; pinchDist=d;
+      const mx=(a.clientX+b.clientX)/2, my=(a.clientY+b.clientY)/2;
+      const wx=(mx-VP.ox)/VP.scale, wy=(my-VP.oy)/VP.scale;
+      VP.scale=Math.max(0.08,Math.min(6,VP.scale*f));
+      VP.ox=mx-wx*VP.scale; VP.oy=my-wy*VP.scale;
+    } else if(e.touches.length===1){
+      const t=e.touches[0];
+      if(Math.abs(t.clientX-tDownX)+Math.abs(t.clientY-tDownY)>4) tWasDragged=true;
+      if(tDragNode){const w=s2w(t.clientX,t.clientY);tDragNode.x=w.x;tDragNode.y=w.y;tDragNode.vx=tDragNode.vy=0;}
+      else if(VP._drag){VP.ox+=t.clientX-VP._lx;VP.oy+=t.clientY-VP._ly;VP._lx=t.clientX;VP._ly=t.clientY;}
     }
-  }, { passive: false });
-
-  canvas.addEventListener('touchend', e => {
-    if (touchDragNode) {
-      touchDragNode.pinned = touchDragNode._wasPinned || false;
-      if (!touchWasDragged) {
-        S.selectedId = touchDragNode.id;
-        openPanel(touchDragNode.entry);
-      }
-      touchDragNode = null;
-    } else if (e.changedTouches.length === 1 && e.touches.length === 0) {
-      if (!touchWasDragged) {
-        const t = e.changedTouches[0];
-        handleClick(t.clientX, t.clientY);
-      }
-      S.dragging = false;
-    }
-    touchWasDragged = false; touches = {};
+  },{passive:false});
+  canvas.addEventListener('touchend',e=>{
+    if(tDragNode){tDragNode.pinned=tDragNode._wp||false;if(!tWasDragged){selectedId=tDragNode.id;openPanel(tDragNode);}tDragNode=null;}
+    else if(e.changedTouches.length===1&&e.touches.length===0&&!tWasDragged){handleClick(e.changedTouches[0].clientX,e.changedTouches[0].clientY);}
+    VP._drag=false; tWasDragged=false; tTouches={};
   });
 }
 
-function handleClick(sx,sy) {
-  const w=screenToWorld(sx,sy);
-  let hit=null, minD=Infinity;
-  S.nodes.forEach(n=>{
-    const d=Math.hypot(n.x-w.x,n.y-w.y);
-    if(d<(n.r+8)/S.scale && d<minD) { minD=d; hit=n; }
-  });
-  if(hit) { S.selectedId=hit.id; openPanel(hit.entry); }
-  else { S.selectedId=null; closePanel(); }
+function handleClick(sx,sy){
+  const n=hitNode(sx,sy);
+  if(n){selectedId=n.id;openPanel(n);}
+  else{selectedId=null;closePanel();}
 }
 
-function zoomBy(f) {
-  const wx=(W/2-S.ox)/S.scale, wy=(H/2-S.oy)/S.scale;
-  S.scale=Math.max(0.08,Math.min(6,S.scale*f));
-  S.ox=W/2-wx*S.scale; S.oy=H/2-wy*S.scale;
+function zoomBy(f){
+  const wx=(W/2-VP.ox)/VP.scale, wy=(H/2-VP.oy)/VP.scale;
+  VP.scale=Math.max(0.08,Math.min(6,VP.scale*f));
+  VP.ox=W/2-wx*VP.scale; VP.oy=H/2-wy*VP.scale;
 }
-function resetView() { S.scale=1; S.ox=W/2; S.oy=H/2; }
+function resetView(){VP.scale=1;VP.ox=W/2;VP.oy=H/2;}
 
 // ══════════════════════════════════════
-// GOOGLE DRIVE
+// PANEL
 // ══════════════════════════════════════
-function connectGoogle() {
+function openPanel(gNode) {
+  const badge=document.getElementById('panel-badge');
+  const body=document.getElementById('panel-body');
+  body.innerHTML='';
+
+  if(gNode.kind==='core'){
+    badge.textContent='evren'; badge.style.cssText='background:rgba(167,139,250,.12);color:#a78bfa';
+    document.getElementById('panel-title').textContent='SINGULAR — Senin Evrenin';
+    document.getElementById('panel-meta').textContent=U.meta.created?new Date(U.meta.created).toLocaleString('tr-TR'):'';
+    body.innerHTML=`<div style="font-size:.66rem;color:var(--text-muted);line-height:2">
+      ${U.entries.length} kayıt<br>${U.entities.length} varlık<br>${U.links.length} bağlantı</div>`;
+    document.getElementById('panel').classList.add('open'); return;
+  }
+
+  if(gNode.kind==='entry'){
+    const e=gNode.ref;
+    badge.textContent=e.kind; badge.style.cssText=`background:${(VIS.entry[e.kind]||VIS.entry.default).fill};color:${(VIS.entry[e.kind]||VIS.entry.default).stroke}`;
+    document.getElementById('panel-title').textContent=e.text;
+    document.getElementById('panel-meta').textContent=new Date(e.created_at).toLocaleString('tr-TR');
+
+    // Entities attached
+    const entities=U.entities.filter(ent=>e.entity_ids.includes(ent.id));
+    if(entities.length){
+      const sec=mkSec('Bağlı varlıklar');
+      const chips=document.createElement('div'); chips.className='panel-chips';
+      entities.forEach(ent=>{
+        const ch=document.createElement('span'); ch.className='panel-chip';
+        const v=VIS.entity[ent.type]||VIS.entity.default;
+        ch.style.cssText=`background:${v.fill};color:${v.stroke};border:.5px solid ${v.stroke}40`;
+        ch.textContent=(ent.type==='person'?'@':ent.type==='topic'?'#':'')+ent.label;
+        ch.onclick=()=>{ const gn=G.nodes.find(n=>n.id===ent.id); if(gn){selectedId=gn.id;openPanel(gn);} };
+        chips.appendChild(ch);
+      });
+      sec.appendChild(chips); body.appendChild(sec);
+    }
+
+    // Related entries via 'relates' links
+    const relIds=U.links.filter(l=>(l.from===e.id||l.to===e.id)&&l.type==='relates').map(l=>l.from===e.id?l.to:l.from);
+    const relEntries=[...new Set(relIds)].map(id=>U.entries.find(e=>e.id===id)).filter(Boolean);
+    if(relEntries.length){
+      const sec=mkSec('İlişkili kayıtlar');
+      const list=document.createElement('div'); list.className='panel-rels';
+      relEntries.slice(0,6).forEach(re=>{
+        const btn=document.createElement('div'); btn.className='panel-rel';
+        btn.textContent=re.text.length>40?re.text.slice(0,40)+'…':re.text;
+        btn.onclick=()=>{ const gn=G.nodes.find(n=>n.id===re.id); if(gn){selectedId=gn.id;openPanel(gn);} };
+        list.appendChild(btn);
+      });
+      sec.appendChild(list); body.appendChild(sec);
+    }
+  }
+
+  if(gNode.kind==='entity'){
+    const ent=gNode.ref;
+    const v=VIS.entity[ent.type]||VIS.entity.default;
+    badge.textContent=ent.type; badge.style.cssText=`background:${v.fill};color:${v.stroke}`;
+    document.getElementById('panel-title').textContent=ent.label;
+    document.getElementById('panel-meta').textContent=`${ent.entry_count} kayıtta geçiyor · ${new Date(ent.created_at).toLocaleString('tr-TR')}`;
+
+    // Entries mentioning this entity
+    const mentioningIds=U.links.filter(l=>l.to===ent.id).map(l=>l.from);
+    const entries=[...new Set(mentioningIds)].map(id=>U.entries.find(e=>e.id===id)).filter(Boolean);
+    if(entries.length){
+      const sec=mkSec('Bu varlığı içeren kayıtlar');
+      const list=document.createElement('div'); list.className='panel-rels';
+      entries.slice(0,6).forEach(e=>{
+        const btn=document.createElement('div'); btn.className='panel-rel';
+        btn.textContent=e.text.length>40?e.text.slice(0,40)+'…':e.text;
+        btn.onclick=()=>{ const gn=G.nodes.find(n=>n.id===e.id); if(gn){selectedId=gn.id;openPanel(gn);} };
+        list.appendChild(btn);
+      });
+      sec.appendChild(list); body.appendChild(sec);
+    }
+  }
+
+  document.getElementById('panel').classList.add('open');
+}
+
+function mkSec(label){
+  const s=document.createElement('div'); s.className='panel-section';
+  const l=document.createElement('div'); l.className='panel-section-label'; l.textContent=label;
+  s.appendChild(l); return s;
+}
+function closePanel(){document.getElementById('panel').classList.remove('open');selectedId=null;}
+
+// ══════════════════════════════════════
+// INPUT HANDLER
+// ══════════════════════════════════════
+async function handleInput() {
+  const f=document.getElementById('input-field');
+  const text=f.value.trim(); if(!text) return;
+  f.value='';
+
+  // 1. Create entry (raw preserved)
+  const entry=createEntry(text);
+  U.entries.push(entry);
+
+  // 2. Parse → entities + links
+  parseEntry(entry);
+
+  // 3. Update graph
+  addToGraph('entry', entry);
+  // New entities might have been created — add them too
+  U.entities.forEach(ent=>{
+    if(!G.nodes.find(n=>n.id===ent.id)) addToGraph('entity',ent);
+  });
+  rebuildRenderLinks();
+
+  // 4. Save
+  saveUniverse();
+  saveSession();
+
+  if(U.entries.length===1) document.getElementById('hint').style.opacity='0';
+  document.getElementById('node-count').textContent=U.entries.length+' kayıt · '+U.entities.length+' varlık';
+}
+
+// ══════════════════════════════════════
+// UNIVERSE — live reference
+// ══════════════════════════════════════
+let U = createUniverse();
+
+// ══════════════════════════════════════
+// STORAGE — Google Drive + Local
+// ══════════════════════════════════════
+function saveSession(){
+  if(S.mode!=='google') return;
+  sessionStorage.setItem(SESSION_KEY,JSON.stringify({mode:S.mode,accessToken:S.accessToken,tokenExpiry:S.tokenExpiry,driveFileId:S.driveFileId,driveFolderId:S.driveFolderId}));
+}
+function loadSession(){
+  try{const d=JSON.parse(sessionStorage.getItem(SESSION_KEY)||'null');if(!d)return null;if(d.tokenExpiry&&Date.now()>d.tokenExpiry){sessionStorage.removeItem(SESSION_KEY);return null;}return d;}catch{return null;}
+}
+
+const S={mode:null,accessToken:null,tokenExpiry:null,driveFileId:null,driveFolderId:null};
+
+function connectGoogle(){
   if(!window.google){alert('Google Identity Services yüklenemedi.');return;}
   google.accounts.oauth2.initTokenClient({
-    client_id:GOOGLE_CLIENT_ID, scope:DRIVE_SCOPE,
+    client_id:GOOGLE_CLIENT_ID,scope:DRIVE_SCOPE,
     callback:async(resp)=>{
-      if(resp.error) return;
-      S.accessToken=resp.access_token;
-      S.tokenExpiry=Date.now()+(resp.expires_in*1000)-60000;
-      S.mode='google';
+      if(resp.error)return;
+      S.accessToken=resp.access_token; S.tokenExpiry=Date.now()+(resp.expires_in*1000)-60000; S.mode='google';
       await initDrive(); saveSession(); launchUniverse('Google Drive');
     }
   }).requestAccessToken();
 }
-async function reconnectGoogle() {
-  const session=loadSession();
-  if(!session){connectGoogle();return;}
-  Object.assign(S,{accessToken:session.accessToken,tokenExpiry:session.tokenExpiry,driveFileId:session.driveFileId,driveFolderId:session.driveFolderId,mode:'google'});
-  try { S.universe=await loadFile(S.driveFileId); launchUniverse('Google Drive'); }
-  catch { sessionStorage.removeItem(SESSION_KEY); connectGoogle(); }
+async function reconnectGoogle(){
+  const ses=loadSession(); if(!ses){connectGoogle();return;}
+  Object.assign(S,ses);
+  try{U=await loadFile(S.driveFileId); migrateUniverse(); launchUniverse('Google Drive');}
+  catch{sessionStorage.removeItem(SESSION_KEY);connectGoogle();}
 }
-async function initDrive() {
-  let fid=await findFolder(); if(!fid) fid=await createFolder();
-  S.driveFolderId=fid;
+async function initDrive(){
+  let fid=await findFolder();if(!fid)fid=await createFolder();S.driveFolderId=fid;
   let fileId=await findFile(fid);
-  if(!fileId){S.universe=createUniverse();fileId=await createFile(fid);}
-  else{S.driveFileId=fileId;S.universe=await loadFile(fileId);}
+  if(!fileId){U=createUniverse();fileId=await createFile(fid);}
+  else{S.driveFileId=fileId;U=await loadFile(fileId);migrateUniverse();}
   S.driveFileId=fileId;
 }
-async function dReq(url,opts={}) {
-  const r=await fetch(url,{...opts,headers:{'Authorization':'Bearer '+S.accessToken,'Content-Type':'application/json',...(opts.headers||{})}});
-  return r.json();
+function migrateUniverse(){
+  // Migrate old schema (entries without entity_ids) to new schema
+  if(!U.entities) U.entities=[];
+  if(!U.links) U.links=[];
+  U.entries.forEach(e=>{
+    if(!e.entity_ids) e.entity_ids=[];
+    if(!e.tag_ids) e.tag_ids=[];
+    if(!e.kind&&e.raw?.type) e.kind=e.raw.type;
+    if(!e.kind) e.kind='note';
+    if(!e.created_at&&e.created) e.created_at=e.created;
+  });
+  // Remove old-style links (they'll be rebuilt from entity_ids)
 }
+async function dReq(url,opts={}){const r=await fetch(url,{...opts,headers:{'Authorization':'Bearer '+S.accessToken,'Content-Type':'application/json',...(opts.headers||{})}});return r.json();}
 async function findFolder(){const d=await dReq(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(`name='${FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`)}&fields=files(id)`);return d.files?.[0]?.id||null;}
 async function createFolder(){const d=await dReq('https://www.googleapis.com/drive/v3/files',{method:'POST',body:JSON.stringify({name:FOLDER_NAME,mimeType:'application/vnd.google-apps.folder'})});return d.id;}
 async function findFile(fid){const d=await dReq(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(`name='${UNIVERSE_FILENAME}' and '${fid}' in parents and trashed=false`)}&fields=files(id)`);return d.files?.[0]?.id||null;}
 async function createFile(fid){
   const form=new FormData();
   form.append('metadata',new Blob([JSON.stringify({name:UNIVERSE_FILENAME,parents:[fid]})],{type:'application/json'}));
-  form.append('file',new Blob([JSON.stringify(S.universe,null,2)],{type:'application/json'}));
+  form.append('file',new Blob([JSON.stringify(U,null,2)],{type:'application/json'}));
   const r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',{method:'POST',headers:{'Authorization':'Bearer '+S.accessToken},body:form});
   return (await r.json()).id;
 }
 async function loadFile(id){const r=await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`,{headers:{'Authorization':'Bearer '+S.accessToken}});return r.json();}
 async function saveUniverse(){
-  S.universe.meta.updated=new Date().toISOString();
-  if(S.mode==='local'){localStorage.setItem('singular_universe',JSON.stringify(S.universe));return;}
-  if(!S.driveFileId||!S.accessToken) return;
-  await fetch(`https://www.googleapis.com/upload/drive/v3/files/${S.driveFileId}?uploadType=media`,{method:'PATCH',headers:{'Authorization':'Bearer '+S.accessToken,'Content-Type':'application/json'},body:JSON.stringify(S.universe,null,2)});
+  U.meta.updated=new Date().toISOString();
+  if(S.mode==='local'){localStorage.setItem('singular_universe',JSON.stringify(U));return;}
+  if(!S.driveFileId||!S.accessToken)return;
+  await fetch(`https://www.googleapis.com/upload/drive/v3/files/${S.driveFileId}?uploadType=media`,{method:'PATCH',headers:{'Authorization':'Bearer '+S.accessToken,'Content-Type':'application/json'},body:JSON.stringify(U,null,2)});
 }
 
-// ══════════════════════════════════════
-// LOCAL MODE
-// ══════════════════════════════════════
 function connectLocal(){
   S.mode='local';
   const saved=localStorage.getItem('singular_universe');
-  S.universe=saved?JSON.parse(saved):createUniverse();
-  launchUniverse('Yerel');
+  U=saved?JSON.parse(saved):createUniverse(); migrateUniverse(); launchUniverse('Yerel');
 }
 
 // ══════════════════════════════════════
@@ -756,147 +877,28 @@ window.addEventListener('DOMContentLoaded',()=>{
   if(loadSession()) document.getElementById('boot-reconnect').style.display='block';
 });
 
-function launchUniverse(label) {
-  const boot=document.getElementById('boot');
-  boot.classList.add('fade-out');
+function launchUniverse(label){
+  document.getElementById('boot').classList.add('fade-out');
   setTimeout(()=>{
-    boot.style.display='none';
+    document.getElementById('boot').style.display='none';
     document.getElementById('universe').classList.add('active');
     document.getElementById('status-dot').classList.add('connected');
     document.getElementById('status-text').textContent=label;
     initCanvas();
-    buildGraph();
+    buildGraphFromUniverse();
+    document.getElementById('node-count').textContent=U.entries.length+' kayıt · '+U.entities.length+' varlık';
+    if(U.entries.length>0) document.getElementById('hint').style.opacity='0';
     document.getElementById('input-field').addEventListener('keydown',e=>{if(e.key==='Enter')handleInput();});
     document.getElementById('input-field').focus();
   },800);
 }
 
-function buildGraph() {
-  // Core node
-  const coreEntry={id:'core',text:'SINGULAR',raw:{type:'core',tags:[],mentions:[]},created:S.universe.meta.created};
-  S.nodes.push(makeNode(coreEntry,0,0));
-  S.nodes[0].pinned=true;
-  S.nodes[0].x=0; S.nodes[0].y=0;
-
-  // Existing entries
-  S.universe.entries.forEach(e=>addEntryNode(e,false));
-
-  // Existing links
-  S.links=[...S.universe.links];
-
-  updateNodeCount();
-}
-
-function addEntryNode(entry, animate=true) {
-  const angle=Math.random()*Math.PI*2;
-  const dist=120+Math.random()*200;
-  const node=makeNode(entry,Math.cos(angle)*dist,Math.sin(angle)*dist);
-  S.nodes.push(node);
-  if(animate && S.nodes.length>1) {
-    document.getElementById('hint').style.opacity='0';
-  }
-  updateNodeCount();
-  return node;
-}
-
-function updateNodeCount(){
-  document.getElementById('node-count').textContent=(S.nodes.length-1)+' node';
-}
-
 // ══════════════════════════════════════
-// INPUT
+// UTILS
 // ══════════════════════════════════════
-async function handleInput(){
-  const f=document.getElementById('input-field');
-  const text=f.value.trim();
-  if(!text) return;
-  f.value='';
-
-  const entry=createEntry(text);
-  S.universe.entries.push(entry);
-  addEntryNode(entry);
-  addTagRelations(entry);
-  entry.status.saved=true;
-  saveUniverse();
-  saveSession();
-}
-
-// ══════════════════════════════════════
-// PANEL
-// ══════════════════════════════════════
-function openPanel(entry) {
-  if(!entry||entry.id==='core') {
-    document.getElementById('panel-badge').textContent='evren';
-    document.getElementById('panel-badge').style.cssText='background:rgba(167,139,250,.12);color:#a78bfa';
-    document.getElementById('panel-title').textContent='SINGULAR — Senin Evrenin';
-    document.getElementById('panel-meta').textContent=S.universe?.meta?.created?new Date(S.universe.meta.created).toLocaleString('tr-TR'):'';
-    document.getElementById('panel-body').innerHTML=`<div style="font-size:.66rem;color:var(--text-muted);line-height:1.8">${S.nodes.length-1} kayıt · ${S.links.length} bağlantı</div>`;
-    document.getElementById('panel').classList.add('open');
-    return;
-  }
-
-  const type=entry.raw?.type||'note';
-  const col=TYPE_COLOR[type]||TYPE_COLOR.note;
-  const badge=document.getElementById('panel-badge');
-  badge.textContent=type;
-  badge.style.cssText=`background:${col.fill};color:${col.stroke};`;
-
-  document.getElementById('panel-title').textContent=entry.text||'—';
-  document.getElementById('panel-meta').textContent=entry.created?new Date(entry.created).toLocaleString('tr-TR'):'—';
-
-  const body=document.getElementById('panel-body');
-  body.innerHTML='';
-
-  const tags=entry.raw?.tags||[];
-  if(tags.length){
-    const sec=document.createElement('div');sec.className='panel-section';
-    const lbl=document.createElement('div');lbl.className='panel-section-label';lbl.textContent='Etiketler';
-    const row=document.createElement('div');row.className='panel-tags';
-    tags.forEach(t=>{const s=document.createElement('span');s.className='panel-tag';s.textContent='#'+t;row.appendChild(s);});
-    sec.appendChild(lbl);sec.appendChild(row);body.appendChild(sec);
-  }
-
-  const mentions=entry.raw?.mentions||[];
-  if(mentions.length) body.appendChild(psec('Kişiler',mentions.map(m=>'@'+m).join(' · ')));
-
-  // Related via links
-  const related=S.universe.links
-    .filter(l=>l.from===entry.id||l.to===entry.id)
-    .map(l=>{
-      const rid=l.from===entry.id?l.to:l.from;
-      const re=S.universe.entries.find(e=>e.id===rid);
-      return re?{entry:re,via:l.via}:null;
-    }).filter(Boolean);
-
-  if(related.length){
-    const sec=document.createElement('div');sec.className='panel-section';
-    const lbl=document.createElement('div');lbl.className='panel-section-label';lbl.textContent='İlişkili kayıtlar';
-    const list=document.createElement('div');list.className='panel-relations';
-    related.forEach(r=>{
-      const btn=document.createElement('div');btn.className='panel-rel';
-      const viaStr=r.via?.length?' · '+r.via.map(v=>'#'+v).join(' '):'';
-      btn.textContent=(r.entry.text.length>38?r.entry.text.slice(0,38)+'…':r.entry.text)+viaStr;
-      btn.onclick=()=>{
-        S.selectedId=r.entry.id;
-        const n=S.nodes.find(nd=>nd.id===r.entry.id);
-        if(n){const sp=worldToScreen(n.x,n.y);S.ox+=W/2-sp.x;S.oy+=H/2-sp.y;}
-        openPanel(r.entry);
-      };
-      list.appendChild(btn);
-    });
-    sec.appendChild(lbl);sec.appendChild(list);body.appendChild(sec);
-  }
-
-  document.getElementById('panel').classList.add('open');
-}
-
-function psec(label,text){
-  const s=document.createElement('div');s.className='panel-section';
-  const l=document.createElement('div');l.className='panel-section-label';l.textContent=label;
-  const b=document.createElement('div');b.className='panel-section-body';b.textContent=text;
-  s.appendChild(l);s.appendChild(b);return s;
-}
-function closePanel(){document.getElementById('panel').classList.remove('open');S.selectedId=null;}
+function newId(prefix){ return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,5)}`; }
+function slugify(s){ return s.toLowerCase().replace(/[\sğüşıöçĞÜŞİÖÇ]/g, c=>({ğ:'g',ü:'u',ş:'s',ı:'i',ö:'o',ç:'c',Ğ:'g',Ü:'u',Ş:'s',İ:'i',Ö:'o',Ç:'c',' ':'_'}[c]||c)).replace(/[^a-z0-9_]/g,''); }
+let _ = null; // suppress unused warning
 </script>
 </body>
 </html>
