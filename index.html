@@ -12,11 +12,14 @@
   --core:#a78bfa;--core-glow:rgba(167,139,250,0.15);
   --text:#e2e0f0;--text-muted:#6b6880;--text-dim:#3a3850;
   --border:rgba(167,139,250,0.12);--border-bright:rgba(167,139,250,0.3);
-  --q:#60a5fa;--a:#34d399;--t:#f59e0b;--p:#f472b6;--act:#c084fc;
-  --panel:rgba(14,14,26,0.97);
+  --panel:rgba(10,10,20,0.98);
+  --c-question:#60a5fa;--c-answer:#34d399;--c-tag:#f59e0b;
+  --c-person:#f472b6;--c-action:#c084fc;--c-decision:#a78bfa;--c-note:#94a3b8;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
-body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;height:100vh;overflow:hidden;}
+body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;height:100vh;overflow:hidden;user-select:none;}
+
+/* BOOT */
 #boot{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg);z-index:100;transition:opacity .8s ease,transform .8s ease;}
 #boot.fade-out{opacity:0;transform:scale(1.04);pointer-events:none;}
 .boot-logo{font-family:'DM Serif Display',serif;font-size:3.5rem;letter-spacing:.3em;opacity:.9;margin-bottom:.25rem;}
@@ -29,62 +32,117 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;heig
 .btn-local{width:100%;padding:.7rem 1.25rem;background:transparent;border:.5px solid var(--text-dim);border-radius:8px;color:var(--text-muted);font-family:'DM Mono',monospace;font-size:.7rem;letter-spacing:.1em;cursor:pointer;transition:color .2s,border-color .2s;}
 .btn-local:hover{color:var(--text);border-color:var(--text-muted);}
 .boot-note{font-size:.6rem;color:var(--text-dim);margin-top:1.25rem;line-height:1.7;}
+.boot-reconnect{margin-top:1rem;font-size:.62rem;color:var(--c-answer);letter-spacing:.1em;cursor:pointer;text-decoration:underline;display:none;}
+
+/* UNIVERSE */
 #universe{position:fixed;inset:0;opacity:0;transition:opacity 1s ease;pointer-events:none;}
 #universe.active{opacity:1;pointer-events:all;}
-#cosmos{position:absolute;inset:0;width:100%;height:100%;}
+
+/* COSMOS SVG — zoomable */
+#cosmos-wrap{position:absolute;inset:0;overflow:hidden;cursor:grab;}
+#cosmos-wrap.grabbing{cursor:grabbing;}
+#cosmos{width:100%;height:100%;}
+
+/* orbit rings */
 .orbit-ring{fill:none;stroke:rgba(167,139,250,.04);stroke-width:.5;}
+
+/* core */
 .core-outer{fill:none;stroke:var(--core);stroke-width:.5;opacity:.4;}
 .core-inner{fill:var(--core-glow);}
 .core-dot{fill:var(--core);}
-.core-pulse{fill:none;stroke:var(--core);stroke-width:.5;opacity:0;}
-.g-node{cursor:pointer;}
-.g-node circle{stroke-width:.5;}
-.g-node text{font-family:'DM Mono',monospace;font-size:9px;fill:rgba(226,224,240,.55);pointer-events:none;}
+.core-pulse{fill:none;stroke:var(--core);stroke-width:.5;}
+
+/* links */
 .g-link{fill:none;stroke-width:.5;}
-.g-link.core-link{stroke:rgba(167,139,250,.12);}
-.g-link.semantic-link{stroke:rgba(52,211,153,.25);stroke-dasharray:3,3;}
-.enrich-dot{fill:#f59e0b;opacity:0;}
-.enrich-dot.pending{opacity:1;animation:blink 1.2s infinite;}
-@keyframes blink{0%,100%{opacity:.8;}50%{opacity:.2;}}
-#input-bar{position:fixed;bottom:2.5rem;left:50%;transform:translateX(-50%);width:min(600px,92vw);display:flex;align-items:center;background:var(--bg2);border:.5px solid var(--border-bright);border-radius:12px;overflow:hidden;box-shadow:0 0 40px rgba(167,139,250,.08);}
+.g-link.core-link{stroke:rgba(167,139,250,.1);}
+.g-link.tag-link{stroke:rgba(245,158,11,.2);stroke-dasharray:2,4;}
+.g-link.relation-link{stroke:rgba(52,211,153,.2);stroke-dasharray:4,2;}
+
+/* nodes */
+.g-node{cursor:pointer;}
+.g-node:hover .node-ring{opacity:.8;}
+.node-ring{stroke-width:.8;opacity:.5;transition:opacity .2s;}
+.node-dot{transition:r .2s;}
+.node-label{font-family:'DM Mono',monospace;font-size:8px;fill:rgba(226,224,240,.5);pointer-events:none;}
+.node-type-icon{font-family:'DM Mono',monospace;font-size:7px;pointer-events:none;}
+
+/* node shapes by type */
+.shape-question .node-ring{stroke:var(--c-question);fill:rgba(96,165,250,.08);}
+.shape-question .node-dot{fill:var(--c-question);}
+.shape-answer .node-ring{stroke:var(--c-answer);fill:rgba(52,211,153,.08);}
+.shape-answer .node-dot{fill:var(--c-answer);}
+.shape-tag .node-ring{stroke:var(--c-tag);fill:rgba(245,158,11,.08);}
+.shape-tag .node-dot{fill:var(--c-tag);}
+.shape-person .node-ring{stroke:var(--c-person);fill:rgba(244,114,182,.08);}
+.shape-person .node-dot{fill:var(--c-person);}
+.shape-action .node-ring{stroke:var(--c-action);fill:rgba(192,132,252,.08);}
+.shape-action .node-dot{fill:var(--c-action);}
+.shape-decision .node-ring{stroke:var(--c-decision);fill:rgba(167,139,250,.12);}
+.shape-decision .node-dot{fill:var(--c-decision);}
+.shape-note .node-ring{stroke:var(--c-note);fill:rgba(148,163,184,.06);}
+.shape-note .node-dot{fill:var(--c-note);}
+
+/* ZOOM controls */
+#zoom-controls{position:fixed;bottom:2.5rem;right:1.5rem;display:flex;flex-direction:column;gap:.4rem;z-index:20;}
+.zoom-btn{width:32px;height:32px;background:var(--bg2);border:.5px solid var(--border-bright);border-radius:6px;color:var(--text-muted);cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;transition:color .2s,background .2s;}
+.zoom-btn:hover{color:var(--text);background:rgba(167,139,250,.08);}
+
+/* INPUT BAR */
+#input-bar{position:fixed;bottom:2.5rem;left:50%;transform:translateX(-50%);width:min(600px,80vw);display:flex;align-items:center;background:var(--bg2);border:.5px solid var(--border-bright);border-radius:12px;overflow:hidden;box-shadow:0 0 40px rgba(167,139,250,.08);z-index:20;}
 #input-field{flex:1;padding:1rem 1.25rem;background:transparent;border:none;outline:none;color:var(--text);font-family:'DM Mono',monospace;font-size:.78rem;letter-spacing:.03em;}
 #input-field::placeholder{color:var(--text-muted);}
 #input-send{padding:.75rem 1.25rem;background:transparent;border:none;border-left:.5px solid var(--border);color:var(--core);cursor:pointer;font-size:1rem;transition:background .2s;}
 #input-send:hover{background:var(--core-glow);}
-#hint{position:fixed;bottom:5.5rem;left:50%;transform:translateX(-50%);font-size:.62rem;letter-spacing:.2em;color:var(--text-dim);text-transform:uppercase;transition:opacity .5s;white-space:nowrap;pointer-events:none;}
-#suggestions{position:fixed;bottom:6.5rem;left:50%;transform:translateX(-50%);width:min(600px,92vw);display:flex;flex-wrap:wrap;gap:.4rem;justify-content:center;opacity:0;transition:opacity .4s;}
+
+/* HINT */
+#hint{position:fixed;bottom:5.5rem;left:50%;transform:translateX(-50%);font-size:.62rem;letter-spacing:.2em;color:var(--text-dim);text-transform:uppercase;transition:opacity .5s;white-space:nowrap;pointer-events:none;z-index:20;}
+
+/* SUGGESTIONS */
+#suggestions{position:fixed;bottom:6rem;left:50%;transform:translateX(-50%);width:min(600px,80vw);display:flex;flex-wrap:wrap;gap:.4rem;justify-content:center;opacity:0;transition:opacity .4s;z-index:20;}
 #suggestions.visible{opacity:1;}
-.sug-btn{font-size:.62rem;padding:.3rem .7rem;background:transparent;border:.5px solid var(--border);border-radius:20px;color:var(--text-muted);cursor:pointer;font-family:'DM Mono',monospace;transition:color .2s,border-color .2s,background .2s;}
+.sug-btn{font-size:.6rem;padding:.28rem .65rem;background:transparent;border:.5px solid var(--border);border-radius:20px;color:var(--text-muted);cursor:pointer;font-family:'DM Mono',monospace;transition:color .2s,border-color .2s,background .2s;}
 .sug-btn:hover{color:var(--text);border-color:var(--core);background:rgba(167,139,250,.06);}
-#status{position:fixed;top:1.5rem;left:1.5rem;display:flex;align-items:center;gap:.5rem;font-size:.6rem;letter-spacing:.15em;color:var(--text-dim);text-transform:uppercase;}
+
+/* STATUS */
+#status{position:fixed;top:1.5rem;left:1.5rem;display:flex;align-items:center;gap:.5rem;font-size:.6rem;letter-spacing:.15em;color:var(--text-dim);text-transform:uppercase;z-index:20;}
 .status-dot{width:5px;height:5px;border-radius:50%;background:var(--text-dim);transition:background .3s;}
 .status-dot.connected{background:#34d399;box-shadow:0 0 6px #34d399;}
-#topright{position:fixed;top:1.5rem;right:1.5rem;text-align:right;font-size:.6rem;letter-spacing:.1em;color:var(--text-dim);text-transform:uppercase;line-height:1.8;}
-#enrich-status{font-size:.55rem;color:var(--t);opacity:0;transition:opacity .3s;}
-#enrich-status.active{opacity:1;}
-#panel{position:fixed;top:50%;right:-380px;transform:translateY(-50%);width:340px;max-height:75vh;background:var(--panel);border:.5px solid var(--border-bright);border-radius:12px;padding:1.5rem;transition:right .4s cubic-bezier(.16,1,.3,1);overflow-y:auto;z-index:50;}
+
+/* TOP RIGHT */
+#topright{position:fixed;top:1.5rem;right:1.5rem;text-align:right;font-size:.6rem;letter-spacing:.1em;color:var(--text-dim);text-transform:uppercase;line-height:1.9;z-index:20;}
+#zoom-level{font-size:.55rem;color:var(--text-dim);}
+
+/* LEGEND */
+#legend{position:fixed;top:3.5rem;left:1.5rem;display:flex;flex-direction:column;gap:.35rem;z-index:20;opacity:.7;}
+.legend-item{display:flex;align-items:center;gap:.4rem;font-size:.55rem;letter-spacing:.1em;color:var(--text-dim);}
+.legend-dot{width:6px;height:6px;border-radius:50%;}
+
+/* PANEL */
+#panel{position:fixed;top:50%;right:-400px;transform:translateY(-50%);width:320px;max-height:78vh;background:var(--panel);border:.5px solid var(--border-bright);border-radius:12px;padding:1.5rem;transition:right .4s cubic-bezier(.16,1,.3,1);overflow-y:auto;z-index:50;backdrop-filter:blur(20px);}
 #panel.open{right:1.5rem;}
 .panel-close{position:absolute;top:1rem;right:1rem;background:transparent;border:none;color:var(--text-muted);cursor:pointer;font-size:.9rem;font-family:'DM Mono',monospace;}
 .panel-close:hover{color:var(--text);}
-.panel-badge{display:inline-block;font-size:.5rem;letter-spacing:.3em;text-transform:uppercase;padding:.25rem .6rem;border-radius:4px;margin-bottom:.75rem;}
-.badge-question{background:rgba(96,165,250,.12);color:var(--q);}
-.badge-answer{background:rgba(52,211,153,.12);color:var(--a);}
-.badge-tag{background:rgba(245,158,11,.12);color:var(--t);}
-.badge-person{background:rgba(244,114,182,.12);color:var(--p);}
-.badge-action{background:rgba(192,132,252,.12);color:var(--act);}
-.badge-decision{background:rgba(167,139,250,.15);color:var(--core);}
-.badge-core,.badge-note{background:rgba(148,163,184,.1);color:#94a3b8;}
-.panel-title{font-family:'DM Serif Display',serif;font-size:1.05rem;color:var(--text);margin-bottom:.75rem;line-height:1.5;}
-.panel-meta{font-size:.58rem;color:var(--text-dim);margin-bottom:1rem;}
-.panel-section{margin-bottom:1rem;}
-.panel-section-label{font-size:.55rem;letter-spacing:.25em;text-transform:uppercase;color:var(--text-muted);margin-bottom:.4rem;}
-.panel-section-body{font-size:.68rem;color:var(--text-muted);line-height:1.7;white-space:pre-line;}
-.panel-tags{display:flex;flex-wrap:wrap;gap:.35rem;}
-.panel-tag{font-size:.58rem;padding:.2rem .55rem;border:.5px solid var(--border-bright);border-radius:4px;color:var(--core);}
-.panel-questions{display:flex;flex-direction:column;gap:.4rem;}
-.panel-q-btn{font-size:.62rem;padding:.35rem .7rem;background:transparent;border:.5px solid var(--border);border-radius:6px;color:var(--text-muted);cursor:pointer;font-family:'DM Mono',monospace;text-align:left;transition:color .2s,border-color .2s;}
-.panel-q-btn:hover{color:var(--text);border-color:var(--core);}
-.panel-enriching{font-size:.62rem;color:var(--t);animation:blink 1.2s infinite;}
+.panel-badge{display:inline-flex;align-items:center;gap:.3rem;font-size:.5rem;letter-spacing:.3em;text-transform:uppercase;padding:.25rem .6rem;border-radius:4px;margin-bottom:.75rem;}
+.badge-question{background:rgba(96,165,250,.12);color:var(--c-question);}
+.badge-answer{background:rgba(52,211,153,.12);color:var(--c-answer);}
+.badge-tag{background:rgba(245,158,11,.12);color:var(--c-tag);}
+.badge-person{background:rgba(244,114,182,.12);color:var(--c-person);}
+.badge-action{background:rgba(192,132,252,.12);color:var(--c-action);}
+.badge-decision{background:rgba(167,139,250,.15);color:var(--c-decision);}
+.badge-core,.badge-note{background:rgba(148,163,184,.1);color:var(--c-note);}
+.panel-title{font-family:'DM Serif Display',serif;font-size:1.05rem;color:var(--text);margin-bottom:.5rem;line-height:1.5;}
+.panel-meta{font-size:.55rem;color:var(--text-dim);margin-bottom:1rem;letter-spacing:.08em;}
+.panel-section{margin-bottom:.85rem;}
+.panel-section-label{font-size:.52rem;letter-spacing:.25em;text-transform:uppercase;color:var(--text-muted);margin-bottom:.35rem;}
+.panel-section-body{font-size:.66rem;color:var(--text-muted);line-height:1.7;white-space:pre-line;}
+.panel-tags{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.35rem;}
+.panel-tag{font-size:.56rem;padding:.18rem .5rem;border:.5px solid var(--border-bright);border-radius:4px;color:var(--c-tag);cursor:pointer;transition:background .2s;}
+.panel-tag:hover{background:rgba(245,158,11,.08);}
+.panel-relations{display:flex;flex-direction:column;gap:.3rem;margin-top:.35rem;}
+.panel-relation{font-size:.6rem;padding:.3rem .6rem;background:rgba(52,211,153,.05);border:.5px solid rgba(52,211,153,.2);border-radius:6px;color:var(--text-muted);cursor:pointer;transition:background .2s;}
+.panel-relation:hover{background:rgba(52,211,153,.1);}
+.panel-divider{border:none;border-top:.5px solid var(--border);margin:.75rem 0;}
+
 ::-webkit-scrollbar{width:3px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
@@ -92,30 +150,61 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;heig
 </head>
 <body>
 
+<!-- BOOT -->
 <div id="boot">
   <div class="boot-logo">SINGULAR</div>
   <div class="boot-sub">kişisel evren sistemi</div>
   <div class="boot-card">
     <div class="boot-card-title">Evrenini nerede saklayalım?</div>
-    <button class="btn-google" onclick="connectGoogle()">
+    <button class="btn-google" id="btn-google" onclick="connectGoogle()">
       <svg viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
       Google Drive ile bağlan
     </button>
     <button class="btn-local" onclick="connectLocal()">Yerel cihazda sakla</button>
     <div class="boot-note">Google Drive: universe.json Drive'ında güvenli saklanır.<br>Yerel: Veri yalnızca bu tarayıcıda kalır.</div>
+    <div class="boot-reconnect" id="boot-reconnect" onclick="reconnectGoogle()">↻ Önceki oturumu sürdür</div>
   </div>
 </div>
 
+<!-- UNIVERSE -->
 <div id="universe">
-  <svg id="cosmos"></svg>
-  <div id="status"><div class="status-dot" id="status-dot"></div><span id="status-text">bağlanıyor...</span></div>
-  <div id="topright"><div id="node-count">0 node</div><div id="enrich-status">⬡ zenginleştiriliyor...</div></div>
+  <div id="cosmos-wrap">
+    <svg id="cosmos"></svg>
+  </div>
+
+  <div id="status">
+    <div class="status-dot" id="status-dot"></div>
+    <span id="status-text">bağlanıyor...</span>
+  </div>
+
+  <div id="topright">
+    <div id="node-count">0 node</div>
+    <div id="zoom-level">zoom 100%</div>
+  </div>
+
+  <div id="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:var(--c-question)"></div>soru</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--c-answer)"></div>cevap</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--c-tag)"></div>etiket</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--c-person)"></div>kişi</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--c-action)"></div>aksiyon</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--c-decision)"></div>karar</div>
+  </div>
+
   <div id="hint">Evreni başlatmak için bir şey yaz</div>
   <div id="suggestions"></div>
+
   <div id="input-bar">
     <input id="input-field" type="text" placeholder="Bir soru sor, bir şey söyle, bir karar yaz…" autocomplete="off"/>
     <button id="input-send" onclick="handleInput()">→</button>
   </div>
+
+  <div id="zoom-controls">
+    <button class="zoom-btn" onclick="zoomIn()">+</button>
+    <button class="zoom-btn" onclick="zoomReset()">⊙</button>
+    <button class="zoom-btn" onclick="zoomOut()">−</button>
+  </div>
+
   <div id="panel">
     <button class="panel-close" onclick="closePanel()">✕</button>
     <div id="panel-badge" class="panel-badge badge-note">entry</div>
@@ -126,173 +215,253 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;heig
 </div>
 
 <script>
-// ── CONFIG ──────────────────────────────────────
-const GOOGLE_CLIENT_ID = '557723915441-q49en6uqqkqm9s5fie14ejm6cak9eo6r.apps.googleusercontent.com';
-const WORKER_URL = 'https://broad-limit-fea7.ezopshop.workers.dev';
+// ══════════════════════════════════════
+// CONFIG
+// ══════════════════════════════════════
+const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID_HERE';
 const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const UNIVERSE_FILENAME = 'universe.json';
 const FOLDER_NAME = 'SINGULAR';
+const SESSION_KEY = 'singular_session';
 
-// ── STATE ───────────────────────────────────────
+// ══════════════════════════════════════
+// STATE
+// ══════════════════════════════════════
 const S = {
-  mode:null, accessToken:null, driveFileId:null, driveFolderId:null,
-  universe:null, graphNodes:[], enrichQueue:[], enrichRunning:false
+  mode: null,
+  accessToken: null,
+  tokenExpiry: null,
+  driveFileId: null,
+  driveFolderId: null,
+  universe: null,
+  graphNodes: [],
+  // zoom/pan
+  scale: 1,
+  panX: 0,
+  panY: 0,
+  isPanning: false,
+  panStartX: 0,
+  panStartY: 0,
+  panOriginX: 0,
+  panOriginY: 0
 };
 
-// ── UNIVERSE MODEL ──────────────────────────────
+// ══════════════════════════════════════
+// SESSION PERSISTENCE
+// ══════════════════════════════════════
+function saveSession() {
+  if (S.mode !== 'google') return;
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify({
+    mode: S.mode,
+    accessToken: S.accessToken,
+    tokenExpiry: S.tokenExpiry,
+    driveFileId: S.driveFileId,
+    driveFolderId: S.driveFolderId
+  }));
+}
+
+function loadSession() {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (data.tokenExpiry && Date.now() > data.tokenExpiry) {
+      sessionStorage.removeItem(SESSION_KEY);
+      return null;
+    }
+    return data;
+  } catch { return null; }
+}
+
+function clearSession() {
+  sessionStorage.removeItem(SESSION_KEY);
+}
+
+// ══════════════════════════════════════
+// UNIVERSE MODEL
+// ══════════════════════════════════════
 function createUniverse() {
   return {
-    meta:{ version:'0.3', created:new Date().toISOString(), updated:new Date().toISOString() },
-    profile:{ name:null }, entries:[], people:[], projects:[], tags:[], links:[]
+    meta: { version: '0.4', created: new Date().toISOString(), updated: new Date().toISOString() },
+    profile: { name: null },
+    entries: [], people: [], projects: [], tags: [], links: []
   };
 }
 
 function createEntry(text) {
   const raw = localParse(text);
   return {
-    id:'e_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
-    text, created:new Date().toISOString(),
-    raw:{ type:raw.type, tags:raw.tags },
-    semantic:{ intent:null, entities:[], summary:null, related_to:[], suggested_next_questions:[], suggested_actions:[], confidence:0 },
-    status:{ saved:false, semantic_enriched:false }
+    id: 'e_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
+    text, created: new Date().toISOString(),
+    raw: { type: raw.type, tags: raw.tags, mentions: raw.mentions },
+    semantic: { intent: null, entities: [], summary: null, related_to: [], suggested_next_questions: [], suggested_actions: [], confidence: 0 },
+    status: { saved: false, semantic_enriched: false }
   };
 }
 
-// ── LAYER 1: LOCAL PARSER ───────────────────────
+// ══════════════════════════════════════
+// LOCAL PARSER
+// ══════════════════════════════════════
 function localParse(text) {
   const t = text.trim();
   let type = 'note';
   if (t.endsWith('?')) type = 'question';
-  else if (/^(yap|tamamla|ara|bul|git|al|ver|dene|karar)/i.test(t)) type = 'action';
+  else if (/^(yap|tamamla|ara|bul|git|al|ver|dene|karar|hatırlat)/i.test(t)) type = 'action';
   else if (t.startsWith('@')) type = 'person';
-  else if (/#/.test(t)) type = 'tag';
-  else if (/(karar verdim|yapacağım|planım|hedefim)/i.test(t)) type = 'decision';
+  else if (/^#/.test(t) || /^#\w/.test(t)) type = 'tag';
+  else if (/(karar verdim|yapacağım|planım|hedefim|kararım)/i.test(t)) type = 'decision';
   else type = 'answer';
-  const tags = (t.match(/#[\wğüşıöçĞÜŞİÖÇ]+/g)||[]).map(x=>x.slice(1));
-  return { type, tags };
+
+  const tags = (t.match(/#[\wğüşıöçĞÜŞİÖÇ]+/g) || []).map(x => x.slice(1));
+  const mentions = (t.match(/@[\wğüşıöçĞÜŞİÖÇ]+/g) || []).map(x => x.slice(1));
+
+  return { type, tags, mentions };
 }
 
-// ── LAYER 2: GEMINI ENRICHMENT ──────────────────
-async function enrichEntry(entry) {
-  const ctx = S.universe.entries
-    .filter(e=>e.id!==entry.id&&e.status.semantic_enriched)
-    .map(e=>`[${e.id}]: ${e.text}`).slice(-15).join('\n');
-
-  const prompt = `Sen bir kişisel bilgi yönetim sisteminin anlam motorusun. SADECE JSON döndür.
-
-Mevcut kayıtlar:
-${ctx||'(henüz yok)'}
-
-Yeni giriş: "${entry.text}"
-Ham tip: ${entry.raw.type}
-
-{"intent":"kullanıcı ne yapmak istiyor (Türkçe)","entities":["varlıklar"],"summary":"max 8 kelime özet","related_to":["ilişkili ID'ler"],"suggested_next_questions":["2-3 Türkçe soru"],"suggested_actions":["max 2 aksiyon"],"confidence":0.85}`;
-
-  try {
-    document.getElementById('enrich-status').classList.add('active');
-    const res = await fetch(`${WORKER_URL}/gemini`, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({ contents:[{parts:[{text:prompt}]}], generationConfig:{temperature:0.3,maxOutputTokens:800} })
-    });
-    const data = await res.json();
-    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text||'';
-    const parsed = JSON.parse(raw.replace(/```json|```/g,'').trim());
-
-    entry.semantic = {
-      intent:parsed.intent||null, entities:parsed.entities||[], summary:parsed.summary||null,
-      related_to:parsed.related_to||[], suggested_next_questions:parsed.suggested_next_questions||[],
-      suggested_actions:parsed.suggested_actions||[], confidence:parsed.confidence||0
-    };
-    entry.status.semantic_enriched = true;
-
-    drawSemanticLinks(entry);
-    updateNodeLabel(entry);
-    setEnrichDot(entry.id, false);
-
-    const panel = document.getElementById('panel');
-    if (panel.classList.contains('open') && document.getElementById('panel-title').dataset.entryId===entry.id) renderPanel(entry);
-
-    showSuggestions(entry.semantic.suggested_next_questions);
-    saveUniverse();
-  } catch(e) {
-    console.warn('Enrichment failed:', e);
-  } finally {
-    document.getElementById('enrich-status').classList.remove('active');
-  }
+// ══════════════════════════════════════
+// TAG RELATIONS — auto-link entries sharing tags
+// ══════════════════════════════════════
+function findTagRelations(entry) {
+  if (!entry.raw.tags.length && !entry.raw.mentions.length) return [];
+  const related = [];
+  S.universe.entries.forEach(e => {
+    if (e.id === entry.id) return;
+    const sharedTags = entry.raw.tags.filter(t => e.raw.tags.includes(t));
+    const sharedMentions = entry.raw.mentions.filter(m => e.raw.mentions.includes(m));
+    if (sharedTags.length || sharedMentions.length) {
+      related.push({ id: e.id, via: [...sharedTags, ...sharedMentions] });
+    }
+  });
+  return related;
 }
 
-async function runEnrichQueue() {
-  if (S.enrichRunning||!S.enrichQueue.length) return;
-  S.enrichRunning = true;
-  while (S.enrichQueue.length) {
-    const id = S.enrichQueue.shift();
-    const e = S.universe.entries.find(x=>x.id===id);
-    if (e&&!e.status.semantic_enriched) await enrichEntry(e);
-  }
-  S.enrichRunning = false;
+function addTagLinks(entry) {
+  const relations = findTagRelations(entry);
+  relations.forEach(rel => {
+    const exists = S.universe.links.find(l =>
+      (l.from === entry.id && l.to === rel.id) ||
+      (l.from === rel.id && l.to === entry.id)
+    );
+    if (!exists) {
+      S.universe.links.push({ from: entry.id, to: rel.id, type: 'tag', via: rel.via });
+      drawRelationLink(entry.id, rel.id, 'tag-link');
+    }
+  });
 }
 
-// ── GOOGLE DRIVE ────────────────────────────────
+// ══════════════════════════════════════
+// GOOGLE DRIVE
+// ══════════════════════════════════════
 function connectGoogle() {
-  if (!window.google) { alert('Google yüklenemedi.'); return; }
+  if (!window.google) { alert('Google Identity Services yüklenemedi.'); return; }
   google.accounts.oauth2.initTokenClient({
-    client_id:GOOGLE_CLIENT_ID, scope:DRIVE_SCOPE,
-    callback: async(resp) => {
+    client_id: GOOGLE_CLIENT_ID,
+    scope: DRIVE_SCOPE,
+    callback: async (resp) => {
       if (resp.error) return;
-      S.accessToken = resp.access_token; S.mode = 'google';
-      await initDrive(); launchUniverse('Google Drive');
+      S.accessToken = resp.access_token;
+      S.tokenExpiry = Date.now() + (resp.expires_in * 1000) - 60000;
+      S.mode = 'google';
+      await initDrive();
+      saveSession();
+      launchUniverse('Google Drive');
     }
   }).requestAccessToken();
 }
 
+async function reconnectGoogle() {
+  const session = loadSession();
+  if (!session || !session.accessToken) { connectGoogle(); return; }
+  S.accessToken = session.accessToken;
+  S.tokenExpiry = session.tokenExpiry;
+  S.driveFileId = session.driveFileId;
+  S.driveFolderId = session.driveFolderId;
+  S.mode = 'google';
+  try {
+    S.universe = await loadFile(S.driveFileId);
+    launchUniverse('Google Drive');
+  } catch {
+    clearSession();
+    connectGoogle();
+  }
+}
+
 async function initDrive() {
-  let fid = await findFolder(); if (!fid) fid = await createFolder();
+  let fid = await findFolder();
+  if (!fid) fid = await createFolder();
   S.driveFolderId = fid;
   let fileId = await findFile(fid);
-  if (!fileId) { S.universe = createUniverse(); fileId = await createFile(fid); }
-  else { S.driveFileId = fileId; S.universe = await loadFile(fileId); }
+  if (!fileId) {
+    S.universe = createUniverse();
+    fileId = await createFile(fid);
+  } else {
+    S.driveFileId = fileId;
+    S.universe = await loadFile(fileId);
+  }
   S.driveFileId = fileId;
 }
 
-async function dReq(url,opts={}) {
-  const r = await fetch(url,{...opts,headers:{'Authorization':'Bearer '+S.accessToken,'Content-Type':'application/json',...(opts.headers||{})}});
-  return r.json();
+async function dReq(url, opts = {}) {
+  const res = await fetch(url, {
+    ...opts,
+    headers: { 'Authorization': 'Bearer ' + S.accessToken, 'Content-Type': 'application/json', ...(opts.headers || {}) }
+  });
+  return res.json();
 }
+
 async function findFolder() {
-  const d = await dReq(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(`name='${FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`)}&fields=files(id)`);
-  return d.files?.[0]?.id||null;
+  const q = `name='${FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+  const d = await dReq(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)`);
+  return d.files?.[0]?.id || null;
 }
+
 async function createFolder() {
-  const d = await dReq('https://www.googleapis.com/drive/v3/files',{method:'POST',body:JSON.stringify({name:FOLDER_NAME,mimeType:'application/vnd.google-apps.folder'})});
+  const d = await dReq('https://www.googleapis.com/drive/v3/files', {
+    method: 'POST', body: JSON.stringify({ name: FOLDER_NAME, mimeType: 'application/vnd.google-apps.folder' })
+  });
   return d.id;
 }
+
 async function findFile(fid) {
-  const d = await dReq(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(`name='${UNIVERSE_FILENAME}' and '${fid}' in parents and trashed=false`)}&fields=files(id)`);
-  return d.files?.[0]?.id||null;
+  const q = `name='${UNIVERSE_FILENAME}' and '${fid}' in parents and trashed=false`;
+  const d = await dReq(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)`);
+  return d.files?.[0]?.id || null;
 }
+
 async function createFile(fid) {
   const form = new FormData();
-  form.append('metadata',new Blob([JSON.stringify({name:UNIVERSE_FILENAME,parents:[fid]})],{type:'application/json'}));
-  form.append('file',new Blob([JSON.stringify(S.universe,null,2)],{type:'application/json'}));
-  const r = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',{method:'POST',headers:{'Authorization':'Bearer '+S.accessToken},body:form});
-  return (await r.json()).id;
+  form.append('metadata', new Blob([JSON.stringify({ name: UNIVERSE_FILENAME, parents: [fid] })], { type: 'application/json' }));
+  form.append('file', new Blob([JSON.stringify(S.universe, null, 2)], { type: 'application/json' }));
+  const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+    method: 'POST', headers: { 'Authorization': 'Bearer ' + S.accessToken }, body: form
+  });
+  return (await res.json()).id;
 }
+
 async function loadFile(id) {
-  const r = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`,{headers:{'Authorization':'Bearer '+S.accessToken}});
-  return r.json();
+  const res = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
+    headers: { 'Authorization': 'Bearer ' + S.accessToken }
+  });
+  return res.json();
 }
+
 async function saveUniverse() {
   S.universe.meta.updated = new Date().toISOString();
-  if (S.mode==='local') { localStorage.setItem('singular_universe',JSON.stringify(S.universe)); return; }
-  if (!S.driveFileId||!S.accessToken) return;
-  await fetch(`https://www.googleapis.com/upload/drive/v3/files/${S.driveFileId}?uploadType=media`,{
-    method:'PATCH',headers:{'Authorization':'Bearer '+S.accessToken,'Content-Type':'application/json'},
-    body:JSON.stringify(S.universe,null,2)
+  if (S.mode === 'local') {
+    localStorage.setItem('singular_universe', JSON.stringify(S.universe));
+    return;
+  }
+  if (!S.driveFileId || !S.accessToken) return;
+  await fetch(`https://www.googleapis.com/upload/drive/v3/files/${S.driveFileId}?uploadType=media`, {
+    method: 'PATCH',
+    headers: { 'Authorization': 'Bearer ' + S.accessToken, 'Content-Type': 'application/json' },
+    body: JSON.stringify(S.universe, null, 2)
   });
 }
 
-// ── LOCAL MODE ──────────────────────────────────
+// ══════════════════════════════════════
+// LOCAL MODE
+// ══════════════════════════════════════
 function connectLocal() {
   S.mode = 'local';
   const saved = localStorage.getItem('singular_universe');
@@ -300,7 +469,16 @@ function connectLocal() {
   launchUniverse('Yerel');
 }
 
-// ── LAUNCH ──────────────────────────────────────
+// ══════════════════════════════════════
+// LAUNCH
+// ══════════════════════════════════════
+window.addEventListener('DOMContentLoaded', () => {
+  const session = loadSession();
+  if (session) {
+    document.getElementById('boot-reconnect').style.display = 'block';
+  }
+});
+
 function launchUniverse(label) {
   const boot = document.getElementById('boot');
   boot.classList.add('fade-out');
@@ -311,170 +489,403 @@ function launchUniverse(label) {
     document.getElementById('status-text').textContent = label;
     initCosmos();
     renderExistingEntries();
-    document.getElementById('input-field').addEventListener('keydown',e=>{if(e.key==='Enter')handleInput();});
+    document.getElementById('input-field').addEventListener('keydown', e => { if (e.key === 'Enter') handleInput(); });
     document.getElementById('input-field').focus();
   }, 800);
 }
 
-// ── COSMOS ──────────────────────────────────────
-const NS='http://www.w3.org/2000/svg';
-let svgEl,cx,cy;
-const NSTYLE={
-  question:{fill:'rgba(96,165,250,.15)',stroke:'#60a5fa'},
-  answer:{fill:'rgba(52,211,153,.12)',stroke:'#34d399'},
-  tag:{fill:'rgba(245,158,11,.12)',stroke:'#f59e0b'},
-  person:{fill:'rgba(244,114,182,.12)',stroke:'#f472b6'},
-  action:{fill:'rgba(192,132,252,.12)',stroke:'#c084fc'},
-  decision:{fill:'rgba(167,139,250,.18)',stroke:'#a78bfa'},
-  note:{fill:'rgba(148,163,184,.1)',stroke:'#94a3b8'}
+// ══════════════════════════════════════
+// COSMOS ENGINE
+// ══════════════════════════════════════
+const NS = 'http://www.w3.org/2000/svg';
+let svgEl, cosmoWrap, W, H, viewGroup;
+
+const TYPE_ICONS = {
+  question: '?', answer: '·', tag: '#', person: '@',
+  action: '!', decision: '◆', note: '·', core: '○'
 };
-function mk(tag){return document.createElementNS(NS,tag);}
+
+function mk(tag) { return document.createElementNS(NS, tag); }
 
 function initCosmos() {
-  svgEl=document.getElementById('cosmos');
-  cx=window.innerWidth/2; cy=window.innerHeight/2;
-  drawOrbits(); drawCore(); animCore();
-  window.addEventListener('resize',()=>{cx=window.innerWidth/2;cy=window.innerHeight/2;svgEl.innerHTML='';drawOrbits();drawCore();animCore();rerenderAll();});
-}
-function drawOrbits(){[130,230,350,490].forEach(r=>{const c=mk('circle');c.setAttribute('cx',cx);c.setAttribute('cy',cy);c.setAttribute('r',r);c.setAttribute('class','orbit-ring');svgEl.appendChild(c);});}
-function drawCore(){
-  const g=mk('g');g.id='core-g';
-  [[52,'core-inner'],[30,'core-outer'],[4,'core-dot']].forEach(([r,cls])=>{const c=mk('circle');c.setAttribute('cx',cx);c.setAttribute('cy',cy);c.setAttribute('r',r);c.setAttribute('class',cls);g.appendChild(c);});
-  const p=mk('circle');p.setAttribute('cx',cx);p.setAttribute('cy',cy);p.setAttribute('r','30');p.setAttribute('class','core-pulse');p.id='pulse-ring';g.appendChild(p);
-  const t=mk('text');t.setAttribute('x',cx);t.setAttribute('y',cy+46);t.setAttribute('text-anchor','middle');t.setAttribute('fill','rgba(167,139,250,.35)');t.setAttribute('font-size','8');t.setAttribute('font-family','DM Mono,monospace');t.setAttribute('letter-spacing','3');t.textContent='SINGULAR';g.appendChild(t);
-  g.style.cursor='pointer';g.onclick=()=>openPanelRaw({type:'core',text:'Senin evreninin merkezi.',created:S.universe?.meta?.created});
-  svgEl.appendChild(g);
-}
-function animCore(){
-  const r=document.getElementById('pulse-ring');if(!r)return;
-  let rv=30,op=0.5;
-  (function s(){rv+=0.25;op-=0.006;if(rv>65){rv=30;op=0.5;}r.setAttribute('r',rv);r.setAttribute('opacity',op);requestAnimationFrame(s);})();
-}
-function getPos(i,total,orbit){const a=(i/Math.max(total,1))*2*Math.PI-Math.PI/2;return{x:cx+orbit*Math.cos(a),y:cy+orbit*Math.sin(a)};}
-function orbitFor(n){if(n<=6)return 150;if(n<=14)return 250;if(n<=26)return 370;return 500;}
+  svgEl = document.getElementById('cosmos');
+  cosmoWrap = document.getElementById('cosmos-wrap');
+  W = window.innerWidth; H = window.innerHeight;
+  svgEl.setAttribute('viewBox', `0 0 ${W} ${H}`);
 
-function addNodeToGraph(entry) {
-  const total=S.graphNodes.length+1;
-  const pos=getPos(S.graphNodes.length,total,orbitFor(total));
-  S.graphNodes.push({id:entry.id,x:pos.x,y:pos.y,entry});
-  const st=NSTYLE[entry.raw?.type]||NSTYLE.note;
-  const g=mk('g');g.setAttribute('class','g-node');g.setAttribute('data-id',entry.id);g.style.opacity='0';
+  // main group for zoom/pan
+  viewGroup = mk('g');
+  viewGroup.id = 'view-group';
+  svgEl.appendChild(viewGroup);
 
-  const link=mk('line');link.setAttribute('x1',cx);link.setAttribute('y1',cy);link.setAttribute('x2',pos.x);link.setAttribute('y2',pos.y);link.setAttribute('class','g-link core-link');link.setAttribute('data-link-id',entry.id);
-  svgEl.insertBefore(link,svgEl.children[4]||null);
+  drawOrbits();
+  drawCore();
+  animCore();
+  initPanZoom();
 
-  const c=mk('circle');c.setAttribute('cx',pos.x);c.setAttribute('cy',pos.y);c.setAttribute('r','11');c.setAttribute('fill',st.fill);c.setAttribute('stroke',st.stroke);g.appendChild(c);
-  const d=mk('circle');d.setAttribute('cx',pos.x);d.setAttribute('cy',pos.y);d.setAttribute('r','3');d.setAttribute('fill',st.stroke);g.appendChild(d);
-  const ed=mk('circle');ed.setAttribute('cx',pos.x+9);ed.setAttribute('cy',pos.y-9);ed.setAttribute('r','3');ed.setAttribute('class','enrich-dot');ed.setAttribute('data-enrich',entry.id);
-  if(!entry.status?.semantic_enriched)ed.classList.add('pending');g.appendChild(ed);
-  const lbl=mk('text');lbl.setAttribute('x',pos.x);lbl.setAttribute('y',pos.y+22);lbl.setAttribute('text-anchor','middle');lbl.setAttribute('data-label',entry.id);
-  const sh=entry.semantic?.summary||entry.text;lbl.textContent=sh.length>16?sh.slice(0,16)+'…':sh;g.appendChild(lbl);
-
-  g.onclick=()=>openPanelEntry(entry.id);
-  svgEl.appendChild(g);
-  requestAnimationFrame(()=>{g.style.transition='opacity .6s';g.style.opacity='1';});
-  document.getElementById('node-count').textContent=S.graphNodes.length+' node';
-  if(S.graphNodes.length===1)document.getElementById('hint').style.opacity='0';
-}
-
-function updateNodeLabel(entry){
-  const l=svgEl.querySelector(`[data-label="${entry.id}"]`);
-  if(!l)return;const s=entry.semantic?.summary||entry.text;l.textContent=s.length>16?s.slice(0,16)+'…':s;
-}
-function setEnrichDot(id,pending){const d=svgEl.querySelector(`[data-enrich="${id}"]`);if(d)d.classList.toggle('pending',pending);}
-function drawSemanticLinks(entry){
-  if(!entry.semantic?.related_to?.length)return;
-  const fn=S.graphNodes.find(n=>n.id===entry.id);if(!fn)return;
-  entry.semantic.related_to.forEach(rid=>{
-    const tn=S.graphNodes.find(n=>n.id===rid);if(!tn)return;
-    const l=mk('line');l.setAttribute('x1',fn.x);l.setAttribute('y1',fn.y);l.setAttribute('x2',tn.x);l.setAttribute('y2',tn.y);l.setAttribute('class','g-link semantic-link');
-    svgEl.insertBefore(l,svgEl.children[4]||null);
-    S.universe.links.push({from:entry.id,to:rid,type:'semantic'});
+  window.addEventListener('resize', () => {
+    W = window.innerWidth; H = window.innerHeight;
+    svgEl.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    applyTransform();
   });
 }
-function rerenderAll(){
-  document.querySelectorAll('.g-node,[data-link-id],.semantic-link').forEach(e=>e.remove());
-  const s=[...S.graphNodes];S.graphNodes=[];
-  s.forEach(n=>addNodeToGraph(n.entry));
-  s.filter(n=>n.entry.status?.semantic_enriched).forEach(n=>drawSemanticLinks(n.entry));
-}
-function renderExistingEntries(){
-  if(!S.universe?.entries)return;
-  S.universe.entries.forEach(e=>addNodeToGraph(e));
-  S.universe.entries.filter(e=>e.status?.semantic_enriched).forEach(e=>drawSemanticLinks(e));
+
+function cx() { return W / 2; }
+function cy() { return H / 2; }
+
+function drawOrbits() {
+  [130, 230, 350, 490, 650].forEach(r => {
+    const c = mk('circle');
+    c.setAttribute('cx', cx()); c.setAttribute('cy', cy());
+    c.setAttribute('r', r); c.setAttribute('class', 'orbit-ring');
+    viewGroup.appendChild(c);
+  });
 }
 
-// ── INPUT ───────────────────────────────────────
-async function handleInput(){
-  const f=document.getElementById('input-field');
-  const text=f.value.trim();if(!text)return;
-  f.value='';hideSuggestions();
-  const entry=createEntry(text);
+function drawCore() {
+  const g = mk('g'); g.id = 'core-g';
+  const glow = mk('circle');
+  glow.setAttribute('cx', cx()); glow.setAttribute('cy', cy());
+  glow.setAttribute('r', '52'); glow.setAttribute('class', 'core-inner');
+  g.appendChild(glow);
+  const ring = mk('circle');
+  ring.setAttribute('cx', cx()); ring.setAttribute('cy', cy());
+  ring.setAttribute('r', '28'); ring.setAttribute('class', 'core-outer');
+  g.appendChild(ring);
+  const dot = mk('circle');
+  dot.setAttribute('cx', cx()); dot.setAttribute('cy', cy());
+  dot.setAttribute('r', '4'); dot.setAttribute('class', 'core-dot');
+  g.appendChild(dot);
+  const pulse = mk('circle');
+  pulse.setAttribute('cx', cx()); pulse.setAttribute('cy', cy());
+  pulse.setAttribute('r', '28'); pulse.setAttribute('class', 'core-pulse');
+  pulse.id = 'pulse-ring'; pulse.setAttribute('opacity', '0');
+  g.appendChild(pulse);
+  const lbl = mk('text');
+  lbl.setAttribute('x', cx()); lbl.setAttribute('y', cy() + 44);
+  lbl.setAttribute('text-anchor', 'middle');
+  lbl.setAttribute('fill', 'rgba(167,139,250,.3)');
+  lbl.setAttribute('font-size', '7');
+  lbl.setAttribute('font-family', 'DM Mono,monospace');
+  lbl.setAttribute('letter-spacing', '4');
+  lbl.textContent = 'SINGULAR';
+  g.appendChild(lbl);
+  g.style.cursor = 'pointer';
+  g.onclick = () => openPanelRaw({ type: 'core', text: 'Senin evreninin merkezi.', created: S.universe?.meta?.created });
+  viewGroup.appendChild(g);
+}
+
+function animCore() {
+  const ring = document.getElementById('pulse-ring');
+  if (!ring) return;
+  let r = 28, op = 0.4;
+  (function step() {
+    r += 0.2; op -= 0.005;
+    if (r > 60) { r = 28; op = 0.4; }
+    ring.setAttribute('r', r); ring.setAttribute('opacity', op);
+    requestAnimationFrame(step);
+  })();
+}
+
+// ── ZOOM / PAN ──────────────────────────────────
+function applyTransform() {
+  const tx = S.panX + (W / 2) * (1 - S.scale);
+  const ty = S.panY + (H / 2) * (1 - S.scale);
+  viewGroup.setAttribute('transform', `translate(${tx},${ty}) scale(${S.scale})`);
+  document.getElementById('zoom-level').textContent = `zoom ${Math.round(S.scale * 100)}%`;
+}
+
+function zoomIn() { S.scale = Math.min(S.scale * 1.25, 5); applyTransform(); }
+function zoomOut() { S.scale = Math.max(S.scale / 1.25, 0.2); applyTransform(); }
+function zoomReset() { S.scale = 1; S.panX = 0; S.panY = 0; applyTransform(); }
+
+function initPanZoom() {
+  // Mouse wheel zoom
+  cosmoWrap.addEventListener('wheel', e => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    S.scale = Math.max(0.2, Math.min(5, S.scale * delta));
+    applyTransform();
+  }, { passive: false });
+
+  // Pan drag
+  cosmoWrap.addEventListener('mousedown', e => {
+    if (e.target.closest('.g-node') || e.target.closest('#core-g')) return;
+    S.isPanning = true;
+    S.panStartX = e.clientX;
+    S.panStartY = e.clientY;
+    S.panOriginX = S.panX;
+    S.panOriginY = S.panY;
+    cosmoWrap.classList.add('grabbing');
+  });
+
+  window.addEventListener('mousemove', e => {
+    if (!S.isPanning) return;
+    S.panX = S.panOriginX + (e.clientX - S.panStartX);
+    S.panY = S.panOriginY + (e.clientY - S.panStartY);
+    applyTransform();
+  });
+
+  window.addEventListener('mouseup', () => {
+    S.isPanning = false;
+    cosmoWrap.classList.remove('grabbing');
+  });
+
+  // Touch pan/zoom
+  let lastDist = 0;
+  cosmoWrap.addEventListener('touchstart', e => {
+    if (e.touches.length === 2) {
+      lastDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    } else if (e.touches.length === 1) {
+      S.isPanning = true;
+      S.panStartX = e.touches[0].clientX;
+      S.panStartY = e.touches[0].clientY;
+      S.panOriginX = S.panX;
+      S.panOriginY = S.panY;
+    }
+  });
+
+  cosmoWrap.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (e.touches.length === 2) {
+      const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+      S.scale = Math.max(0.2, Math.min(5, S.scale * (dist / lastDist)));
+      lastDist = dist;
+      applyTransform();
+    } else if (e.touches.length === 1 && S.isPanning) {
+      S.panX = S.panOriginX + (e.touches[0].clientX - S.panStartX);
+      S.panY = S.panOriginY + (e.touches[0].clientY - S.panStartY);
+      applyTransform();
+    }
+  }, { passive: false });
+
+  cosmoWrap.addEventListener('touchend', () => { S.isPanning = false; });
+}
+
+// ── NODE PLACEMENT ───────────────────────────────
+function getPos(index, total, orbit) {
+  const jitter = (Math.random() - 0.5) * 20;
+  const angle = (index / Math.max(total, 1)) * 2 * Math.PI - Math.PI / 2 + jitter * 0.05;
+  return { x: cx() + orbit * Math.cos(angle), y: cy() + orbit * Math.sin(angle) };
+}
+
+function orbitFor(n) {
+  if (n <= 6) return 150;
+  if (n <= 14) return 255;
+  if (n <= 26) return 370;
+  if (n <= 42) return 500;
+  return 650;
+}
+
+function addNodeToGraph(entry) {
+  const total = S.graphNodes.length + 1;
+  const pos = getPos(S.graphNodes.length, total, orbitFor(total));
+  S.graphNodes.push({ id: entry.id, x: pos.x, y: pos.y, entry });
+
+  const type = entry.raw?.type || 'note';
+  const g = mk('g');
+  g.setAttribute('class', `g-node shape-${type}`);
+  g.setAttribute('data-id', entry.id);
+  g.style.opacity = '0';
+
+  // core link
+  const link = mk('line');
+  link.setAttribute('x1', cx()); link.setAttribute('y1', cy());
+  link.setAttribute('x2', pos.x); link.setAttribute('y2', pos.y);
+  link.setAttribute('class', 'g-link core-link');
+  link.setAttribute('data-link-id', entry.id);
+  viewGroup.insertBefore(link, viewGroup.children[6] || null);
+
+  // node shape — diamond for decision, hexagon hint for others
+  const nodeR = type === 'tag' ? 9 : type === 'person' ? 11 : 10;
+
+  const ring = mk('circle');
+  ring.setAttribute('cx', pos.x); ring.setAttribute('cy', pos.y);
+  ring.setAttribute('r', nodeR); ring.setAttribute('class', 'node-ring');
+  g.appendChild(ring);
+
+  // decision = diamond shape overlay
+  if (type === 'decision') {
+    const diamond = mk('polygon');
+    const s = 8;
+    diamond.setAttribute('points', `${pos.x},${pos.y-s} ${pos.x+s},${pos.y} ${pos.x},${pos.y+s} ${pos.x-s},${pos.y}`);
+    diamond.setAttribute('fill', 'none');
+    diamond.setAttribute('stroke', 'var(--c-decision)');
+    diamond.setAttribute('stroke-width', '.5');
+    diamond.setAttribute('opacity', '.5');
+    g.appendChild(diamond);
+  }
+
+  const dot = mk('circle');
+  dot.setAttribute('cx', pos.x); dot.setAttribute('cy', pos.y);
+  dot.setAttribute('r', '2.5'); dot.setAttribute('class', 'node-dot');
+  g.appendChild(dot);
+
+  // type icon
+  const icon = mk('text');
+  icon.setAttribute('x', pos.x + nodeR + 2);
+  icon.setAttribute('y', pos.y - nodeR - 1);
+  icon.setAttribute('class', 'node-type-icon');
+  icon.setAttribute('fill', 'rgba(226,224,240,.25)');
+  icon.textContent = TYPE_ICONS[type] || '·';
+  g.appendChild(icon);
+
+  // label
+  const lbl = mk('text');
+  lbl.setAttribute('x', pos.x); lbl.setAttribute('y', pos.y + nodeR + 11);
+  lbl.setAttribute('text-anchor', 'middle'); lbl.setAttribute('class', 'node-label');
+  lbl.setAttribute('data-label', entry.id);
+  const short = entry.semantic?.summary || entry.text;
+  lbl.textContent = short.length > 18 ? short.slice(0, 18) + '…' : short;
+  g.appendChild(lbl);
+
+  g.onclick = () => openPanelEntry(entry.id);
+  viewGroup.appendChild(g);
+
+  requestAnimationFrame(() => { g.style.transition = 'opacity .6s'; g.style.opacity = '1'; });
+  document.getElementById('node-count').textContent = S.graphNodes.length + ' node';
+  if (S.graphNodes.length === 1) document.getElementById('hint').style.opacity = '0';
+}
+
+function drawRelationLink(fromId, toId, cls) {
+  const fn = S.graphNodes.find(n => n.id === fromId);
+  const tn = S.graphNodes.find(n => n.id === toId);
+  if (!fn || !tn) return;
+  const l = mk('line');
+  l.setAttribute('x1', fn.x); l.setAttribute('y1', fn.y);
+  l.setAttribute('x2', tn.x); l.setAttribute('y2', tn.y);
+  l.setAttribute('class', `g-link ${cls}`);
+  viewGroup.insertBefore(l, viewGroup.children[6] || null);
+}
+
+function renderExistingEntries() {
+  if (!S.universe?.entries) return;
+  S.universe.entries.forEach(e => addNodeToGraph(e));
+  // redraw existing links
+  S.universe.links.forEach(l => {
+    const cls = l.type === 'tag' ? 'tag-link' : 'relation-link';
+    drawRelationLink(l.from, l.to, cls);
+  });
+}
+
+// ══════════════════════════════════════
+// INPUT HANDLER
+// ══════════════════════════════════════
+async function handleInput() {
+  const f = document.getElementById('input-field');
+  const text = f.value.trim();
+  if (!text) return;
+  f.value = '';
+  hideSuggestions();
+
+  const entry = createEntry(text);
   S.universe.entries.push(entry);
   addNodeToGraph(entry);
-  entry.status.saved=true;
+
+  // auto tag relations
+  addTagLinks(entry);
+
+  entry.status.saved = true;
   saveUniverse();
-  S.enrichQueue.push(entry.id);
-  runEnrichQueue();
+  saveSession();
 }
 
-// ── SUGGESTIONS ─────────────────────────────────
-function showSuggestions(qs){
-  if(!qs?.length)return;
-  const el=document.getElementById('suggestions');el.innerHTML='';
-  qs.slice(0,3).forEach(q=>{
-    const b=document.createElement('button');b.className='sug-btn';b.textContent=q;
-    b.onclick=()=>{document.getElementById('input-field').value=q;document.getElementById('input-field').focus();hideSuggestions();};
+// ══════════════════════════════════════
+// SUGGESTIONS
+// ══════════════════════════════════════
+function showSuggestions(qs) {
+  if (!qs?.length) return;
+  const el = document.getElementById('suggestions');
+  el.innerHTML = '';
+  qs.slice(0, 3).forEach(q => {
+    const b = document.createElement('button');
+    b.className = 'sug-btn'; b.textContent = q;
+    b.onclick = () => { document.getElementById('input-field').value = q; document.getElementById('input-field').focus(); hideSuggestions(); };
     el.appendChild(b);
   });
   el.classList.add('visible');
 }
-function hideSuggestions(){document.getElementById('suggestions').classList.remove('visible');}
+function hideSuggestions() { document.getElementById('suggestions').classList.remove('visible'); }
 
-// ── PANEL ───────────────────────────────────────
-function openPanelEntry(id){const e=S.universe.entries.find(x=>x.id===id);if(e)renderPanel(e);}
-function openPanelRaw(obj){renderPanel(obj);}
-function renderPanel(entry){
-  const type=entry.raw?.type||entry.type||'note';
-  const badge=document.getElementById('panel-badge');badge.textContent=type;badge.className='panel-badge badge-'+type;
-  const title=document.getElementById('panel-title');title.textContent=entry.text||'—';title.dataset.entryId=entry.id||'';
-  document.getElementById('panel-meta').textContent=entry.created?new Date(entry.created).toLocaleString('tr-TR'):'—';
-  const body=document.getElementById('panel-body');body.innerHTML='';
+// ══════════════════════════════════════
+// PANEL
+// ══════════════════════════════════════
+function openPanelEntry(id) {
+  const e = S.universe.entries.find(x => x.id === id);
+  if (e) renderPanel(e);
+}
+function openPanelRaw(obj) { renderPanel(obj); }
 
-  if(entry.id&&!entry.status?.semantic_enriched){const el=document.createElement('div');el.className='panel-enriching';el.textContent='⬡ Anlam katmanı yükleniyor...';body.appendChild(el);}
-  if(entry.semantic?.intent)body.appendChild(ps('Niyet',entry.semantic.intent));
-  if(entry.semantic?.summary)body.appendChild(ps('Özet',entry.semantic.summary));
-  if(entry.semantic?.entities?.length)body.appendChild(ps('Varlıklar',entry.semantic.entities.join(' · ')));
+function renderPanel(entry) {
+  const type = entry.raw?.type || entry.type || 'note';
+  const badge = document.getElementById('panel-badge');
+  badge.textContent = (TYPE_ICONS[type] || '') + ' ' + type;
+  badge.className = 'panel-badge badge-' + type;
 
-  const tags=entry.raw?.tags||[];
-  if(tags.length){
-    const sec=document.createElement('div');sec.className='panel-section';
-    const lbl=document.createElement('div');lbl.className='panel-section-label';lbl.textContent='Etiketler';
-    const row=document.createElement('div');row.className='panel-tags';
-    tags.forEach(t=>{const s=document.createElement('span');s.className='panel-tag';s.textContent='#'+t;row.appendChild(s);});
-    sec.appendChild(lbl);sec.appendChild(row);body.appendChild(sec);
-  }
-  if(entry.semantic?.suggested_next_questions?.length){
-    const sec=document.createElement('div');sec.className='panel-section';
-    const lbl=document.createElement('div');lbl.className='panel-section-label';lbl.textContent='Önerilen sorular';
-    const ql=document.createElement('div');ql.className='panel-questions';
-    entry.semantic.suggested_next_questions.forEach(q=>{
-      const b=document.createElement('button');b.className='panel-q-btn';b.textContent=q;
-      b.onclick=()=>{document.getElementById('input-field').value=q;document.getElementById('input-field').focus();closePanel();};
-      ql.appendChild(b);
+  const title = document.getElementById('panel-title');
+  title.textContent = entry.text || '—';
+  title.dataset.entryId = entry.id || '';
+
+  document.getElementById('panel-meta').textContent =
+    entry.created ? new Date(entry.created).toLocaleString('tr-TR') : '—';
+
+  const body = document.getElementById('panel-body');
+  body.innerHTML = '';
+
+  // Tags
+  const tags = entry.raw?.tags || [];
+  if (tags.length) {
+    const sec = document.createElement('div'); sec.className = 'panel-section';
+    const lbl = document.createElement('div'); lbl.className = 'panel-section-label'; lbl.textContent = 'Etiketler';
+    const row = document.createElement('div'); row.className = 'panel-tags';
+    tags.forEach(t => {
+      const s = document.createElement('span'); s.className = 'panel-tag'; s.textContent = '#' + t;
+      s.onclick = () => { document.getElementById('input-field').value = '#' + t; document.getElementById('input-field').focus(); closePanel(); };
+      row.appendChild(s);
     });
-    sec.appendChild(lbl);sec.appendChild(ql);body.appendChild(sec);
+    sec.appendChild(lbl); sec.appendChild(row); body.appendChild(sec);
   }
-  if(entry.semantic?.suggested_actions?.length)body.appendChild(ps('Önerilen aksiyonlar',entry.semantic.suggested_actions.join('\n')));
+
+  // Mentions
+  const mentions = entry.raw?.mentions || [];
+  if (mentions.length) {
+    body.appendChild(ps('Kişiler', mentions.map(m => '@' + m).join(' · ')));
+  }
+
+  // Related entries via tags
+  const related = S.universe.links
+    .filter(l => l.from === entry.id || l.to === entry.id)
+    .map(l => {
+      const relId = l.from === entry.id ? l.to : l.from;
+      const relEntry = S.universe.entries.find(e => e.id === relId);
+      return relEntry ? { entry: relEntry, via: l.via } : null;
+    }).filter(Boolean);
+
+  if (related.length) {
+    const sec = document.createElement('div'); sec.className = 'panel-section';
+    const lbl = document.createElement('div'); lbl.className = 'panel-section-label'; lbl.textContent = 'İlişkili kayıtlar';
+    const list = document.createElement('div'); list.className = 'panel-relations';
+    related.forEach(r => {
+      const btn = document.createElement('div'); btn.className = 'panel-relation';
+      const viaStr = r.via?.length ? ` · via ${r.via.map(v => '#' + v).join(' ')}` : '';
+      btn.textContent = (r.entry.text.length > 40 ? r.entry.text.slice(0, 40) + '…' : r.entry.text) + viaStr;
+      btn.onclick = () => openPanelEntry(r.entry.id);
+      list.appendChild(btn);
+    });
+    sec.appendChild(lbl); sec.appendChild(list); body.appendChild(sec);
+  }
+
   document.getElementById('panel').classList.add('open');
 }
-function ps(label,text){
-  const s=document.createElement('div');s.className='panel-section';
-  const l=document.createElement('div');l.className='panel-section-label';l.textContent=label;
-  const b=document.createElement('div');b.className='panel-section-body';b.textContent=text;
-  s.appendChild(l);s.appendChild(b);return s;
+
+function ps(label, text) {
+  const s = document.createElement('div'); s.className = 'panel-section';
+  const l = document.createElement('div'); l.className = 'panel-section-label'; l.textContent = label;
+  const b = document.createElement('div'); b.className = 'panel-section-body'; b.textContent = text;
+  s.appendChild(l); s.appendChild(b); return s;
 }
-function closePanel(){document.getElementById('panel').classList.remove('open');}
+
+function closePanel() { document.getElementById('panel').classList.remove('open'); }
 </script>
 </body>
 </html>
