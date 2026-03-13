@@ -8,7 +8,7 @@
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Serif+Display:ital@0;1&display=swap');
 :root {
-  --bg:#080810;--bg2:#0e0e1a;--bg3:#13131f;
+  --bg:#080810;--bg2:#0e0e1a;
   --core:#a78bfa;--core-glow:rgba(167,139,250,0.15);
   --text:#e2e0f0;--text-muted:#6b6880;--text-dim:#3a3850;
   --border:rgba(167,139,250,0.12);--border-bright:rgba(167,139,250,0.3);
@@ -17,8 +17,6 @@
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;height:100vh;overflow:hidden;}
-
-/* BOOT */
 #boot{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg);z-index:100;transition:opacity .8s ease,transform .8s ease;}
 #boot.fade-out{opacity:0;transform:scale(1.04);pointer-events:none;}
 .boot-logo{font-family:'DM Serif Display',serif;font-size:3.5rem;letter-spacing:.3em;opacity:.9;margin-bottom:.25rem;}
@@ -31,8 +29,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;heig
 .btn-local{width:100%;padding:.7rem 1.25rem;background:transparent;border:.5px solid var(--text-dim);border-radius:8px;color:var(--text-muted);font-family:'DM Mono',monospace;font-size:.7rem;letter-spacing:.1em;cursor:pointer;transition:color .2s,border-color .2s;}
 .btn-local:hover{color:var(--text);border-color:var(--text-muted);}
 .boot-note{font-size:.6rem;color:var(--text-dim);margin-top:1.25rem;line-height:1.7;}
-
-/* UNIVERSE */
 #universe{position:fixed;inset:0;opacity:0;transition:opacity 1s ease;pointer-events:none;}
 #universe.active{opacity:1;pointer-events:all;}
 #cosmos{position:absolute;inset:0;width:100%;height:100%;}
@@ -47,39 +43,25 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;heig
 .g-link{fill:none;stroke-width:.5;}
 .g-link.core-link{stroke:rgba(167,139,250,.12);}
 .g-link.semantic-link{stroke:rgba(52,211,153,.25);stroke-dasharray:3,3;}
-
-/* ENRICHMENT INDICATOR */
 .enrich-dot{fill:#f59e0b;opacity:0;}
 .enrich-dot.pending{opacity:1;animation:blink 1.2s infinite;}
 @keyframes blink{0%,100%{opacity:.8;}50%{opacity:.2;}}
-
-/* INPUT BAR */
 #input-bar{position:fixed;bottom:2.5rem;left:50%;transform:translateX(-50%);width:min(600px,92vw);display:flex;align-items:center;background:var(--bg2);border:.5px solid var(--border-bright);border-radius:12px;overflow:hidden;box-shadow:0 0 40px rgba(167,139,250,.08);}
 #input-field{flex:1;padding:1rem 1.25rem;background:transparent;border:none;outline:none;color:var(--text);font-family:'DM Mono',monospace;font-size:.78rem;letter-spacing:.03em;}
 #input-field::placeholder{color:var(--text-muted);}
-#input-send{padding:.75rem 1.25rem;background:transparent;border:none;border-left:.5px solid var(--border);color:var(--core);cursor:pointer;font-size:1rem;font-family:'DM Mono',monospace;transition:background .2s;}
+#input-send{padding:.75rem 1.25rem;background:transparent;border:none;border-left:.5px solid var(--border);color:var(--core);cursor:pointer;font-size:1rem;transition:background .2s;}
 #input-send:hover{background:var(--core-glow);}
-
-/* HINT */
-#hint{position:fixed;bottom:5.5rem;left:50%;transform:translateX(-50%);font-size:.62rem;letter-spacing:.2em;color:var(--text-dim);text-transform:uppercase;text-align:center;transition:opacity .5s;white-space:nowrap;pointer-events:none;}
-
-/* SUGGESTED QUESTIONS */
+#hint{position:fixed;bottom:5.5rem;left:50%;transform:translateX(-50%);font-size:.62rem;letter-spacing:.2em;color:var(--text-dim);text-transform:uppercase;transition:opacity .5s;white-space:nowrap;pointer-events:none;}
 #suggestions{position:fixed;bottom:6.5rem;left:50%;transform:translateX(-50%);width:min(600px,92vw);display:flex;flex-wrap:wrap;gap:.4rem;justify-content:center;opacity:0;transition:opacity .4s;}
 #suggestions.visible{opacity:1;}
-.sug-btn{font-size:.62rem;padding:.3rem .7rem;background:transparent;border:.5px solid var(--border);border-radius:20px;color:var(--text-muted);cursor:pointer;font-family:'DM Mono',monospace;letter-spacing:.05em;transition:color .2s,border-color .2s,background .2s;}
+.sug-btn{font-size:.62rem;padding:.3rem .7rem;background:transparent;border:.5px solid var(--border);border-radius:20px;color:var(--text-muted);cursor:pointer;font-family:'DM Mono',monospace;transition:color .2s,border-color .2s,background .2s;}
 .sug-btn:hover{color:var(--text);border-color:var(--core);background:rgba(167,139,250,.06);}
-
-/* STATUS */
 #status{position:fixed;top:1.5rem;left:1.5rem;display:flex;align-items:center;gap:.5rem;font-size:.6rem;letter-spacing:.15em;color:var(--text-dim);text-transform:uppercase;}
 .status-dot{width:5px;height:5px;border-radius:50%;background:var(--text-dim);transition:background .3s;}
 .status-dot.connected{background:#34d399;box-shadow:0 0 6px #34d399;}
-
-/* NODE COUNT + ENRICH STATUS */
 #topright{position:fixed;top:1.5rem;right:1.5rem;text-align:right;font-size:.6rem;letter-spacing:.1em;color:var(--text-dim);text-transform:uppercase;line-height:1.8;}
 #enrich-status{font-size:.55rem;color:var(--t);opacity:0;transition:opacity .3s;}
 #enrich-status.active{opacity:1;}
-
-/* DETAIL PANEL */
 #panel{position:fixed;top:50%;right:-380px;transform:translateY(-50%);width:340px;max-height:75vh;background:var(--panel);border:.5px solid var(--border-bright);border-radius:12px;padding:1.5rem;transition:right .4s cubic-bezier(.16,1,.3,1);overflow-y:auto;z-index:50;}
 #panel.open{right:1.5rem;}
 .panel-close{position:absolute;top:1rem;right:1rem;background:transparent;border:none;color:var(--text-muted);cursor:pointer;font-size:.9rem;font-family:'DM Mono',monospace;}
@@ -90,19 +72,19 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;heig
 .badge-tag{background:rgba(245,158,11,.12);color:var(--t);}
 .badge-person{background:rgba(244,114,182,.12);color:var(--p);}
 .badge-action{background:rgba(192,132,252,.12);color:var(--act);}
-.badge-core{background:rgba(167,139,250,.12);color:var(--core);}
+.badge-decision{background:rgba(167,139,250,.15);color:var(--core);}
+.badge-core,.badge-note{background:rgba(148,163,184,.1);color:#94a3b8;}
 .panel-title{font-family:'DM Serif Display',serif;font-size:1.05rem;color:var(--text);margin-bottom:.75rem;line-height:1.5;}
-.panel-meta{font-size:.58rem;color:var(--text-dim);margin-bottom:1rem;letter-spacing:.08em;}
+.panel-meta{font-size:.58rem;color:var(--text-dim);margin-bottom:1rem;}
 .panel-section{margin-bottom:1rem;}
 .panel-section-label{font-size:.55rem;letter-spacing:.25em;text-transform:uppercase;color:var(--text-muted);margin-bottom:.4rem;}
-.panel-section-body{font-size:.68rem;color:var(--text-muted);line-height:1.7;}
+.panel-section-body{font-size:.68rem;color:var(--text-muted);line-height:1.7;white-space:pre-line;}
 .panel-tags{display:flex;flex-wrap:wrap;gap:.35rem;}
 .panel-tag{font-size:.58rem;padding:.2rem .55rem;border:.5px solid var(--border-bright);border-radius:4px;color:var(--core);}
 .panel-questions{display:flex;flex-direction:column;gap:.4rem;}
 .panel-q-btn{font-size:.62rem;padding:.35rem .7rem;background:transparent;border:.5px solid var(--border);border-radius:6px;color:var(--text-muted);cursor:pointer;font-family:'DM Mono',monospace;text-align:left;transition:color .2s,border-color .2s;}
 .panel-q-btn:hover{color:var(--text);border-color:var(--core);}
 .panel-enriching{font-size:.62rem;color:var(--t);animation:blink 1.2s infinite;}
-.panel-divider{border:none;border-top:.5px solid var(--border);margin:.75rem 0;}
 ::-webkit-scrollbar{width:3px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
@@ -110,7 +92,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;heig
 </head>
 <body>
 
-<!-- BOOT -->
 <div id="boot">
   <div class="boot-logo">SINGULAR</div>
   <div class="boot-sub">kişisel evren sistemi</div>
@@ -125,32 +106,19 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;heig
   </div>
 </div>
 
-<!-- UNIVERSE -->
 <div id="universe">
   <svg id="cosmos"></svg>
-
-  <div id="status">
-    <div class="status-dot" id="status-dot"></div>
-    <span id="status-text">bağlanıyor...</span>
-  </div>
-
-  <div id="topright">
-    <div id="node-count">0 node</div>
-    <div id="enrich-status">⬡ zenginleştiriliyor...</div>
-  </div>
-
+  <div id="status"><div class="status-dot" id="status-dot"></div><span id="status-text">bağlanıyor...</span></div>
+  <div id="topright"><div id="node-count">0 node</div><div id="enrich-status">⬡ zenginleştiriliyor...</div></div>
   <div id="hint">Evreni başlatmak için bir şey yaz</div>
-
   <div id="suggestions"></div>
-
   <div id="input-bar">
     <input id="input-field" type="text" placeholder="Bir soru sor, bir şey söyle, bir karar yaz…" autocomplete="off"/>
     <button id="input-send" onclick="handleInput()">→</button>
   </div>
-
   <div id="panel">
     <button class="panel-close" onclick="closePanel()">✕</button>
-    <div id="panel-badge" class="panel-badge badge-answer">entry</div>
+    <div id="panel-badge" class="panel-badge badge-note">entry</div>
     <div class="panel-title" id="panel-title">—</div>
     <div class="panel-meta" id="panel-meta">—</div>
     <div id="panel-body"></div>
@@ -158,292 +126,173 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;heig
 </div>
 
 <script>
-// ══════════════════════════════════════
-// CONFIG
-// ══════════════════════════════════════
-const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID_HERE';
-const ANTHROPIC_API_KEY = 'YOUR_ANTHROPIC_API_KEY_HERE'; // for semantic enrichment
+// ── CONFIG ──────────────────────────────────────
+const GOOGLE_CLIENT_ID = '557723915441-q49en6uqqkqm9s5fie14ejm6cak9eo6r.apps.googleusercontent.com';
+const WORKER_URL = 'https://broad-limit-fea7.ezopshop.workers.dev';
 const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const UNIVERSE_FILENAME = 'universe.json';
 const FOLDER_NAME = 'SINGULAR';
 
-// ══════════════════════════════════════
-// STATE
-// ══════════════════════════════════════
+// ── STATE ───────────────────────────────────────
 const S = {
-  mode: null,
-  accessToken: null,
-  driveFileId: null,
-  driveFolderId: null,
-  universe: null,
-  graphNodes: [],   // {id, x, y, entry}
-  enrichQueue: [],  // entry ids pending enrichment
-  enrichRunning: false
+  mode:null, accessToken:null, driveFileId:null, driveFolderId:null,
+  universe:null, graphNodes:[], enrichQueue:[], enrichRunning:false
 };
 
-// ══════════════════════════════════════
-// UNIVERSE MODEL
-// ══════════════════════════════════════
+// ── UNIVERSE MODEL ──────────────────────────────
 function createUniverse() {
   return {
-    meta: { version: '0.2', created: new Date().toISOString(), updated: new Date().toISOString() },
-    profile: { name: null },
-    entries: [],
-    people: [],
-    projects: [],
-    tags: [],
-    links: []
+    meta:{ version:'0.3', created:new Date().toISOString(), updated:new Date().toISOString() },
+    profile:{ name:null }, entries:[], people:[], projects:[], tags:[], links:[]
   };
 }
 
 function createEntry(text) {
   const raw = localParse(text);
   return {
-    id: 'e_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
-    text,
-    created: new Date().toISOString(),
-    raw: {
-      type: raw.type,
-      tags: raw.tags
-    },
-    semantic: {
-      intent: null,
-      entities: [],
-      summary: null,
-      related_to: [],
-      suggested_next_questions: [],
-      suggested_actions: [],
-      confidence: 0
-    },
-    status: {
-      saved: false,
-      semantic_enriched: false
-    }
+    id:'e_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
+    text, created:new Date().toISOString(),
+    raw:{ type:raw.type, tags:raw.tags },
+    semantic:{ intent:null, entities:[], summary:null, related_to:[], suggested_next_questions:[], suggested_actions:[], confidence:0 },
+    status:{ saved:false, semantic_enriched:false }
   };
 }
 
-// ══════════════════════════════════════
-// LAYER 1: LOCAL RULE PARSER
-// ══════════════════════════════════════
+// ── LAYER 1: LOCAL PARSER ───────────────────────
 function localParse(text) {
   const t = text.trim();
   let type = 'note';
-
-  // Type detection
   if (t.endsWith('?')) type = 'question';
-  else if (/^(yap|tamamla|ara|bul|git|al|ver|dene|düşün|karar)/i.test(t)) type = 'action';
-  else if (t.startsWith('@') || /\bkişi\b|\bişbirliği\b/i.test(t)) type = 'person';
+  else if (/^(yap|tamamla|ara|bul|git|al|ver|dene|karar)/i.test(t)) type = 'action';
+  else if (t.startsWith('@')) type = 'person';
   else if (/#/.test(t)) type = 'tag';
   else if (/(karar verdim|yapacağım|planım|hedefim)/i.test(t)) type = 'decision';
   else type = 'answer';
-
-  // Tag extraction: #word patterns
-  const tags = (t.match(/#[\wğüşıöçĞÜŞİÖÇ]+/g) || []).map(x => x.slice(1));
-
-  // Entity hints (people @name, places, projects)
-  const mentions = (t.match(/@[\wğüşıöçĞÜŞİÖÇ]+/g) || []).map(x => x.slice(1));
-
-  return { type, tags, mentions };
+  const tags = (t.match(/#[\wğüşıöçĞÜŞİÖÇ]+/g)||[]).map(x=>x.slice(1));
+  return { type, tags };
 }
 
-// ══════════════════════════════════════
-// LAYER 2: LLM SEMANTIC ENRICHMENT
-// ══════════════════════════════════════
+// ── LAYER 2: GEMINI ENRICHMENT ──────────────────
 async function enrichEntry(entry) {
-  if (!ANTHROPIC_API_KEY || ANTHROPIC_API_KEY === 'YOUR_ANTHROPIC_API_KEY_HERE') return;
+  const ctx = S.universe.entries
+    .filter(e=>e.id!==entry.id&&e.status.semantic_enriched)
+    .map(e=>`[${e.id}]: ${e.text}`).slice(-15).join('\n');
 
-  const existingTexts = S.universe.entries
-    .filter(e => e.id !== entry.id && e.status.semantic_enriched)
-    .map(e => `[${e.id}]: ${e.text}`)
-    .slice(-20)
-    .join('\n');
+  const prompt = `Sen bir kişisel bilgi yönetim sisteminin anlam motorusun. SADECE JSON döndür.
 
-  const prompt = `Sen bir kişisel bilgi ve yaşam yönetim sisteminin anlam motorusun. Kullanıcı bir giriş yaptı. Bu girişi analiz et ve sadece JSON döndür.
-
-Kullanıcının mevcut evreni (son kayıtlar):
-${existingTexts || '(henüz kayıt yok)'}
+Mevcut kayıtlar:
+${ctx||'(henüz yok)'}
 
 Yeni giriş: "${entry.text}"
 Ham tip: ${entry.raw.type}
 
-Şu JSON formatında yanıt ver, başka hiçbir şey yazma:
-{
-  "intent": "kullanıcının bu girişle ne yapmak istediği (tek cümle, Türkçe)",
-  "entities": ["çıkarılan varlıklar: kişi, yer, proje, kavram"],
-  "summary": "girişin özeti (maksimum 8 kelime)",
-  "related_to": ["mevcut kayıtlardan ilişkili olan ID'ler, sadece gerçekten ilişkiliyse"],
-  "suggested_next_questions": ["bu giriş sonrası sorulması gereken 2-3 soru"],
-  "suggested_actions": ["önerilen somut aksiyonlar, maksimum 2"],
-  "confidence": 0.85
-}`;
+{"intent":"kullanıcı ne yapmak istiyor (Türkçe)","entities":["varlıklar"],"summary":"max 8 kelime özet","related_to":["ilişkili ID'ler"],"suggested_next_questions":["2-3 Türkçe soru"],"suggested_actions":["max 2 aksiyon"],"confidence":0.85}`;
 
   try {
-    showEnrichStatus(true);
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        messages: [{ role: 'user', content: prompt }]
-      })
+    document.getElementById('enrich-status').classList.add('active');
+    const res = await fetch(`${WORKER_URL}/gemini`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ contents:[{parts:[{text:prompt}]}], generationConfig:{temperature:0.3,maxOutputTokens:800} })
     });
-
     const data = await res.json();
-    const raw = data.content?.map(b => b.text || '').join('');
-    const cleaned = raw.replace(/```json|```/g, '').trim();
-    const parsed = JSON.parse(cleaned);
+    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text||'';
+    const parsed = JSON.parse(raw.replace(/```json|```/g,'').trim());
 
-    // Merge into entry
     entry.semantic = {
-      intent: parsed.intent || null,
-      entities: parsed.entities || [],
-      summary: parsed.summary || null,
-      related_to: parsed.related_to || [],
-      suggested_next_questions: parsed.suggested_next_questions || [],
-      suggested_actions: parsed.suggested_actions || [],
-      confidence: parsed.confidence || 0
+      intent:parsed.intent||null, entities:parsed.entities||[], summary:parsed.summary||null,
+      related_to:parsed.related_to||[], suggested_next_questions:parsed.suggested_next_questions||[],
+      suggested_actions:parsed.suggested_actions||[], confidence:parsed.confidence||0
     };
     entry.status.semantic_enriched = true;
 
-    // Update graph: draw semantic links
     drawSemanticLinks(entry);
+    updateNodeLabel(entry);
+    setEnrichDot(entry.id, false);
 
-    // Remove pending dot from node
-    setNodeEnrichDot(entry.id, false);
+    const panel = document.getElementById('panel');
+    if (panel.classList.contains('open') && document.getElementById('panel-title').dataset.entryId===entry.id) renderPanel(entry);
 
-    // Refresh panel if open
-    if (document.getElementById('panel').classList.contains('open') &&
-        document.getElementById('panel-title').dataset.entryId === entry.id) {
-      renderPanel(entry);
-    }
-
-    // Show suggested questions
     showSuggestions(entry.semantic.suggested_next_questions);
-
-    // Save enriched universe
-    await saveUniverse();
-
-  } catch(err) {
-    console.warn('Semantic enrichment failed:', err);
+    saveUniverse();
+  } catch(e) {
+    console.warn('Enrichment failed:', e);
   } finally {
-    showEnrichStatus(false);
+    document.getElementById('enrich-status').classList.remove('active');
   }
 }
 
-function showEnrichStatus(active) {
-  document.getElementById('enrich-status').classList.toggle('active', active);
-}
-
 async function runEnrichQueue() {
-  if (S.enrichRunning || S.enrichQueue.length === 0) return;
+  if (S.enrichRunning||!S.enrichQueue.length) return;
   S.enrichRunning = true;
-  while (S.enrichQueue.length > 0) {
+  while (S.enrichQueue.length) {
     const id = S.enrichQueue.shift();
-    const entry = S.universe.entries.find(e => e.id === id);
-    if (entry && !entry.status.semantic_enriched) {
-      await enrichEntry(entry);
-    }
+    const e = S.universe.entries.find(x=>x.id===id);
+    if (e&&!e.status.semantic_enriched) await enrichEntry(e);
   }
   S.enrichRunning = false;
 }
 
-// ══════════════════════════════════════
-// GOOGLE DRIVE
-// ══════════════════════════════════════
+// ── GOOGLE DRIVE ────────────────────────────────
 function connectGoogle() {
-  if (!window.google) { alert('Google Identity Services yüklenemedi.'); return; }
-  const tc = google.accounts.oauth2.initTokenClient({
-    client_id: GOOGLE_CLIENT_ID,
-    scope: DRIVE_SCOPE,
-    callback: async (resp) => {
-      if (resp.error) { console.error(resp); return; }
-      S.accessToken = resp.access_token;
-      S.mode = 'google';
-      await initDrive();
-      launchUniverse('Google Drive');
+  if (!window.google) { alert('Google yüklenemedi.'); return; }
+  google.accounts.oauth2.initTokenClient({
+    client_id:GOOGLE_CLIENT_ID, scope:DRIVE_SCOPE,
+    callback: async(resp) => {
+      if (resp.error) return;
+      S.accessToken = resp.access_token; S.mode = 'google';
+      await initDrive(); launchUniverse('Google Drive');
     }
-  });
-  tc.requestAccessToken();
+  }).requestAccessToken();
 }
 
 async function initDrive() {
-  let fid = await findDriveFolder();
-  if (!fid) fid = await createDriveFolder();
+  let fid = await findFolder(); if (!fid) fid = await createFolder();
   S.driveFolderId = fid;
-  let fileId = await findUniverseFile(fid);
-  if (!fileId) {
-    S.universe = createUniverse();
-    fileId = await createUniverseFile(fid);
-  } else {
-    S.driveFileId = fileId;
-    S.universe = await loadUniverseFile(fileId);
-  }
+  let fileId = await findFile(fid);
+  if (!fileId) { S.universe = createUniverse(); fileId = await createFile(fid); }
+  else { S.driveFileId = fileId; S.universe = await loadFile(fileId); }
   S.driveFileId = fileId;
 }
 
-async function driveReq(url, opts = {}) {
-  const res = await fetch(url, {
-    ...opts,
-    headers: { 'Authorization': 'Bearer ' + S.accessToken, 'Content-Type': 'application/json', ...(opts.headers || {}) }
-  });
-  return res.json();
+async function dReq(url,opts={}) {
+  const r = await fetch(url,{...opts,headers:{'Authorization':'Bearer '+S.accessToken,'Content-Type':'application/json',...(opts.headers||{})}});
+  return r.json();
 }
-
-async function findDriveFolder() {
-  const q = `name='${FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
-  const d = await driveReq(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)`);
-  return d.files?.[0]?.id || null;
+async function findFolder() {
+  const d = await dReq(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(`name='${FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`)}&fields=files(id)`);
+  return d.files?.[0]?.id||null;
 }
-
-async function createDriveFolder() {
-  const d = await driveReq('https://www.googleapis.com/drive/v3/files', {
-    method: 'POST', body: JSON.stringify({ name: FOLDER_NAME, mimeType: 'application/vnd.google-apps.folder' })
-  });
+async function createFolder() {
+  const d = await dReq('https://www.googleapis.com/drive/v3/files',{method:'POST',body:JSON.stringify({name:FOLDER_NAME,mimeType:'application/vnd.google-apps.folder'})});
   return d.id;
 }
-
-async function findUniverseFile(folderId) {
-  const q = `name='${UNIVERSE_FILENAME}' and '${folderId}' in parents and trashed=false`;
-  const d = await driveReq(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)`);
-  return d.files?.[0]?.id || null;
+async function findFile(fid) {
+  const d = await dReq(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(`name='${UNIVERSE_FILENAME}' and '${fid}' in parents and trashed=false`)}&fields=files(id)`);
+  return d.files?.[0]?.id||null;
 }
-
-async function createUniverseFile(folderId) {
+async function createFile(fid) {
   const form = new FormData();
-  form.append('metadata', new Blob([JSON.stringify({ name: UNIVERSE_FILENAME, parents: [folderId] })], { type: 'application/json' }));
-  form.append('file', new Blob([JSON.stringify(S.universe, null, 2)], { type: 'application/json' }));
-  const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
-    method: 'POST', headers: { 'Authorization': 'Bearer ' + S.accessToken }, body: form
-  });
-  const d = await res.json();
-  return d.id;
+  form.append('metadata',new Blob([JSON.stringify({name:UNIVERSE_FILENAME,parents:[fid]})],{type:'application/json'}));
+  form.append('file',new Blob([JSON.stringify(S.universe,null,2)],{type:'application/json'}));
+  const r = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',{method:'POST',headers:{'Authorization':'Bearer '+S.accessToken},body:form});
+  return (await r.json()).id;
 }
-
-async function loadUniverseFile(fileId) {
-  const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-    headers: { 'Authorization': 'Bearer ' + S.accessToken }
-  });
-  return res.json();
+async function loadFile(id) {
+  const r = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`,{headers:{'Authorization':'Bearer '+S.accessToken}});
+  return r.json();
 }
-
 async function saveUniverse() {
   S.universe.meta.updated = new Date().toISOString();
-  if (S.mode === 'local') {
-    localStorage.setItem('singular_universe', JSON.stringify(S.universe));
-    return;
-  }
-  if (!S.driveFileId || !S.accessToken) return;
-  await fetch(`https://www.googleapis.com/upload/drive/v3/files/${S.driveFileId}?uploadType=media`, {
-    method: 'PATCH',
-    headers: { 'Authorization': 'Bearer ' + S.accessToken, 'Content-Type': 'application/json' },
-    body: JSON.stringify(S.universe, null, 2)
+  if (S.mode==='local') { localStorage.setItem('singular_universe',JSON.stringify(S.universe)); return; }
+  if (!S.driveFileId||!S.accessToken) return;
+  await fetch(`https://www.googleapis.com/upload/drive/v3/files/${S.driveFileId}?uploadType=media`,{
+    method:'PATCH',headers:{'Authorization':'Bearer '+S.accessToken,'Content-Type':'application/json'},
+    body:JSON.stringify(S.universe,null,2)
   });
 }
 
-// ══════════════════════════════════════
-// LOCAL MODE
-// ══════════════════════════════════════
+// ── LOCAL MODE ──────────────────────────────────
 function connectLocal() {
   S.mode = 'local';
   const saved = localStorage.getItem('singular_universe');
@@ -451,397 +300,181 @@ function connectLocal() {
   launchUniverse('Yerel');
 }
 
-// ══════════════════════════════════════
-// LAUNCH
-// ══════════════════════════════════════
+// ── LAUNCH ──────────────────────────────────────
 function launchUniverse(label) {
   const boot = document.getElementById('boot');
   boot.classList.add('fade-out');
   setTimeout(() => {
     boot.style.display = 'none';
-    const u = document.getElementById('universe');
-    u.classList.add('active');
+    document.getElementById('universe').classList.add('active');
     document.getElementById('status-dot').classList.add('connected');
     document.getElementById('status-text').textContent = label;
     initCosmos();
     renderExistingEntries();
-    document.getElementById('input-field').addEventListener('keydown', e => { if (e.key === 'Enter') handleInput(); });
+    document.getElementById('input-field').addEventListener('keydown',e=>{if(e.key==='Enter')handleInput();});
     document.getElementById('input-field').focus();
   }, 800);
 }
 
-// ══════════════════════════════════════
-// COSMOS ENGINE
-// ══════════════════════════════════════
-const NS = 'http://www.w3.org/2000/svg';
-let svgEl, cx, cy;
-
-const NODE_STYLE = {
-  question: { fill:'rgba(96,165,250,.15)',  stroke:'#60a5fa' },
-  answer:   { fill:'rgba(52,211,153,.12)',  stroke:'#34d399' },
-  tag:      { fill:'rgba(245,158,11,.12)',  stroke:'#f59e0b' },
-  person:   { fill:'rgba(244,114,182,.12)', stroke:'#f472b6' },
-  action:   { fill:'rgba(192,132,252,.12)', stroke:'#c084fc' },
-  decision: { fill:'rgba(167,139,250,.18)', stroke:'#a78bfa' },
-  note:     { fill:'rgba(148,163,184,.1)',  stroke:'#94a3b8' }
+// ── COSMOS ──────────────────────────────────────
+const NS='http://www.w3.org/2000/svg';
+let svgEl,cx,cy;
+const NSTYLE={
+  question:{fill:'rgba(96,165,250,.15)',stroke:'#60a5fa'},
+  answer:{fill:'rgba(52,211,153,.12)',stroke:'#34d399'},
+  tag:{fill:'rgba(245,158,11,.12)',stroke:'#f59e0b'},
+  person:{fill:'rgba(244,114,182,.12)',stroke:'#f472b6'},
+  action:{fill:'rgba(192,132,252,.12)',stroke:'#c084fc'},
+  decision:{fill:'rgba(167,139,250,.18)',stroke:'#a78bfa'},
+  note:{fill:'rgba(148,163,184,.1)',stroke:'#94a3b8'}
 };
-
-function svgEl_(tag) { return document.createElementNS(NS, tag); }
+function mk(tag){return document.createElementNS(NS,tag);}
 
 function initCosmos() {
-  svgEl = document.getElementById('cosmos');
-  cx = window.innerWidth / 2;
-  cy = window.innerHeight / 2;
-  drawOrbits();
-  drawCore();
-  animateCore();
-  window.addEventListener('resize', () => {
-    cx = window.innerWidth / 2;
-    cy = window.innerHeight / 2;
-    svgEl.innerHTML = '';
-    drawOrbits();
-    drawCore();
-    animateCore();
-    rerenderAll();
-  });
+  svgEl=document.getElementById('cosmos');
+  cx=window.innerWidth/2; cy=window.innerHeight/2;
+  drawOrbits(); drawCore(); animCore();
+  window.addEventListener('resize',()=>{cx=window.innerWidth/2;cy=window.innerHeight/2;svgEl.innerHTML='';drawOrbits();drawCore();animCore();rerenderAll();});
 }
-
-function drawOrbits() {
-  [130, 230, 350, 490].forEach(r => {
-    const c = svgEl_('circle');
-    c.setAttribute('cx', cx); c.setAttribute('cy', cy);
-    c.setAttribute('r', r); c.setAttribute('class', 'orbit-ring');
-    svgEl.appendChild(c);
-  });
-}
-
-function drawCore() {
-  const g = svgEl_('g'); g.id = 'core-g';
-  const glow = svgEl_('circle');
-  glow.setAttribute('cx',cx); glow.setAttribute('cy',cy);
-  glow.setAttribute('r','52'); glow.setAttribute('class','core-inner');
-  g.appendChild(glow);
-  const ring = svgEl_('circle');
-  ring.setAttribute('cx',cx); ring.setAttribute('cy',cy);
-  ring.setAttribute('r','30'); ring.setAttribute('class','core-outer');
-  g.appendChild(ring);
-  const dot = svgEl_('circle');
-  dot.setAttribute('cx',cx); dot.setAttribute('cy',cy);
-  dot.setAttribute('r','4'); dot.setAttribute('class','core-dot');
-  g.appendChild(dot);
-  const pulse = svgEl_('circle');
-  pulse.setAttribute('cx',cx); pulse.setAttribute('cy',cy);
-  pulse.setAttribute('r','30'); pulse.setAttribute('class','core-pulse');
-  pulse.id = 'pulse-ring';
-  g.appendChild(pulse);
-  const lbl = svgEl_('text');
-  lbl.setAttribute('x',cx); lbl.setAttribute('y',cy+46);
-  lbl.setAttribute('text-anchor','middle');
-  lbl.setAttribute('fill','rgba(167,139,250,.35)');
-  lbl.setAttribute('font-size','8');
-  lbl.setAttribute('font-family','DM Mono,monospace');
-  lbl.setAttribute('letter-spacing','3');
-  lbl.textContent = 'SINGULAR';
-  g.appendChild(lbl);
-  g.style.cursor = 'pointer';
-  g.onclick = () => openPanelRaw({ type:'core', text:'Senin evreninin merkezi.', tags:[], created: S.universe?.meta?.created });
+function drawOrbits(){[130,230,350,490].forEach(r=>{const c=mk('circle');c.setAttribute('cx',cx);c.setAttribute('cy',cy);c.setAttribute('r',r);c.setAttribute('class','orbit-ring');svgEl.appendChild(c);});}
+function drawCore(){
+  const g=mk('g');g.id='core-g';
+  [[52,'core-inner'],[30,'core-outer'],[4,'core-dot']].forEach(([r,cls])=>{const c=mk('circle');c.setAttribute('cx',cx);c.setAttribute('cy',cy);c.setAttribute('r',r);c.setAttribute('class',cls);g.appendChild(c);});
+  const p=mk('circle');p.setAttribute('cx',cx);p.setAttribute('cy',cy);p.setAttribute('r','30');p.setAttribute('class','core-pulse');p.id='pulse-ring';g.appendChild(p);
+  const t=mk('text');t.setAttribute('x',cx);t.setAttribute('y',cy+46);t.setAttribute('text-anchor','middle');t.setAttribute('fill','rgba(167,139,250,.35)');t.setAttribute('font-size','8');t.setAttribute('font-family','DM Mono,monospace');t.setAttribute('letter-spacing','3');t.textContent='SINGULAR';g.appendChild(t);
+  g.style.cursor='pointer';g.onclick=()=>openPanelRaw({type:'core',text:'Senin evreninin merkezi.',created:S.universe?.meta?.created});
   svgEl.appendChild(g);
 }
-
-function animateCore() {
-  const ring = document.getElementById('pulse-ring');
-  if (!ring) return;
-  let r = 30, op = 0.5;
-  (function step() {
-    r += 0.25; op -= 0.006;
-    if (r > 65) { r = 30; op = 0.5; }
-    ring.setAttribute('r', r); ring.setAttribute('opacity', op);
-    requestAnimationFrame(step);
-  })();
+function animCore(){
+  const r=document.getElementById('pulse-ring');if(!r)return;
+  let rv=30,op=0.5;
+  (function s(){rv+=0.25;op-=0.006;if(rv>65){rv=30;op=0.5;}r.setAttribute('r',rv);r.setAttribute('opacity',op);requestAnimationFrame(s);})();
 }
-
-// Radial placement
-function getPos(index, total, orbit) {
-  const angle = (index / Math.max(total,1)) * 2 * Math.PI - Math.PI / 2;
-  return { x: cx + orbit * Math.cos(angle), y: cy + orbit * Math.sin(angle) };
-}
-
-function orbitFor(count) {
-  if (count <= 6) return 150;
-  if (count <= 14) return 250;
-  if (count <= 26) return 370;
-  return 500;
-}
+function getPos(i,total,orbit){const a=(i/Math.max(total,1))*2*Math.PI-Math.PI/2;return{x:cx+orbit*Math.cos(a),y:cy+orbit*Math.sin(a)};}
+function orbitFor(n){if(n<=6)return 150;if(n<=14)return 250;if(n<=26)return 370;return 500;}
 
 function addNodeToGraph(entry) {
-  const total = S.graphNodes.length + 1;
-  const orbit = orbitFor(total);
-  const pos = getPos(S.graphNodes.length, total, orbit);
-  S.graphNodes.push({ id: entry.id, x: pos.x, y: pos.y, entry });
+  const total=S.graphNodes.length+1;
+  const pos=getPos(S.graphNodes.length,total,orbitFor(total));
+  S.graphNodes.push({id:entry.id,x:pos.x,y:pos.y,entry});
+  const st=NSTYLE[entry.raw?.type]||NSTYLE.note;
+  const g=mk('g');g.setAttribute('class','g-node');g.setAttribute('data-id',entry.id);g.style.opacity='0';
 
-  const style = NODE_STYLE[entry.raw?.type] || NODE_STYLE.note;
-  const g = svgEl_('g');
-  g.setAttribute('class','g-node'); g.setAttribute('data-id', entry.id);
-  g.style.opacity = '0';
+  const link=mk('line');link.setAttribute('x1',cx);link.setAttribute('y1',cy);link.setAttribute('x2',pos.x);link.setAttribute('y2',pos.y);link.setAttribute('class','g-link core-link');link.setAttribute('data-link-id',entry.id);
+  svgEl.insertBefore(link,svgEl.children[4]||null);
 
-  // Core link
-  const link = svgEl_('line');
-  link.setAttribute('x1', cx); link.setAttribute('y1', cy);
-  link.setAttribute('x2', pos.x); link.setAttribute('y2', pos.y);
-  link.setAttribute('class','g-link core-link');
-  link.setAttribute('data-link-id', entry.id);
-  // Insert before first child so it renders behind nodes
-  svgEl.insertBefore(link, svgEl.children[5] || null);
+  const c=mk('circle');c.setAttribute('cx',pos.x);c.setAttribute('cy',pos.y);c.setAttribute('r','11');c.setAttribute('fill',st.fill);c.setAttribute('stroke',st.stroke);g.appendChild(c);
+  const d=mk('circle');d.setAttribute('cx',pos.x);d.setAttribute('cy',pos.y);d.setAttribute('r','3');d.setAttribute('fill',st.stroke);g.appendChild(d);
+  const ed=mk('circle');ed.setAttribute('cx',pos.x+9);ed.setAttribute('cy',pos.y-9);ed.setAttribute('r','3');ed.setAttribute('class','enrich-dot');ed.setAttribute('data-enrich',entry.id);
+  if(!entry.status?.semantic_enriched)ed.classList.add('pending');g.appendChild(ed);
+  const lbl=mk('text');lbl.setAttribute('x',pos.x);lbl.setAttribute('y',pos.y+22);lbl.setAttribute('text-anchor','middle');lbl.setAttribute('data-label',entry.id);
+  const sh=entry.semantic?.summary||entry.text;lbl.textContent=sh.length>16?sh.slice(0,16)+'…':sh;g.appendChild(lbl);
 
-  // Node circle
-  const circle = svgEl_('circle');
-  circle.setAttribute('cx', pos.x); circle.setAttribute('cy', pos.y);
-  circle.setAttribute('r','11');
-  circle.setAttribute('fill', style.fill);
-  circle.setAttribute('stroke', style.stroke);
-  g.appendChild(circle);
-
-  // Center dot
-  const dot = svgEl_('circle');
-  dot.setAttribute('cx', pos.x); dot.setAttribute('cy', pos.y);
-  dot.setAttribute('r','3'); dot.setAttribute('fill', style.stroke);
-  g.appendChild(dot);
-
-  // Enrichment pending dot
-  const edot = svgEl_('circle');
-  edot.setAttribute('cx', pos.x + 9); edot.setAttribute('cy', pos.y - 9);
-  edot.setAttribute('r','3'); edot.setAttribute('class','enrich-dot');
-  edot.setAttribute('data-enrich', entry.id);
-  if (!entry.status?.semantic_enriched) edot.classList.add('pending');
-  g.appendChild(edot);
-
-  // Label
-  const lbl = svgEl_('text');
-  lbl.setAttribute('x', pos.x); lbl.setAttribute('y', pos.y + 22);
-  lbl.setAttribute('text-anchor','middle');
-  const short = (entry.semantic?.summary || entry.text);
-  lbl.textContent = short.length > 16 ? short.slice(0,16) + '…' : short;
-  g.appendChild(lbl);
-
-  g.onclick = () => openPanelEntry(entry.id);
+  g.onclick=()=>openPanelEntry(entry.id);
   svgEl.appendChild(g);
-
-  // Fade in
-  requestAnimationFrame(() => {
-    g.style.transition = 'opacity .6s';
-    g.style.opacity = '1';
-  });
-
-  document.getElementById('node-count').textContent = S.graphNodes.length + ' node';
-  if (S.graphNodes.length === 1) document.getElementById('hint').style.opacity = '0';
+  requestAnimationFrame(()=>{g.style.transition='opacity .6s';g.style.opacity='1';});
+  document.getElementById('node-count').textContent=S.graphNodes.length+' node';
+  if(S.graphNodes.length===1)document.getElementById('hint').style.opacity='0';
 }
 
-function setNodeEnrichDot(entryId, pending) {
-  const dot = svgEl.querySelector(`[data-enrich="${entryId}"]`);
-  if (dot) dot.classList.toggle('pending', pending);
+function updateNodeLabel(entry){
+  const l=svgEl.querySelector(`[data-label="${entry.id}"]`);
+  if(!l)return;const s=entry.semantic?.summary||entry.text;l.textContent=s.length>16?s.slice(0,16)+'…':s;
 }
-
-function drawSemanticLinks(entry) {
-  if (!entry.semantic?.related_to?.length) return;
-  const fromNode = S.graphNodes.find(n => n.id === entry.id);
-  if (!fromNode) return;
-
-  entry.semantic.related_to.forEach(relId => {
-    const toNode = S.graphNodes.find(n => n.id === relId);
-    if (!toNode) return;
-
-    const line = svgEl_('line');
-    line.setAttribute('x1', fromNode.x); line.setAttribute('y1', fromNode.y);
-    line.setAttribute('x2', toNode.x);   line.setAttribute('y2', toNode.y);
-    line.setAttribute('class','g-link semantic-link');
-
-    // Insert after orbit rings but before nodes
-    svgEl.insertBefore(line, svgEl.children[5] || null);
-
-    // Also update links array
-    S.universe.links.push({ from: entry.id, to: relId, type: 'semantic' });
+function setEnrichDot(id,pending){const d=svgEl.querySelector(`[data-enrich="${id}"]`);if(d)d.classList.toggle('pending',pending);}
+function drawSemanticLinks(entry){
+  if(!entry.semantic?.related_to?.length)return;
+  const fn=S.graphNodes.find(n=>n.id===entry.id);if(!fn)return;
+  entry.semantic.related_to.forEach(rid=>{
+    const tn=S.graphNodes.find(n=>n.id===rid);if(!tn)return;
+    const l=mk('line');l.setAttribute('x1',fn.x);l.setAttribute('y1',fn.y);l.setAttribute('x2',tn.x);l.setAttribute('y2',tn.y);l.setAttribute('class','g-link semantic-link');
+    svgEl.insertBefore(l,svgEl.children[4]||null);
+    S.universe.links.push({from:entry.id,to:rid,type:'semantic'});
   });
 }
-
-function rerenderAll() {
-  document.querySelectorAll('.g-node,[data-link-id],.semantic-link').forEach(el => el.remove());
-  const saved = [...S.graphNodes];
-  S.graphNodes = [];
-  saved.forEach(n => addNodeToGraph(n.entry));
+function rerenderAll(){
+  document.querySelectorAll('.g-node,[data-link-id],.semantic-link').forEach(e=>e.remove());
+  const s=[...S.graphNodes];S.graphNodes=[];
+  s.forEach(n=>addNodeToGraph(n.entry));
+  s.filter(n=>n.entry.status?.semantic_enriched).forEach(n=>drawSemanticLinks(n.entry));
+}
+function renderExistingEntries(){
+  if(!S.universe?.entries)return;
+  S.universe.entries.forEach(e=>addNodeToGraph(e));
+  S.universe.entries.filter(e=>e.status?.semantic_enriched).forEach(e=>drawSemanticLinks(e));
 }
 
-function renderExistingEntries() {
-  if (!S.universe?.entries) return;
-  S.universe.entries.forEach(e => addNodeToGraph(e));
-  // Re-draw semantic links for already-enriched entries
-  S.universe.entries.filter(e => e.status?.semantic_enriched).forEach(e => drawSemanticLinks(e));
-}
-
-// ══════════════════════════════════════
-// INPUT HANDLER
-// ══════════════════════════════════════
-async function handleInput() {
-  const field = document.getElementById('input-field');
-  const text = field.value.trim();
-  if (!text) return;
-  field.value = '';
-  hideSuggestions();
-
-  // STEP 1: Create raw entry immediately
-  const entry = createEntry(text);
+// ── INPUT ───────────────────────────────────────
+async function handleInput(){
+  const f=document.getElementById('input-field');
+  const text=f.value.trim();if(!text)return;
+  f.value='';hideSuggestions();
+  const entry=createEntry(text);
   S.universe.entries.push(entry);
-
-  // STEP 2: Add to graph immediately
   addNodeToGraph(entry);
-
-  // STEP 3: Save raw (non-blocking)
-  entry.status.saved = true;
+  entry.status.saved=true;
   saveUniverse();
-
-  // STEP 4: Queue semantic enrichment
   S.enrichQueue.push(entry.id);
   runEnrichQueue();
 }
 
-// ══════════════════════════════════════
-// SUGGESTIONS
-// ══════════════════════════════════════
-function showSuggestions(questions) {
-  if (!questions?.length) return;
-  const el = document.getElementById('suggestions');
-  el.innerHTML = '';
-  questions.slice(0,3).forEach(q => {
-    const btn = document.createElement('button');
-    btn.className = 'sug-btn';
-    btn.textContent = q;
-    btn.onclick = () => {
-      document.getElementById('input-field').value = q;
-      document.getElementById('input-field').focus();
-      hideSuggestions();
-    };
-    el.appendChild(btn);
+// ── SUGGESTIONS ─────────────────────────────────
+function showSuggestions(qs){
+  if(!qs?.length)return;
+  const el=document.getElementById('suggestions');el.innerHTML='';
+  qs.slice(0,3).forEach(q=>{
+    const b=document.createElement('button');b.className='sug-btn';b.textContent=q;
+    b.onclick=()=>{document.getElementById('input-field').value=q;document.getElementById('input-field').focus();hideSuggestions();};
+    el.appendChild(b);
   });
   el.classList.add('visible');
 }
+function hideSuggestions(){document.getElementById('suggestions').classList.remove('visible');}
 
-function hideSuggestions() {
-  document.getElementById('suggestions').classList.remove('visible');
-}
+// ── PANEL ───────────────────────────────────────
+function openPanelEntry(id){const e=S.universe.entries.find(x=>x.id===id);if(e)renderPanel(e);}
+function openPanelRaw(obj){renderPanel(obj);}
+function renderPanel(entry){
+  const type=entry.raw?.type||entry.type||'note';
+  const badge=document.getElementById('panel-badge');badge.textContent=type;badge.className='panel-badge badge-'+type;
+  const title=document.getElementById('panel-title');title.textContent=entry.text||'—';title.dataset.entryId=entry.id||'';
+  document.getElementById('panel-meta').textContent=entry.created?new Date(entry.created).toLocaleString('tr-TR'):'—';
+  const body=document.getElementById('panel-body');body.innerHTML='';
 
-// ══════════════════════════════════════
-// DETAIL PANEL
-// ══════════════════════════════════════
-function openPanelEntry(id) {
-  const entry = S.universe.entries.find(e => e.id === id);
-  if (entry) renderPanel(entry);
-}
+  if(entry.id&&!entry.status?.semantic_enriched){const el=document.createElement('div');el.className='panel-enriching';el.textContent='⬡ Anlam katmanı yükleniyor...';body.appendChild(el);}
+  if(entry.semantic?.intent)body.appendChild(ps('Niyet',entry.semantic.intent));
+  if(entry.semantic?.summary)body.appendChild(ps('Özet',entry.semantic.summary));
+  if(entry.semantic?.entities?.length)body.appendChild(ps('Varlıklar',entry.semantic.entities.join(' · ')));
 
-function openPanelRaw(obj) {
-  renderPanel(obj);
-}
-
-function renderPanel(entry) {
-  const type = entry.raw?.type || entry.type || 'note';
-  const badge = document.getElementById('panel-badge');
-  badge.textContent = type;
-  badge.className = 'panel-badge badge-' + type;
-
-  const titleEl = document.getElementById('panel-title');
-  titleEl.textContent = entry.text || '—';
-  titleEl.dataset.entryId = entry.id || '';
-
-  document.getElementById('panel-meta').textContent =
-    entry.created ? new Date(entry.created).toLocaleString('tr-TR') : '—';
-
-  const body = document.getElementById('panel-body');
-  body.innerHTML = '';
-
-  // If still enriching
-  if (entry.id && !entry.status?.semantic_enriched && !entry.semantic?.intent) {
-    const enriching = document.createElement('div');
-    enriching.className = 'panel-enriching';
-    enriching.textContent = '⬡ Anlam katmanı yükleniyor...';
-    body.appendChild(enriching);
+  const tags=entry.raw?.tags||[];
+  if(tags.length){
+    const sec=document.createElement('div');sec.className='panel-section';
+    const lbl=document.createElement('div');lbl.className='panel-section-label';lbl.textContent='Etiketler';
+    const row=document.createElement('div');row.className='panel-tags';
+    tags.forEach(t=>{const s=document.createElement('span');s.className='panel-tag';s.textContent='#'+t;row.appendChild(s);});
+    sec.appendChild(lbl);sec.appendChild(row);body.appendChild(sec);
   }
-
-  // Intent
-  if (entry.semantic?.intent) {
-    body.appendChild(panelSection('Niyet', entry.semantic.intent));
-  }
-
-  // Summary
-  if (entry.semantic?.summary) {
-    body.appendChild(panelSection('Özet', entry.semantic.summary));
-  }
-
-  // Entities
-  if (entry.semantic?.entities?.length) {
-    body.appendChild(panelSection('Varlıklar', entry.semantic.entities.join(' · ')));
-  }
-
-  // Tags
-  const tags = [...(entry.raw?.tags || [])];
-  if (tags.length) {
-    const sec = document.createElement('div');
-    sec.className = 'panel-section';
-    const lbl = document.createElement('div');
-    lbl.className = 'panel-section-label'; lbl.textContent = 'Etiketler';
-    const tagRow = document.createElement('div');
-    tagRow.className = 'panel-tags';
-    tags.forEach(t => {
-      const span = document.createElement('span');
-      span.className = 'panel-tag'; span.textContent = '#' + t;
-      tagRow.appendChild(span);
+  if(entry.semantic?.suggested_next_questions?.length){
+    const sec=document.createElement('div');sec.className='panel-section';
+    const lbl=document.createElement('div');lbl.className='panel-section-label';lbl.textContent='Önerilen sorular';
+    const ql=document.createElement('div');ql.className='panel-questions';
+    entry.semantic.suggested_next_questions.forEach(q=>{
+      const b=document.createElement('button');b.className='panel-q-btn';b.textContent=q;
+      b.onclick=()=>{document.getElementById('input-field').value=q;document.getElementById('input-field').focus();closePanel();};
+      ql.appendChild(b);
     });
-    sec.appendChild(lbl); sec.appendChild(tagRow);
-    body.appendChild(sec);
+    sec.appendChild(lbl);sec.appendChild(ql);body.appendChild(sec);
   }
-
-  // Suggested questions
-  if (entry.semantic?.suggested_next_questions?.length) {
-    const sec = document.createElement('div');
-    sec.className = 'panel-section';
-    const lbl = document.createElement('div');
-    lbl.className = 'panel-section-label'; lbl.textContent = 'Önerilen sorular';
-    const qlist = document.createElement('div');
-    qlist.className = 'panel-questions';
-    entry.semantic.suggested_next_questions.forEach(q => {
-      const btn = document.createElement('button');
-      btn.className = 'panel-q-btn'; btn.textContent = q;
-      btn.onclick = () => {
-        document.getElementById('input-field').value = q;
-        document.getElementById('input-field').focus();
-        closePanel();
-      };
-      qlist.appendChild(btn);
-    });
-    sec.appendChild(lbl); sec.appendChild(qlist);
-    body.appendChild(sec);
-  }
-
-  // Suggested actions
-  if (entry.semantic?.suggested_actions?.length) {
-    body.appendChild(panelSection('Önerilen aksiyonlar',
-      entry.semantic.suggested_actions.join('\n')));
-  }
-
+  if(entry.semantic?.suggested_actions?.length)body.appendChild(ps('Önerilen aksiyonlar',entry.semantic.suggested_actions.join('\n')));
   document.getElementById('panel').classList.add('open');
 }
-
-function panelSection(label, text) {
-  const sec = document.createElement('div');
-  sec.className = 'panel-section';
-  const lbl = document.createElement('div');
-  lbl.className = 'panel-section-label'; lbl.textContent = label;
-  const body = document.createElement('div');
-  body.className = 'panel-section-body'; body.textContent = text;
-  sec.appendChild(lbl); sec.appendChild(body);
-  return sec;
+function ps(label,text){
+  const s=document.createElement('div');s.className='panel-section';
+  const l=document.createElement('div');l.className='panel-section-label';l.textContent=label;
+  const b=document.createElement('div');b.className='panel-section-body';b.textContent=text;
+  s.appendChild(l);s.appendChild(b);return s;
 }
-
-function closePanel() {
-  document.getElementById('panel').classList.remove('open');
-}
+function closePanel(){document.getElementById('panel').classList.remove('open');}
 </script>
 </body>
 </html>
