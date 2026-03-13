@@ -6,383 +6,127 @@
 <title>SINGULAR</title>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Serif+Display:ital@0;1&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Serif+Display:ital@0;1&display=swap');
+:root {
+  --bg:#080810;--bg2:#0e0e1a;--bg3:#13131f;
+  --core:#a78bfa;--core-glow:rgba(167,139,250,0.15);
+  --text:#e2e0f0;--text-muted:#6b6880;--text-dim:#3a3850;
+  --border:rgba(167,139,250,0.12);--border-bright:rgba(167,139,250,0.3);
+  --q:#60a5fa;--a:#34d399;--t:#f59e0b;--p:#f472b6;--act:#c084fc;
+  --panel:rgba(14,14,26,0.97);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;height:100vh;overflow:hidden;}
 
-  :root {
-    --bg: #080810;
-    --bg2: #0e0e1a;
-    --core: #a78bfa;
-    --core-glow: rgba(167,139,250,0.15);
-    --core-glow2: rgba(167,139,250,0.04);
-    --text: #e2e0f0;
-    --text-muted: #6b6880;
-    --text-dim: #3a3850;
-    --border: rgba(167,139,250,0.12);
-    --border-bright: rgba(167,139,250,0.3);
-    --node-q: #60a5fa;
-    --node-a: #34d399;
-    --node-t: #f59e0b;
-    --node-p: #f472b6;
-    --panel-bg: rgba(14,14,26,0.97);
-  }
+/* BOOT */
+#boot{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg);z-index:100;transition:opacity .8s ease,transform .8s ease;}
+#boot.fade-out{opacity:0;transform:scale(1.04);pointer-events:none;}
+.boot-logo{font-family:'DM Serif Display',serif;font-size:3.5rem;letter-spacing:.3em;opacity:.9;margin-bottom:.25rem;}
+.boot-sub{font-size:.6rem;letter-spacing:.4em;color:var(--text-muted);text-transform:uppercase;margin-bottom:3.5rem;}
+.boot-card{background:var(--bg2);border:.5px solid var(--border-bright);border-radius:12px;padding:2rem 2.5rem;width:340px;text-align:center;}
+.boot-card-title{font-size:.65rem;letter-spacing:.25em;color:var(--text-muted);text-transform:uppercase;margin-bottom:1.5rem;}
+.btn-google{width:100%;padding:.85rem 1.25rem;background:transparent;border:.5px solid var(--border-bright);border-radius:8px;color:var(--text);font-family:'DM Mono',monospace;font-size:.75rem;letter-spacing:.1em;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:.75rem;transition:background .2s,border-color .2s;margin-bottom:.75rem;}
+.btn-google:hover{background:rgba(167,139,250,.07);border-color:var(--core);}
+.btn-google svg{width:16px;height:16px;flex-shrink:0;}
+.btn-local{width:100%;padding:.7rem 1.25rem;background:transparent;border:.5px solid var(--text-dim);border-radius:8px;color:var(--text-muted);font-family:'DM Mono',monospace;font-size:.7rem;letter-spacing:.1em;cursor:pointer;transition:color .2s,border-color .2s;}
+.btn-local:hover{color:var(--text);border-color:var(--text-muted);}
+.boot-note{font-size:.6rem;color:var(--text-dim);margin-top:1.25rem;line-height:1.7;}
 
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+/* UNIVERSE */
+#universe{position:fixed;inset:0;opacity:0;transition:opacity 1s ease;pointer-events:none;}
+#universe.active{opacity:1;pointer-events:all;}
+#cosmos{position:absolute;inset:0;width:100%;height:100%;}
+.orbit-ring{fill:none;stroke:rgba(167,139,250,.04);stroke-width:.5;}
+.core-outer{fill:none;stroke:var(--core);stroke-width:.5;opacity:.4;}
+.core-inner{fill:var(--core-glow);}
+.core-dot{fill:var(--core);}
+.core-pulse{fill:none;stroke:var(--core);stroke-width:.5;opacity:0;}
+.g-node{cursor:pointer;}
+.g-node circle{stroke-width:.5;}
+.g-node text{font-family:'DM Mono',monospace;font-size:9px;fill:rgba(226,224,240,.55);pointer-events:none;}
+.g-link{fill:none;stroke-width:.5;}
+.g-link.core-link{stroke:rgba(167,139,250,.12);}
+.g-link.semantic-link{stroke:rgba(52,211,153,.25);stroke-dasharray:3,3;}
 
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'DM Mono', monospace;
-    height: 100vh;
-    overflow: hidden;
-    cursor: default;
-  }
+/* ENRICHMENT INDICATOR */
+.enrich-dot{fill:#f59e0b;opacity:0;}
+.enrich-dot.pending{opacity:1;animation:blink 1.2s infinite;}
+@keyframes blink{0%,100%{opacity:.8;}50%{opacity:.2;}}
 
-  /* ── BOOT SCREEN ── */
-  #boot {
-    position: fixed; inset: 0;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    background: var(--bg);
-    z-index: 100;
-    transition: opacity 0.8s ease, transform 0.8s ease;
-  }
-  #boot.fade-out {
-    opacity: 0;
-    transform: scale(1.04);
-    pointer-events: none;
-  }
+/* INPUT BAR */
+#input-bar{position:fixed;bottom:2.5rem;left:50%;transform:translateX(-50%);width:min(600px,92vw);display:flex;align-items:center;background:var(--bg2);border:.5px solid var(--border-bright);border-radius:12px;overflow:hidden;box-shadow:0 0 40px rgba(167,139,250,.08);}
+#input-field{flex:1;padding:1rem 1.25rem;background:transparent;border:none;outline:none;color:var(--text);font-family:'DM Mono',monospace;font-size:.78rem;letter-spacing:.03em;}
+#input-field::placeholder{color:var(--text-muted);}
+#input-send{padding:.75rem 1.25rem;background:transparent;border:none;border-left:.5px solid var(--border);color:var(--core);cursor:pointer;font-size:1rem;font-family:'DM Mono',monospace;transition:background .2s;}
+#input-send:hover{background:var(--core-glow);}
 
-  .boot-logo {
-    font-family: 'DM Serif Display', serif;
-    font-size: 3.5rem;
-    letter-spacing: 0.3em;
-    color: var(--text);
-    opacity: 0.9;
-    margin-bottom: 0.25rem;
-  }
-  .boot-sub {
-    font-size: 0.6rem;
-    letter-spacing: 0.4em;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    margin-bottom: 3.5rem;
-  }
+/* HINT */
+#hint{position:fixed;bottom:5.5rem;left:50%;transform:translateX(-50%);font-size:.62rem;letter-spacing:.2em;color:var(--text-dim);text-transform:uppercase;text-align:center;transition:opacity .5s;white-space:nowrap;pointer-events:none;}
 
-  .boot-card {
-    background: var(--bg2);
-    border: 0.5px solid var(--border-bright);
-    border-radius: 12px;
-    padding: 2rem 2.5rem;
-    width: 340px;
-    text-align: center;
-  }
-  .boot-card-title {
-    font-size: 0.65rem;
-    letter-spacing: 0.25em;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    margin-bottom: 1.5rem;
-  }
+/* SUGGESTED QUESTIONS */
+#suggestions{position:fixed;bottom:6.5rem;left:50%;transform:translateX(-50%);width:min(600px,92vw);display:flex;flex-wrap:wrap;gap:.4rem;justify-content:center;opacity:0;transition:opacity .4s;}
+#suggestions.visible{opacity:1;}
+.sug-btn{font-size:.62rem;padding:.3rem .7rem;background:transparent;border:.5px solid var(--border);border-radius:20px;color:var(--text-muted);cursor:pointer;font-family:'DM Mono',monospace;letter-spacing:.05em;transition:color .2s,border-color .2s,background .2s;}
+.sug-btn:hover{color:var(--text);border-color:var(--core);background:rgba(167,139,250,.06);}
 
-  .btn-google {
-    width: 100%;
-    padding: 0.85rem 1.25rem;
-    background: transparent;
-    border: 0.5px solid var(--border-bright);
-    border-radius: 8px;
-    color: var(--text);
-    font-family: 'DM Mono', monospace;
-    font-size: 0.75rem;
-    letter-spacing: 0.1em;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.75rem;
-    transition: background 0.2s, border-color 0.2s;
-    margin-bottom: 0.75rem;
-  }
-  .btn-google:hover {
-    background: rgba(167,139,250,0.07);
-    border-color: var(--core);
-  }
-  .btn-google svg { width: 16px; height: 16px; flex-shrink: 0; }
+/* STATUS */
+#status{position:fixed;top:1.5rem;left:1.5rem;display:flex;align-items:center;gap:.5rem;font-size:.6rem;letter-spacing:.15em;color:var(--text-dim);text-transform:uppercase;}
+.status-dot{width:5px;height:5px;border-radius:50%;background:var(--text-dim);transition:background .3s;}
+.status-dot.connected{background:#34d399;box-shadow:0 0 6px #34d399;}
 
-  .btn-local {
-    width: 100%;
-    padding: 0.7rem 1.25rem;
-    background: transparent;
-    border: 0.5px solid var(--text-dim);
-    border-radius: 8px;
-    color: var(--text-muted);
-    font-family: 'DM Mono', monospace;
-    font-size: 0.7rem;
-    letter-spacing: 0.1em;
-    cursor: pointer;
-    transition: color 0.2s, border-color 0.2s;
-  }
-  .btn-local:hover { color: var(--text); border-color: var(--text-muted); }
+/* NODE COUNT + ENRICH STATUS */
+#topright{position:fixed;top:1.5rem;right:1.5rem;text-align:right;font-size:.6rem;letter-spacing:.1em;color:var(--text-dim);text-transform:uppercase;line-height:1.8;}
+#enrich-status{font-size:.55rem;color:var(--t);opacity:0;transition:opacity .3s;}
+#enrich-status.active{opacity:1;}
 
-  .boot-note {
-    font-size: 0.6rem;
-    color: var(--text-dim);
-    margin-top: 1.25rem;
-    line-height: 1.7;
-  }
-
-  /* ── MAIN UNIVERSE ── */
-  #universe {
-    position: fixed; inset: 0;
-    opacity: 0;
-    transition: opacity 1s ease;
-    pointer-events: none;
-  }
-  #universe.active {
-    opacity: 1;
-    pointer-events: all;
-  }
-
-  /* SVG canvas */
-  #cosmos {
-    position: absolute; inset: 0;
-    width: 100%; height: 100%;
-  }
-
-  /* orbit rings */
-  .orbit-ring {
-    fill: none;
-    stroke: rgba(167,139,250,0.04);
-    stroke-width: 0.5;
-  }
-
-  /* core node */
-  .core-outer {
-    fill: none;
-    stroke: var(--core);
-    stroke-width: 0.5;
-    opacity: 0.4;
-  }
-  .core-inner {
-    fill: var(--core-glow);
-  }
-  .core-dot {
-    fill: var(--core);
-  }
-  .core-pulse {
-    fill: none;
-    stroke: var(--core);
-    stroke-width: 0.5;
-    opacity: 0;
-  }
-
-  /* graph nodes */
-  .g-node { cursor: pointer; }
-  .g-node circle {
-    stroke-width: 0.5;
-    transition: r 0.2s;
-  }
-  .g-node:hover circle { opacity: 0.9; }
-  .g-node text {
-    font-family: 'DM Mono', monospace;
-    font-size: 9px;
-    fill: rgba(226,224,240,0.6);
-    pointer-events: none;
-  }
-  .g-link {
-    fill: none;
-    stroke: rgba(167,139,250,0.15);
-    stroke-width: 0.5;
-  }
-
-  /* ── INPUT BAR ── */
-  #input-bar {
-    position: fixed;
-    bottom: 2.5rem;
-    left: 50%;
-    transform: translateX(-50%);
-    width: min(580px, 90vw);
-    display: flex;
-    align-items: center;
-    gap: 0;
-    background: var(--bg2);
-    border: 0.5px solid var(--border-bright);
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 0 40px rgba(167,139,250,0.08);
-  }
-
-  #input-field {
-    flex: 1;
-    padding: 1rem 1.25rem;
-    background: transparent;
-    border: none;
-    outline: none;
-    color: var(--text);
-    font-family: 'DM Mono', monospace;
-    font-size: 0.78rem;
-    letter-spacing: 0.03em;
-  }
-  #input-field::placeholder { color: var(--text-muted); }
-
-  #input-send {
-    padding: 0.75rem 1.25rem;
-    background: transparent;
-    border: none;
-    border-left: 0.5px solid var(--border);
-    color: var(--core);
-    cursor: pointer;
-    font-size: 1rem;
-    font-family: 'DM Mono', monospace;
-    transition: background 0.2s;
-  }
-  #input-send:hover { background: var(--core-glow); }
-
-  /* ── ENTRY HINT ── */
-  #hint {
-    position: fixed;
-    bottom: 5.5rem;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 0.62rem;
-    letter-spacing: 0.2em;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    text-align: center;
-    transition: opacity 0.5s;
-    white-space: nowrap;
-  }
-
-  /* ── DETAIL PANEL ── */
-  #panel {
-    position: fixed;
-    top: 50%;
-    right: -360px;
-    transform: translateY(-50%);
-    width: 320px;
-    max-height: 70vh;
-    background: var(--panel-bg);
-    border: 0.5px solid var(--border-bright);
-    border-radius: 12px;
-    padding: 1.5rem;
-    transition: right 0.4s cubic-bezier(0.16,1,0.3,1);
-    overflow-y: auto;
-    z-index: 50;
-  }
-  #panel.open { right: 1.5rem; }
-
-  .panel-close {
-    position: absolute;
-    top: 1rem; right: 1rem;
-    background: transparent;
-    border: none;
-    color: var(--text-muted);
-    cursor: pointer;
-    font-size: 0.9rem;
-    font-family: 'DM Mono', monospace;
-    transition: color 0.2s;
-  }
-  .panel-close:hover { color: var(--text); }
-
-  .panel-type {
-    font-size: 0.55rem;
-    letter-spacing: 0.3em;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    margin-bottom: 0.5rem;
-  }
-  .panel-title {
-    font-family: 'DM Serif Display', serif;
-    font-size: 1.1rem;
-    color: var(--text);
-    margin-bottom: 1rem;
-    line-height: 1.4;
-  }
-  .panel-meta {
-    font-size: 0.6rem;
-    color: var(--text-dim);
-    margin-bottom: 1rem;
-    letter-spacing: 0.1em;
-  }
-  .panel-tags {
-    display: flex; flex-wrap: wrap; gap: 0.4rem;
-  }
-  .panel-tag {
-    font-size: 0.6rem;
-    padding: 0.25rem 0.6rem;
-    border: 0.5px solid var(--border-bright);
-    border-radius: 4px;
-    color: var(--core);
-    letter-spacing: 0.1em;
-  }
-
-  /* ── STATUS ── */
-  #status {
-    position: fixed;
-    top: 1.5rem; left: 1.5rem;
-    display: flex; align-items: center; gap: 0.5rem;
-    font-size: 0.6rem;
-    letter-spacing: 0.15em;
-    color: var(--text-dim);
-    text-transform: uppercase;
-  }
-  .status-dot {
-    width: 5px; height: 5px;
-    border-radius: 50%;
-    background: var(--text-dim);
-    transition: background 0.3s;
-  }
-  .status-dot.connected { background: #34d399; box-shadow: 0 0 6px #34d399; }
-
-  /* ── NODE COUNT ── */
-  #node-count {
-    position: fixed;
-    top: 1.5rem; right: 1.5rem;
-    font-size: 0.6rem;
-    letter-spacing: 0.15em;
-    color: var(--text-dim);
-    text-transform: uppercase;
-  }
-
-  /* scrollbar */
-  ::-webkit-scrollbar { width: 4px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+/* DETAIL PANEL */
+#panel{position:fixed;top:50%;right:-380px;transform:translateY(-50%);width:340px;max-height:75vh;background:var(--panel);border:.5px solid var(--border-bright);border-radius:12px;padding:1.5rem;transition:right .4s cubic-bezier(.16,1,.3,1);overflow-y:auto;z-index:50;}
+#panel.open{right:1.5rem;}
+.panel-close{position:absolute;top:1rem;right:1rem;background:transparent;border:none;color:var(--text-muted);cursor:pointer;font-size:.9rem;font-family:'DM Mono',monospace;}
+.panel-close:hover{color:var(--text);}
+.panel-badge{display:inline-block;font-size:.5rem;letter-spacing:.3em;text-transform:uppercase;padding:.25rem .6rem;border-radius:4px;margin-bottom:.75rem;}
+.badge-question{background:rgba(96,165,250,.12);color:var(--q);}
+.badge-answer{background:rgba(52,211,153,.12);color:var(--a);}
+.badge-tag{background:rgba(245,158,11,.12);color:var(--t);}
+.badge-person{background:rgba(244,114,182,.12);color:var(--p);}
+.badge-action{background:rgba(192,132,252,.12);color:var(--act);}
+.badge-core{background:rgba(167,139,250,.12);color:var(--core);}
+.panel-title{font-family:'DM Serif Display',serif;font-size:1.05rem;color:var(--text);margin-bottom:.75rem;line-height:1.5;}
+.panel-meta{font-size:.58rem;color:var(--text-dim);margin-bottom:1rem;letter-spacing:.08em;}
+.panel-section{margin-bottom:1rem;}
+.panel-section-label{font-size:.55rem;letter-spacing:.25em;text-transform:uppercase;color:var(--text-muted);margin-bottom:.4rem;}
+.panel-section-body{font-size:.68rem;color:var(--text-muted);line-height:1.7;}
+.panel-tags{display:flex;flex-wrap:wrap;gap:.35rem;}
+.panel-tag{font-size:.58rem;padding:.2rem .55rem;border:.5px solid var(--border-bright);border-radius:4px;color:var(--core);}
+.panel-questions{display:flex;flex-direction:column;gap:.4rem;}
+.panel-q-btn{font-size:.62rem;padding:.35rem .7rem;background:transparent;border:.5px solid var(--border);border-radius:6px;color:var(--text-muted);cursor:pointer;font-family:'DM Mono',monospace;text-align:left;transition:color .2s,border-color .2s;}
+.panel-q-btn:hover{color:var(--text);border-color:var(--core);}
+.panel-enriching{font-size:.62rem;color:var(--t);animation:blink 1.2s infinite;}
+.panel-divider{border:none;border-top:.5px solid var(--border);margin:.75rem 0;}
+::-webkit-scrollbar{width:3px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
 </style>
 </head>
 <body>
 
-<!-- ══ BOOT SCREEN ══ -->
+<!-- BOOT -->
 <div id="boot">
   <div class="boot-logo">SINGULAR</div>
   <div class="boot-sub">kişisel evren sistemi</div>
-
   <div class="boot-card">
     <div class="boot-card-title">Evrenini nerede saklayalım?</div>
-
     <button class="btn-google" onclick="connectGoogle()">
-      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-      </svg>
+      <svg viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
       Google Drive ile bağlan
     </button>
-
-    <button class="btn-local" onclick="connectLocal()">
-      Yerel cihazda sakla
-    </button>
-
-    <div class="boot-note">
-      Google Drive: universe.json Drive'ında güvenli saklanır.<br>
-      Yerel: Veri yalnızca bu tarayıcıda kalır.
-    </div>
+    <button class="btn-local" onclick="connectLocal()">Yerel cihazda sakla</button>
+    <div class="boot-note">Google Drive: universe.json Drive'ında güvenli saklanır.<br>Yerel: Veri yalnızca bu tarayıcıda kalır.</div>
   </div>
 </div>
 
-<!-- ══ UNIVERSE ══ -->
+<!-- UNIVERSE -->
 <div id="universe">
-
   <svg id="cosmos"></svg>
 
   <div id="status">
@@ -390,58 +134,59 @@
     <span id="status-text">bağlanıyor...</span>
   </div>
 
-  <div id="node-count">0 node</div>
+  <div id="topright">
+    <div id="node-count">0 node</div>
+    <div id="enrich-status">⬡ zenginleştiriliyor...</div>
+  </div>
 
-  <div id="hint">Evreni başlatmak için bir soru sor veya bir şey yaz</div>
+  <div id="hint">Evreni başlatmak için bir şey yaz</div>
+
+  <div id="suggestions"></div>
 
   <div id="input-bar">
-    <input id="input-field" type="text" placeholder="Bir soru sor, bir şey söyle, bir karar yaz…" autocomplete="off" />
+    <input id="input-field" type="text" placeholder="Bir soru sor, bir şey söyle, bir karar yaz…" autocomplete="off"/>
     <button id="input-send" onclick="handleInput()">→</button>
   </div>
 
   <div id="panel">
     <button class="panel-close" onclick="closePanel()">✕</button>
-    <div class="panel-type" id="panel-type">node</div>
+    <div id="panel-badge" class="panel-badge badge-answer">entry</div>
     <div class="panel-title" id="panel-title">—</div>
     <div class="panel-meta" id="panel-meta">—</div>
-    <div class="panel-tags" id="panel-tags"></div>
+    <div id="panel-body"></div>
   </div>
-
 </div>
 
 <script>
-// ══════════════════════════════════════════
-// CONFIG — Replace with your Google Client ID
-// ══════════════════════════════════════════
-const GOOGLE_CLIENT_ID = '557723915441-q49en6uqqkqm9s5fie14ejm6cak9eo6r.apps.googleusercontent.com';
+// ══════════════════════════════════════
+// CONFIG
+// ══════════════════════════════════════
+const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID_HERE';
+const ANTHROPIC_API_KEY = 'YOUR_ANTHROPIC_API_KEY_HERE'; // for semantic enrichment
 const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const UNIVERSE_FILENAME = 'universe.json';
 const FOLDER_NAME = 'SINGULAR';
 
-// ══════════════════════════════════════════
+// ══════════════════════════════════════
 // STATE
-// ══════════════════════════════════════════
-let state = {
-  mode: null,        // 'google' | 'local'
+// ══════════════════════════════════════
+const S = {
+  mode: null,
   accessToken: null,
   driveFileId: null,
   driveFolderId: null,
   universe: null,
-  nodes: [],
-  links: [],
-  selectedNode: null
+  graphNodes: [],   // {id, x, y, entry}
+  enrichQueue: [],  // entry ids pending enrichment
+  enrichRunning: false
 };
 
-// ══════════════════════════════════════════
-// UNIVERSE JSON MODEL
-// ══════════════════════════════════════════
+// ══════════════════════════════════════
+// UNIVERSE MODEL
+// ══════════════════════════════════════
 function createUniverse() {
   return {
-    meta: {
-      version: '0.1',
-      created: new Date().toISOString(),
-      updated: new Date().toISOString()
-    },
+    meta: { version: '0.2', created: new Date().toISOString(), updated: new Date().toISOString() },
     profile: { name: null },
     entries: [],
     people: [],
@@ -451,425 +196,647 @@ function createUniverse() {
   };
 }
 
-function addEntry(text) {
-  const entry = {
-    id: 'e_' + Date.now(),
-    type: detectType(text),
-    text: text,
-    tags: extractTags(text),
+function createEntry(text) {
+  const raw = localParse(text);
+  return {
+    id: 'e_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
+    text,
     created: new Date().toISOString(),
-    links: []
+    raw: {
+      type: raw.type,
+      tags: raw.tags
+    },
+    semantic: {
+      intent: null,
+      entities: [],
+      summary: null,
+      related_to: [],
+      suggested_next_questions: [],
+      suggested_actions: [],
+      confidence: 0
+    },
+    status: {
+      saved: false,
+      semantic_enriched: false
+    }
   };
-  state.universe.entries.push(entry);
-  state.universe.meta.updated = new Date().toISOString();
-  return entry;
 }
 
-function detectType(text) {
-  if (text.endsWith('?')) return 'question';
-  if (text.startsWith('#')) return 'tag';
-  if (text.toLowerCase().includes('@')) return 'person';
-  return 'answer';
+// ══════════════════════════════════════
+// LAYER 1: LOCAL RULE PARSER
+// ══════════════════════════════════════
+function localParse(text) {
+  const t = text.trim();
+  let type = 'note';
+
+  // Type detection
+  if (t.endsWith('?')) type = 'question';
+  else if (/^(yap|tamamla|ara|bul|git|al|ver|dene|düşün|karar)/i.test(t)) type = 'action';
+  else if (t.startsWith('@') || /\bkişi\b|\bişbirliği\b/i.test(t)) type = 'person';
+  else if (/#/.test(t)) type = 'tag';
+  else if (/(karar verdim|yapacağım|planım|hedefim)/i.test(t)) type = 'decision';
+  else type = 'answer';
+
+  // Tag extraction: #word patterns
+  const tags = (t.match(/#[\wğüşıöçĞÜŞİÖÇ]+/g) || []).map(x => x.slice(1));
+
+  // Entity hints (people @name, places, projects)
+  const mentions = (t.match(/@[\wğüşıöçĞÜŞİÖÇ]+/g) || []).map(x => x.slice(1));
+
+  return { type, tags, mentions };
 }
 
-function extractTags(text) {
-  const tags = text.match(/#\w+/g) || [];
-  return tags.map(t => t.slice(1));
-}
+// ══════════════════════════════════════
+// LAYER 2: LLM SEMANTIC ENRICHMENT
+// ══════════════════════════════════════
+async function enrichEntry(entry) {
+  if (!ANTHROPIC_API_KEY || ANTHROPIC_API_KEY === 'YOUR_ANTHROPIC_API_KEY_HERE') return;
 
-// ══════════════════════════════════════════
-// GOOGLE DRIVE
-// ══════════════════════════════════════════
-let tokenClient;
+  const existingTexts = S.universe.entries
+    .filter(e => e.id !== entry.id && e.status.semantic_enriched)
+    .map(e => `[${e.id}]: ${e.text}`)
+    .slice(-20)
+    .join('\n');
 
-function connectGoogle() {
-  if (!window.google) {
-    alert('Google Identity Services yüklenemedi. İnternet bağlantınızı kontrol edin.');
-    return;
+  const prompt = `Sen bir kişisel bilgi ve yaşam yönetim sisteminin anlam motorusun. Kullanıcı bir giriş yaptı. Bu girişi analiz et ve sadece JSON döndür.
+
+Kullanıcının mevcut evreni (son kayıtlar):
+${existingTexts || '(henüz kayıt yok)'}
+
+Yeni giriş: "${entry.text}"
+Ham tip: ${entry.raw.type}
+
+Şu JSON formatında yanıt ver, başka hiçbir şey yazma:
+{
+  "intent": "kullanıcının bu girişle ne yapmak istediği (tek cümle, Türkçe)",
+  "entities": ["çıkarılan varlıklar: kişi, yer, proje, kavram"],
+  "summary": "girişin özeti (maksimum 8 kelime)",
+  "related_to": ["mevcut kayıtlardan ilişkili olan ID'ler, sadece gerçekten ilişkiliyse"],
+  "suggested_next_questions": ["bu giriş sonrası sorulması gereken 2-3 soru"],
+  "suggested_actions": ["önerilen somut aksiyonlar, maksimum 2"],
+  "confidence": 0.85
+}`;
+
+  try {
+    showEnrichStatus(true);
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const data = await res.json();
+    const raw = data.content?.map(b => b.text || '').join('');
+    const cleaned = raw.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(cleaned);
+
+    // Merge into entry
+    entry.semantic = {
+      intent: parsed.intent || null,
+      entities: parsed.entities || [],
+      summary: parsed.summary || null,
+      related_to: parsed.related_to || [],
+      suggested_next_questions: parsed.suggested_next_questions || [],
+      suggested_actions: parsed.suggested_actions || [],
+      confidence: parsed.confidence || 0
+    };
+    entry.status.semantic_enriched = true;
+
+    // Update graph: draw semantic links
+    drawSemanticLinks(entry);
+
+    // Remove pending dot from node
+    setNodeEnrichDot(entry.id, false);
+
+    // Refresh panel if open
+    if (document.getElementById('panel').classList.contains('open') &&
+        document.getElementById('panel-title').dataset.entryId === entry.id) {
+      renderPanel(entry);
+    }
+
+    // Show suggested questions
+    showSuggestions(entry.semantic.suggested_next_questions);
+
+    // Save enriched universe
+    await saveUniverse();
+
+  } catch(err) {
+    console.warn('Semantic enrichment failed:', err);
+  } finally {
+    showEnrichStatus(false);
   }
+}
 
-  tokenClient = google.accounts.oauth2.initTokenClient({
+function showEnrichStatus(active) {
+  document.getElementById('enrich-status').classList.toggle('active', active);
+}
+
+async function runEnrichQueue() {
+  if (S.enrichRunning || S.enrichQueue.length === 0) return;
+  S.enrichRunning = true;
+  while (S.enrichQueue.length > 0) {
+    const id = S.enrichQueue.shift();
+    const entry = S.universe.entries.find(e => e.id === id);
+    if (entry && !entry.status.semantic_enriched) {
+      await enrichEntry(entry);
+    }
+  }
+  S.enrichRunning = false;
+}
+
+// ══════════════════════════════════════
+// GOOGLE DRIVE
+// ══════════════════════════════════════
+function connectGoogle() {
+  if (!window.google) { alert('Google Identity Services yüklenemedi.'); return; }
+  const tc = google.accounts.oauth2.initTokenClient({
     client_id: GOOGLE_CLIENT_ID,
     scope: DRIVE_SCOPE,
     callback: async (resp) => {
       if (resp.error) { console.error(resp); return; }
-      state.accessToken = resp.access_token;
-      state.mode = 'google';
+      S.accessToken = resp.access_token;
+      S.mode = 'google';
       await initDrive();
       launchUniverse('Google Drive');
     }
   });
-  tokenClient.requestAccessToken();
+  tc.requestAccessToken();
 }
 
 async function initDrive() {
-  // Find or create SINGULAR folder
-  let folderId = await findDriveFolder();
-  if (!folderId) folderId = await createDriveFolder();
-  state.driveFolderId = folderId;
-
-  // Find or create universe.json
-  let fileId = await findUniverseFile(folderId);
+  let fid = await findDriveFolder();
+  if (!fid) fid = await createDriveFolder();
+  S.driveFolderId = fid;
+  let fileId = await findUniverseFile(fid);
   if (!fileId) {
-    fileId = await createUniverseFile(folderId);
-    state.universe = createUniverse();
+    S.universe = createUniverse();
+    fileId = await createUniverseFile(fid);
   } else {
-    state.driveFileId = fileId;
-    state.universe = await loadUniverseFile(fileId);
+    S.driveFileId = fileId;
+    S.universe = await loadUniverseFile(fileId);
   }
-  state.driveFileId = fileId;
+  S.driveFileId = fileId;
 }
 
-async function driveRequest(url, options = {}) {
+async function driveReq(url, opts = {}) {
   const res = await fetch(url, {
-    ...options,
-    headers: {
-      'Authorization': 'Bearer ' + state.accessToken,
-      'Content-Type': 'application/json',
-      ...(options.headers || {})
-    }
+    ...opts,
+    headers: { 'Authorization': 'Bearer ' + S.accessToken, 'Content-Type': 'application/json', ...(opts.headers || {}) }
   });
   return res.json();
 }
 
 async function findDriveFolder() {
   const q = `name='${FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
-  const data = await driveRequest(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)`);
-  return data.files && data.files[0] ? data.files[0].id : null;
+  const d = await driveReq(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)`);
+  return d.files?.[0]?.id || null;
 }
 
 async function createDriveFolder() {
-  const data = await driveRequest('https://www.googleapis.com/drive/v3/files', {
-    method: 'POST',
-    body: JSON.stringify({ name: FOLDER_NAME, mimeType: 'application/vnd.google-apps.folder' })
+  const d = await driveReq('https://www.googleapis.com/drive/v3/files', {
+    method: 'POST', body: JSON.stringify({ name: FOLDER_NAME, mimeType: 'application/vnd.google-apps.folder' })
   });
-  return data.id;
+  return d.id;
 }
 
 async function findUniverseFile(folderId) {
   const q = `name='${UNIVERSE_FILENAME}' and '${folderId}' in parents and trashed=false`;
-  const data = await driveRequest(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)`);
-  return data.files && data.files[0] ? data.files[0].id : null;
+  const d = await driveReq(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)`);
+  return d.files?.[0]?.id || null;
 }
 
 async function createUniverseFile(folderId) {
-  const universe = createUniverse();
-  const meta = { name: UNIVERSE_FILENAME, parents: [folderId] };
   const form = new FormData();
-  form.append('metadata', new Blob([JSON.stringify(meta)], { type: 'application/json' }));
-  form.append('file', new Blob([JSON.stringify(universe, null, 2)], { type: 'application/json' }));
-
+  form.append('metadata', new Blob([JSON.stringify({ name: UNIVERSE_FILENAME, parents: [folderId] })], { type: 'application/json' }));
+  form.append('file', new Blob([JSON.stringify(S.universe, null, 2)], { type: 'application/json' }));
   const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
-    method: 'POST',
-    headers: { 'Authorization': 'Bearer ' + state.accessToken },
-    body: form
+    method: 'POST', headers: { 'Authorization': 'Bearer ' + S.accessToken }, body: form
   });
-  const data = await res.json();
-  state.universe = universe;
-  return data.id;
+  const d = await res.json();
+  return d.id;
 }
 
 async function loadUniverseFile(fileId) {
   const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-    headers: { 'Authorization': 'Bearer ' + state.accessToken }
+    headers: { 'Authorization': 'Bearer ' + S.accessToken }
   });
   return res.json();
 }
 
 async function saveUniverse() {
-  if (state.mode === 'local') {
-    localStorage.setItem('singular_universe', JSON.stringify(state.universe));
+  S.universe.meta.updated = new Date().toISOString();
+  if (S.mode === 'local') {
+    localStorage.setItem('singular_universe', JSON.stringify(S.universe));
     return;
   }
-  if (!state.driveFileId || !state.accessToken) return;
-  await fetch(`https://www.googleapis.com/upload/drive/v3/files/${state.driveFileId}?uploadType=media`, {
+  if (!S.driveFileId || !S.accessToken) return;
+  await fetch(`https://www.googleapis.com/upload/drive/v3/files/${S.driveFileId}?uploadType=media`, {
     method: 'PATCH',
-    headers: {
-      'Authorization': 'Bearer ' + state.accessToken,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(state.universe, null, 2)
+    headers: { 'Authorization': 'Bearer ' + S.accessToken, 'Content-Type': 'application/json' },
+    body: JSON.stringify(S.universe, null, 2)
   });
 }
 
-// ══════════════════════════════════════════
+// ══════════════════════════════════════
 // LOCAL MODE
-// ══════════════════════════════════════════
+// ══════════════════════════════════════
 function connectLocal() {
-  state.mode = 'local';
+  S.mode = 'local';
   const saved = localStorage.getItem('singular_universe');
-  state.universe = saved ? JSON.parse(saved) : createUniverse();
+  S.universe = saved ? JSON.parse(saved) : createUniverse();
   launchUniverse('Yerel');
 }
 
-// ══════════════════════════════════════════
+// ══════════════════════════════════════
 // LAUNCH
-// ══════════════════════════════════════════
-function launchUniverse(modeLabel) {
+// ══════════════════════════════════════
+function launchUniverse(label) {
   const boot = document.getElementById('boot');
   boot.classList.add('fade-out');
-
   setTimeout(() => {
     boot.style.display = 'none';
-    const univ = document.getElementById('universe');
-    univ.classList.add('active');
-
+    const u = document.getElementById('universe');
+    u.classList.add('active');
     document.getElementById('status-dot').classList.add('connected');
-    document.getElementById('status-text').textContent = modeLabel;
-
+    document.getElementById('status-text').textContent = label;
     initCosmos();
     renderExistingEntries();
-
-    document.getElementById('input-field').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') handleInput();
-    });
-
+    document.getElementById('input-field').addEventListener('keydown', e => { if (e.key === 'Enter') handleInput(); });
     document.getElementById('input-field').focus();
   }, 800);
 }
 
-// ══════════════════════════════════════════
-// COSMOS / SVG ENGINE
-// ══════════════════════════════════════════
-const SVG_NS = 'http://www.w3.org/2000/svg';
-let svgEl, cx, cy, animFrame;
+// ══════════════════════════════════════
+// COSMOS ENGINE
+// ══════════════════════════════════════
+const NS = 'http://www.w3.org/2000/svg';
+let svgEl, cx, cy;
 
-const NODE_COLORS = {
-  core:     { fill: 'rgba(167,139,250,0.15)', stroke: '#a78bfa' },
-  question: { fill: 'rgba(96,165,250,0.12)',  stroke: '#60a5fa' },
-  answer:   { fill: 'rgba(52,211,153,0.12)',  stroke: '#34d399' },
-  tag:      { fill: 'rgba(245,158,11,0.12)',  stroke: '#f59e0b' },
-  person:   { fill: 'rgba(244,114,182,0.12)', stroke: '#f472b6' },
-  action:   { fill: 'rgba(167,139,250,0.12)', stroke: '#a78bfa' }
+const NODE_STYLE = {
+  question: { fill:'rgba(96,165,250,.15)',  stroke:'#60a5fa' },
+  answer:   { fill:'rgba(52,211,153,.12)',  stroke:'#34d399' },
+  tag:      { fill:'rgba(245,158,11,.12)',  stroke:'#f59e0b' },
+  person:   { fill:'rgba(244,114,182,.12)', stroke:'#f472b6' },
+  action:   { fill:'rgba(192,132,252,.12)', stroke:'#c084fc' },
+  decision: { fill:'rgba(167,139,250,.18)', stroke:'#a78bfa' },
+  note:     { fill:'rgba(148,163,184,.1)',  stroke:'#94a3b8' }
 };
+
+function svgEl_(tag) { return document.createElementNS(NS, tag); }
 
 function initCosmos() {
   svgEl = document.getElementById('cosmos');
   cx = window.innerWidth / 2;
   cy = window.innerHeight / 2;
-
   drawOrbits();
-  drawCoreNode();
-  pulseCore();
-
+  drawCore();
+  animateCore();
   window.addEventListener('resize', () => {
     cx = window.innerWidth / 2;
     cy = window.innerHeight / 2;
     svgEl.innerHTML = '';
     drawOrbits();
-    drawCoreNode();
-    rerenderNodes();
+    drawCore();
+    animateCore();
+    rerenderAll();
   });
 }
 
 function drawOrbits() {
-  [120, 220, 340, 480].forEach(r => {
-    const c = svgCreate('circle');
-    c.setAttribute('cx', cx);
-    c.setAttribute('cy', cy);
-    c.setAttribute('r', r);
-    c.setAttribute('class', 'orbit-ring');
+  [130, 230, 350, 490].forEach(r => {
+    const c = svgEl_('circle');
+    c.setAttribute('cx', cx); c.setAttribute('cy', cy);
+    c.setAttribute('r', r); c.setAttribute('class', 'orbit-ring');
     svgEl.appendChild(c);
   });
 }
 
-function drawCoreNode() {
-  const g = svgCreate('g');
-  g.setAttribute('id', 'core-group');
-
-  // glow
-  const glow = svgCreate('circle');
-  glow.setAttribute('cx', cx); glow.setAttribute('cy', cy);
-  glow.setAttribute('r', '48'); glow.setAttribute('class', 'core-inner');
+function drawCore() {
+  const g = svgEl_('g'); g.id = 'core-g';
+  const glow = svgEl_('circle');
+  glow.setAttribute('cx',cx); glow.setAttribute('cy',cy);
+  glow.setAttribute('r','52'); glow.setAttribute('class','core-inner');
   g.appendChild(glow);
-
-  // ring
-  const ring = svgCreate('circle');
-  ring.setAttribute('cx', cx); ring.setAttribute('cy', cy);
-  ring.setAttribute('r', '28'); ring.setAttribute('class', 'core-outer');
+  const ring = svgEl_('circle');
+  ring.setAttribute('cx',cx); ring.setAttribute('cy',cy);
+  ring.setAttribute('r','30'); ring.setAttribute('class','core-outer');
   g.appendChild(ring);
-
-  // dot
-  const dot = svgCreate('circle');
-  dot.setAttribute('cx', cx); dot.setAttribute('cy', cy);
-  dot.setAttribute('r', '4'); dot.setAttribute('class', 'core-dot');
+  const dot = svgEl_('circle');
+  dot.setAttribute('cx',cx); dot.setAttribute('cy',cy);
+  dot.setAttribute('r','4'); dot.setAttribute('class','core-dot');
   g.appendChild(dot);
-
-  // pulse ring
-  const pulse = svgCreate('circle');
-  pulse.setAttribute('cx', cx); pulse.setAttribute('cy', cy);
-  pulse.setAttribute('r', '28'); pulse.setAttribute('class', 'core-pulse');
-  pulse.setAttribute('id', 'pulse-ring');
+  const pulse = svgEl_('circle');
+  pulse.setAttribute('cx',cx); pulse.setAttribute('cy',cy);
+  pulse.setAttribute('r','30'); pulse.setAttribute('class','core-pulse');
+  pulse.id = 'pulse-ring';
   g.appendChild(pulse);
-
-  // label
-  const label = svgCreate('text');
-  label.setAttribute('x', cx); label.setAttribute('y', cy + 44);
-  label.setAttribute('text-anchor', 'middle');
-  label.setAttribute('fill', 'rgba(167,139,250,0.4)');
-  label.setAttribute('font-size', '8');
-  label.setAttribute('font-family', 'DM Mono, monospace');
-  label.setAttribute('letter-spacing', '3');
-  label.textContent = 'SINGULAR';
-  g.appendChild(label);
-
+  const lbl = svgEl_('text');
+  lbl.setAttribute('x',cx); lbl.setAttribute('y',cy+46);
+  lbl.setAttribute('text-anchor','middle');
+  lbl.setAttribute('fill','rgba(167,139,250,.35)');
+  lbl.setAttribute('font-size','8');
+  lbl.setAttribute('font-family','DM Mono,monospace');
+  lbl.setAttribute('letter-spacing','3');
+  lbl.textContent = 'SINGULAR';
+  g.appendChild(lbl);
   g.style.cursor = 'pointer';
-  g.onclick = () => openPanel({ type: 'core', text: 'Senin evreninin merkezi.', tags: [], created: state.universe?.meta?.created });
-
+  g.onclick = () => openPanelRaw({ type:'core', text:'Senin evreninin merkezi.', tags:[], created: S.universe?.meta?.created });
   svgEl.appendChild(g);
 }
 
-function pulseCore() {
+function animateCore() {
   const ring = document.getElementById('pulse-ring');
   if (!ring) return;
-  let r = 28, opacity = 0.6, growing = true;
-
-  function step() {
-    if (growing) { r += 0.3; opacity -= 0.008; }
-    if (r > 60) { growing = false; r = 28; opacity = 0.5; }
-
-    ring.setAttribute('r', r);
-    ring.setAttribute('opacity', opacity);
+  let r = 30, op = 0.5;
+  (function step() {
+    r += 0.25; op -= 0.006;
+    if (r > 65) { r = 30; op = 0.5; }
+    ring.setAttribute('r', r); ring.setAttribute('opacity', op);
     requestAnimationFrame(step);
-  }
-  step();
+  })();
 }
 
-function svgCreate(tag) {
-  return document.createElementNS(SVG_NS, tag);
+// Radial placement
+function getPos(index, total, orbit) {
+  const angle = (index / Math.max(total,1)) * 2 * Math.PI - Math.PI / 2;
+  return { x: cx + orbit * Math.cos(angle), y: cy + orbit * Math.sin(angle) };
 }
 
-// ══════════════════════════════════════════
-// NODE PLACEMENT
-// ══════════════════════════════════════════
-function getNodePosition(index, total, orbitRadius) {
-  const angle = (index / Math.max(total, 1)) * 2 * Math.PI - Math.PI / 2;
-  return {
-    x: cx + orbitRadius * Math.cos(angle),
-    y: cy + orbitRadius * Math.sin(angle)
-  };
-}
-
-function orbitForCount(count) {
-  if (count <= 6) return 140;
-  if (count <= 14) return 240;
-  if (count <= 26) return 360;
-  return 490;
+function orbitFor(count) {
+  if (count <= 6) return 150;
+  if (count <= 14) return 250;
+  if (count <= 26) return 370;
+  return 500;
 }
 
 function addNodeToGraph(entry) {
-  const total = state.nodes.length + 1;
-  const orbit = orbitForCount(total);
-  const pos = getNodePosition(state.nodes.length, total, orbit);
+  const total = S.graphNodes.length + 1;
+  const orbit = orbitFor(total);
+  const pos = getPos(S.graphNodes.length, total, orbit);
+  S.graphNodes.push({ id: entry.id, x: pos.x, y: pos.y, entry });
 
-  const nodeData = { ...entry, x: pos.x, y: pos.y };
-  state.nodes.push(nodeData);
-
-  const colors = NODE_COLORS[entry.type] || NODE_COLORS.answer;
-
-  const g = svgCreate('g');
-  g.setAttribute('class', 'g-node');
-  g.setAttribute('data-id', entry.id);
+  const style = NODE_STYLE[entry.raw?.type] || NODE_STYLE.note;
+  const g = svgEl_('g');
+  g.setAttribute('class','g-node'); g.setAttribute('data-id', entry.id);
   g.style.opacity = '0';
 
-  // link to core
-  const link = svgCreate('line');
+  // Core link
+  const link = svgEl_('line');
   link.setAttribute('x1', cx); link.setAttribute('y1', cy);
   link.setAttribute('x2', pos.x); link.setAttribute('y2', pos.y);
-  link.setAttribute('class', 'g-link');
-  link.setAttribute('data-id', entry.id);
-  svgEl.insertBefore(link, svgEl.firstChild.nextSibling);
+  link.setAttribute('class','g-link core-link');
+  link.setAttribute('data-link-id', entry.id);
+  // Insert before first child so it renders behind nodes
+  svgEl.insertBefore(link, svgEl.children[5] || null);
 
-  // node circle
-  const circle = svgCreate('circle');
+  // Node circle
+  const circle = svgEl_('circle');
   circle.setAttribute('cx', pos.x); circle.setAttribute('cy', pos.y);
-  circle.setAttribute('r', '10');
-  circle.setAttribute('fill', colors.fill);
-  circle.setAttribute('stroke', colors.stroke);
+  circle.setAttribute('r','11');
+  circle.setAttribute('fill', style.fill);
+  circle.setAttribute('stroke', style.stroke);
   g.appendChild(circle);
 
-  // type indicator dot
-  const dot = svgCreate('circle');
+  // Center dot
+  const dot = svgEl_('circle');
   dot.setAttribute('cx', pos.x); dot.setAttribute('cy', pos.y);
-  dot.setAttribute('r', '3');
-  dot.setAttribute('fill', colors.stroke);
+  dot.setAttribute('r','3'); dot.setAttribute('fill', style.stroke);
   g.appendChild(dot);
 
-  // label
-  const label = svgCreate('text');
-  label.setAttribute('x', pos.x);
-  label.setAttribute('y', pos.y + 20);
-  label.setAttribute('text-anchor', 'middle');
-  const shortText = entry.text.length > 18 ? entry.text.slice(0, 18) + '…' : entry.text;
-  label.textContent = shortText;
-  g.appendChild(label);
+  // Enrichment pending dot
+  const edot = svgEl_('circle');
+  edot.setAttribute('cx', pos.x + 9); edot.setAttribute('cy', pos.y - 9);
+  edot.setAttribute('r','3'); edot.setAttribute('class','enrich-dot');
+  edot.setAttribute('data-enrich', entry.id);
+  if (!entry.status?.semantic_enriched) edot.classList.add('pending');
+  g.appendChild(edot);
 
-  g.onclick = () => openPanel(entry);
+  // Label
+  const lbl = svgEl_('text');
+  lbl.setAttribute('x', pos.x); lbl.setAttribute('y', pos.y + 22);
+  lbl.setAttribute('text-anchor','middle');
+  const short = (entry.semantic?.summary || entry.text);
+  lbl.textContent = short.length > 16 ? short.slice(0,16) + '…' : short;
+  g.appendChild(lbl);
 
-  // fade in
+  g.onclick = () => openPanelEntry(entry.id);
   svgEl.appendChild(g);
-  setTimeout(() => { g.style.transition = 'opacity 0.6s'; g.style.opacity = '1'; }, 50);
 
-  // update count
-  document.getElementById('node-count').textContent = state.nodes.length + ' node';
+  // Fade in
+  requestAnimationFrame(() => {
+    g.style.transition = 'opacity .6s';
+    g.style.opacity = '1';
+  });
 
-  // hide hint after first entry
-  if (state.nodes.length === 1) {
-    document.getElementById('hint').style.opacity = '0';
-  }
+  document.getElementById('node-count').textContent = S.graphNodes.length + ' node';
+  if (S.graphNodes.length === 1) document.getElementById('hint').style.opacity = '0';
 }
 
-function rerenderNodes() {
-  // Remove existing nodes and links
-  document.querySelectorAll('.g-node, .g-link').forEach(el => el.remove());
-  const savedNodes = [...state.nodes];
-  state.nodes = [];
-  savedNodes.forEach(n => addNodeToGraph(n));
+function setNodeEnrichDot(entryId, pending) {
+  const dot = svgEl.querySelector(`[data-enrich="${entryId}"]`);
+  if (dot) dot.classList.toggle('pending', pending);
+}
+
+function drawSemanticLinks(entry) {
+  if (!entry.semantic?.related_to?.length) return;
+  const fromNode = S.graphNodes.find(n => n.id === entry.id);
+  if (!fromNode) return;
+
+  entry.semantic.related_to.forEach(relId => {
+    const toNode = S.graphNodes.find(n => n.id === relId);
+    if (!toNode) return;
+
+    const line = svgEl_('line');
+    line.setAttribute('x1', fromNode.x); line.setAttribute('y1', fromNode.y);
+    line.setAttribute('x2', toNode.x);   line.setAttribute('y2', toNode.y);
+    line.setAttribute('class','g-link semantic-link');
+
+    // Insert after orbit rings but before nodes
+    svgEl.insertBefore(line, svgEl.children[5] || null);
+
+    // Also update links array
+    S.universe.links.push({ from: entry.id, to: relId, type: 'semantic' });
+  });
+}
+
+function rerenderAll() {
+  document.querySelectorAll('.g-node,[data-link-id],.semantic-link').forEach(el => el.remove());
+  const saved = [...S.graphNodes];
+  S.graphNodes = [];
+  saved.forEach(n => addNodeToGraph(n.entry));
 }
 
 function renderExistingEntries() {
-  if (!state.universe) return;
-  state.universe.entries.forEach(entry => addNodeToGraph(entry));
+  if (!S.universe?.entries) return;
+  S.universe.entries.forEach(e => addNodeToGraph(e));
+  // Re-draw semantic links for already-enriched entries
+  S.universe.entries.filter(e => e.status?.semantic_enriched).forEach(e => drawSemanticLinks(e));
 }
 
-// ══════════════════════════════════════════
+// ══════════════════════════════════════
 // INPUT HANDLER
-// ══════════════════════════════════════════
+// ══════════════════════════════════════
 async function handleInput() {
   const field = document.getElementById('input-field');
   const text = field.value.trim();
   if (!text) return;
-
   field.value = '';
+  hideSuggestions();
 
-  // Create entry
-  const entry = addEntry(text);
+  // STEP 1: Create raw entry immediately
+  const entry = createEntry(text);
+  S.universe.entries.push(entry);
 
-  // Add to graph
+  // STEP 2: Add to graph immediately
   addNodeToGraph(entry);
 
-  // Save
-  await saveUniverse();
+  // STEP 3: Save raw (non-blocking)
+  entry.status.saved = true;
+  saveUniverse();
+
+  // STEP 4: Queue semantic enrichment
+  S.enrichQueue.push(entry.id);
+  runEnrichQueue();
 }
 
-// ══════════════════════════════════════════
-// DETAIL PANEL
-// ══════════════════════════════════════════
-function openPanel(entry) {
-  document.getElementById('panel-type').textContent = entry.type || 'node';
-  document.getElementById('panel-title').textContent = entry.text || '—';
-  document.getElementById('panel-meta').textContent = entry.created ? new Date(entry.created).toLocaleString('tr-TR') : '—';
-
-  const tagsEl = document.getElementById('panel-tags');
-  tagsEl.innerHTML = '';
-  (entry.tags || []).forEach(tag => {
-    const span = document.createElement('span');
-    span.className = 'panel-tag';
-    span.textContent = '#' + tag;
-    tagsEl.appendChild(span);
+// ══════════════════════════════════════
+// SUGGESTIONS
+// ══════════════════════════════════════
+function showSuggestions(questions) {
+  if (!questions?.length) return;
+  const el = document.getElementById('suggestions');
+  el.innerHTML = '';
+  questions.slice(0,3).forEach(q => {
+    const btn = document.createElement('button');
+    btn.className = 'sug-btn';
+    btn.textContent = q;
+    btn.onclick = () => {
+      document.getElementById('input-field').value = q;
+      document.getElementById('input-field').focus();
+      hideSuggestions();
+    };
+    el.appendChild(btn);
   });
+  el.classList.add('visible');
+}
+
+function hideSuggestions() {
+  document.getElementById('suggestions').classList.remove('visible');
+}
+
+// ══════════════════════════════════════
+// DETAIL PANEL
+// ══════════════════════════════════════
+function openPanelEntry(id) {
+  const entry = S.universe.entries.find(e => e.id === id);
+  if (entry) renderPanel(entry);
+}
+
+function openPanelRaw(obj) {
+  renderPanel(obj);
+}
+
+function renderPanel(entry) {
+  const type = entry.raw?.type || entry.type || 'note';
+  const badge = document.getElementById('panel-badge');
+  badge.textContent = type;
+  badge.className = 'panel-badge badge-' + type;
+
+  const titleEl = document.getElementById('panel-title');
+  titleEl.textContent = entry.text || '—';
+  titleEl.dataset.entryId = entry.id || '';
+
+  document.getElementById('panel-meta').textContent =
+    entry.created ? new Date(entry.created).toLocaleString('tr-TR') : '—';
+
+  const body = document.getElementById('panel-body');
+  body.innerHTML = '';
+
+  // If still enriching
+  if (entry.id && !entry.status?.semantic_enriched && !entry.semantic?.intent) {
+    const enriching = document.createElement('div');
+    enriching.className = 'panel-enriching';
+    enriching.textContent = '⬡ Anlam katmanı yükleniyor...';
+    body.appendChild(enriching);
+  }
+
+  // Intent
+  if (entry.semantic?.intent) {
+    body.appendChild(panelSection('Niyet', entry.semantic.intent));
+  }
+
+  // Summary
+  if (entry.semantic?.summary) {
+    body.appendChild(panelSection('Özet', entry.semantic.summary));
+  }
+
+  // Entities
+  if (entry.semantic?.entities?.length) {
+    body.appendChild(panelSection('Varlıklar', entry.semantic.entities.join(' · ')));
+  }
+
+  // Tags
+  const tags = [...(entry.raw?.tags || [])];
+  if (tags.length) {
+    const sec = document.createElement('div');
+    sec.className = 'panel-section';
+    const lbl = document.createElement('div');
+    lbl.className = 'panel-section-label'; lbl.textContent = 'Etiketler';
+    const tagRow = document.createElement('div');
+    tagRow.className = 'panel-tags';
+    tags.forEach(t => {
+      const span = document.createElement('span');
+      span.className = 'panel-tag'; span.textContent = '#' + t;
+      tagRow.appendChild(span);
+    });
+    sec.appendChild(lbl); sec.appendChild(tagRow);
+    body.appendChild(sec);
+  }
+
+  // Suggested questions
+  if (entry.semantic?.suggested_next_questions?.length) {
+    const sec = document.createElement('div');
+    sec.className = 'panel-section';
+    const lbl = document.createElement('div');
+    lbl.className = 'panel-section-label'; lbl.textContent = 'Önerilen sorular';
+    const qlist = document.createElement('div');
+    qlist.className = 'panel-questions';
+    entry.semantic.suggested_next_questions.forEach(q => {
+      const btn = document.createElement('button');
+      btn.className = 'panel-q-btn'; btn.textContent = q;
+      btn.onclick = () => {
+        document.getElementById('input-field').value = q;
+        document.getElementById('input-field').focus();
+        closePanel();
+      };
+      qlist.appendChild(btn);
+    });
+    sec.appendChild(lbl); sec.appendChild(qlist);
+    body.appendChild(sec);
+  }
+
+  // Suggested actions
+  if (entry.semantic?.suggested_actions?.length) {
+    body.appendChild(panelSection('Önerilen aksiyonlar',
+      entry.semantic.suggested_actions.join('\n')));
+  }
 
   document.getElementById('panel').classList.add('open');
+}
+
+function panelSection(label, text) {
+  const sec = document.createElement('div');
+  sec.className = 'panel-section';
+  const lbl = document.createElement('div');
+  lbl.className = 'panel-section-label'; lbl.textContent = label;
+  const body = document.createElement('div');
+  body.className = 'panel-section-body'; body.textContent = text;
+  sec.appendChild(lbl); sec.appendChild(body);
+  return sec;
 }
 
 function closePanel() {
