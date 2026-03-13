@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SINGULAR</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Serif+Display:ital@0;1&display=swap');
+
+  :root {
+    --bg: #080810;
+    --bg2: #0e0e1a;
+    --core: #a78bfa;
+    --core-glow: rgba(167,139,250,0.15);
+    --core-glow2: rgba(167,139,250,0.04);
+    --text: #e2e0f0;
+    --text-muted: #6b6880;
+    --text-dim: #3a3850;
+    --border: rgba(167,139,250,0.12);
+    --border-bright: rgba(167,139,250,0.3);
+    --node-q: #60a5fa;
+    --node-a: #34d399;
+    --node-t: #f59e0b;
+    --node-p: #f472b6;
+    --panel-bg: rgba(14,14,26,0.97);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    height: 100vh;
+    overflow: hidden;
+    cursor: default;
+  }
+
+  /* ── BOOT SCREEN ── */
+  #boot {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    background: var(--bg);
+    z-index: 100;
+    transition: opacity 0.8s ease, transform 0.8s ease;
+  }
+  #boot.fade-out {
+    opacity: 0;
+    transform: scale(1.04);
+    pointer-events: none;
+  }
+
+  .boot-logo {
+    font-family: 'DM Serif Display', serif;
+    font-size: 3.5rem;
+    letter-spacing: 0.3em;
+    color: var(--text);
+    opacity: 0.9;
+    margin-bottom: 0.25rem;
+  }
+  .boot-sub {
+    font-size: 0.6rem;
+    letter-spacing: 0.4em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 3.5rem;
+  }
+
+  .boot-card {
+    background: var(--bg2);
+    border: 0.5px solid var(--border-bright);
+    border-radius: 12px;
+    padding: 2rem 2.5rem;
+    width: 340px;
+    text-align: center;
+  }
+  .boot-card-title {
+    font-size: 0.65rem;
+    letter-spacing: 0.25em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 1.5rem;
+  }
+
+  .btn-google {
+    width: 100%;
+    padding: 0.85rem 1.25rem;
+    background: transparent;
+    border: 0.5px solid var(--border-bright);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    transition: background 0.2s, border-color 0.2s;
+    margin-bottom: 0.75rem;
+  }
+  .btn-google:hover {
+    background: rgba(167,139,250,0.07);
+    border-color: var(--core);
+  }
+  .btn-google svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+  .btn-local {
+    width: 100%;
+    padding: 0.7rem 1.25rem;
+    background: transparent;
+    border: 0.5px solid var(--text-dim);
+    border-radius: 8px;
+    color: var(--text-muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .btn-local:hover { color: var(--text); border-color: var(--text-muted); }
+
+  .boot-note {
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    margin-top: 1.25rem;
+    line-height: 1.7;
+  }
+
+  /* ── MAIN UNIVERSE ── */
+  #universe {
+    position: fixed; inset: 0;
+    opacity: 0;
+    transition: opacity 1s ease;
+    pointer-events: none;
+  }
+  #universe.active {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  /* SVG canvas */
+  #cosmos {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+  }
+
+  /* orbit rings */
+  .orbit-ring {
+    fill: none;
+    stroke: rgba(167,139,250,0.04);
+    stroke-width: 0.5;
+  }
+
+  /* core node */
+  .core-outer {
+    fill: none;
+    stroke: var(--core);
+    stroke-width: 0.5;
+    opacity: 0.4;
+  }
+  .core-inner {
+    fill: var(--core-glow);
+  }
+  .core-dot {
+    fill: var(--core);
+  }
+  .core-pulse {
+    fill: none;
+    stroke: var(--core);
+    stroke-width: 0.5;
+    opacity: 0;
+  }
+
+  /* graph nodes */
+  .g-node { cursor: pointer; }
+  .g-node circle {
+    stroke-width: 0.5;
+    transition: r 0.2s;
+  }
+  .g-node:hover circle { opacity: 0.9; }
+  .g-node text {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    fill: rgba(226,224,240,0.6);
+    pointer-events: none;
+  }
+  .g-link {
+    fill: none;
+    stroke: rgba(167,139,250,0.15);
+    stroke-width: 0.5;
+  }
+
+  /* ── INPUT BAR ── */
+  #input-bar {
+    position: fixed;
+    bottom: 2.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(580px, 90vw);
+    display: flex;
+    align-items: center;
+    gap: 0;
+    background: var(--bg2);
+    border: 0.5px solid var(--border-bright);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 0 40px rgba(167,139,250,0.08);
+  }
+
+  #input-field {
+    flex: 1;
+    padding: 1rem 1.25rem;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    letter-spacing: 0.03em;
+  }
+  #input-field::placeholder { color: var(--text-muted); }
+
+  #input-send {
+    padding: 0.75rem 1.25rem;
+    background: transparent;
+    border: none;
+    border-left: 0.5px solid var(--border);
+    color: var(--core);
+    cursor: pointer;
+    font-size: 1rem;
+    font-family: 'DM Mono', monospace;
+    transition: background 0.2s;
+  }
+  #input-send:hover { background: var(--core-glow); }
+
+  /* ── ENTRY HINT ── */
+  #hint {
+    position: fixed;
+    bottom: 5.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.62rem;
+    letter-spacing: 0.2em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    text-align: center;
+    transition: opacity 0.5s;
+    white-space: nowrap;
+  }
+
+  /* ── DETAIL PANEL ── */
+  #panel {
+    position: fixed;
+    top: 50%;
+    right: -360px;
+    transform: translateY(-50%);
+    width: 320px;
+    max-height: 70vh;
+    background: var(--panel-bg);
+    border: 0.5px solid var(--border-bright);
+    border-radius: 12px;
+    padding: 1.5rem;
+    transition: right 0.4s cubic-bezier(0.16,1,0.3,1);
+    overflow-y: auto;
+    z-index: 50;
+  }
+  #panel.open { right: 1.5rem; }
+
+  .panel-close {
+    position: absolute;
+    top: 1rem; right: 1rem;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-family: 'DM Mono', monospace;
+    transition: color 0.2s;
+  }
+  .panel-close:hover { color: var(--text); }
+
+  .panel-type {
+    font-size: 0.55rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+  }
+  .panel-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.1rem;
+    color: var(--text);
+    margin-bottom: 1rem;
+    line-height: 1.4;
+  }
+  .panel-meta {
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    margin-bottom: 1rem;
+    letter-spacing: 0.1em;
+  }
+  .panel-tags {
+    display: flex; flex-wrap: wrap; gap: 0.4rem;
+  }
+  .panel-tag {
+    font-size: 0.6rem;
+    padding: 0.25rem 0.6rem;
+    border: 0.5px solid var(--border-bright);
+    border-radius: 4px;
+    color: var(--core);
+    letter-spacing: 0.1em;
+  }
+
+  /* ── STATUS ── */
+  #status {
+    position: fixed;
+    top: 1.5rem; left: 1.5rem;
+    display: flex; align-items: center; gap: 0.5rem;
+    font-size: 0.6rem;
+    letter-spacing: 0.15em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+  .status-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    transition: background 0.3s;
+  }
+  .status-dot.connected { background: #34d399; box-shadow: 0 0 6px #34d399; }
+
+  /* ── NODE COUNT ── */
+  #node-count {
+    position: fixed;
+    top: 1.5rem; right: 1.5rem;
+    font-size: 0.6rem;
+    letter-spacing: 0.15em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- ══ BOOT SCREEN ══ -->
+<div id="boot">
+  <div class="boot-logo">SINGULAR</div>
+  <div class="boot-sub">kişisel evren sistemi</div>
+
+  <div class="boot-card">
+    <div class="boot-card-title">Evrenini nerede saklayalım?</div>
+
+    <button class="btn-google" onclick="connectGoogle()">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+      </svg>
+      Google Drive ile bağlan
+    </button>
+
+    <button class="btn-local" onclick="connectLocal()">
+      Yerel cihazda sakla
+    </button>
+
+    <div class="boot-note">
+      Google Drive: universe.json Drive'ında güvenli saklanır.<br>
+      Yerel: Veri yalnızca bu tarayıcıda kalır.
+    </div>
+  </div>
+</div>
+
+<!-- ══ UNIVERSE ══ -->
+<div id="universe">
+
+  <svg id="cosmos"></svg>
+
+  <div id="status">
+    <div class="status-dot" id="status-dot"></div>
+    <span id="status-text">bağlanıyor...</span>
+  </div>
+
+  <div id="node-count">0 node</div>
+
+  <div id="hint">Evreni başlatmak için bir soru sor veya bir şey yaz</div>
+
+  <div id="input-bar">
+    <input id="input-field" type="text" placeholder="Bir soru sor, bir şey söyle, bir karar yaz…" autocomplete="off" />
+    <button id="input-send" onclick="handleInput()">→</button>
+  </div>
+
+  <div id="panel">
+    <button class="panel-close" onclick="closePanel()">✕</button>
+    <div class="panel-type" id="panel-type">node</div>
+    <div class="panel-title" id="panel-title">—</div>
+    <div class="panel-meta" id="panel-meta">—</div>
+    <div class="panel-tags" id="panel-tags"></div>
+  </div>
+
+</div>
+
+<script>
+// ══════════════════════════════════════════
+// CONFIG — Replace with your Google Client ID
+// ══════════════════════════════════════════
+const GOOGLE_CLIENT_ID = '557723915441-q49en6uqqkqm9s5fie14ejm6cak9eo6r.apps.googleusercontent.com';
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+const UNIVERSE_FILENAME = 'universe.json';
+const FOLDER_NAME = 'SINGULAR';
+
+// ══════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════
+let state = {
+  mode: null,        // 'google' | 'local'
+  accessToken: null,
+  driveFileId: null,
+  driveFolderId: null,
+  universe: null,
+  nodes: [],
+  links: [],
+  selectedNode: null
+};
+
+// ══════════════════════════════════════════
+// UNIVERSE JSON MODEL
+// ══════════════════════════════════════════
+function createUniverse() {
+  return {
+    meta: {
+      version: '0.1',
+      created: new Date().toISOString(),
+      updated: new Date().toISOString()
+    },
+    profile: { name: null },
+    entries: [],
+    people: [],
+    projects: [],
+    tags: [],
+    links: []
+  };
+}
+
+function addEntry(text) {
+  const entry = {
+    id: 'e_' + Date.now(),
+    type: detectType(text),
+    text: text,
+    tags: extractTags(text),
+    created: new Date().toISOString(),
+    links: []
+  };
+  state.universe.entries.push(entry);
+  state.universe.meta.updated = new Date().toISOString();
+  return entry;
+}
+
+function detectType(text) {
+  if (text.endsWith('?')) return 'question';
+  if (text.startsWith('#')) return 'tag';
+  if (text.toLowerCase().includes('@')) return 'person';
+  return 'answer';
+}
+
+function extractTags(text) {
+  const tags = text.match(/#\w+/g) || [];
+  return tags.map(t => t.slice(1));
+}
+
+// ══════════════════════════════════════════
+// GOOGLE DRIVE
+// ══════════════════════════════════════════
+let tokenClient;
+
+function connectGoogle() {
+  if (!window.google) {
+    alert('Google Identity Services yüklenemedi. İnternet bağlantınızı kontrol edin.');
+    return;
+  }
+
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID,
+    scope: DRIVE_SCOPE,
+    callback: async (resp) => {
+      if (resp.error) { console.error(resp); return; }
+      state.accessToken = resp.access_token;
+      state.mode = 'google';
+      await initDrive();
+      launchUniverse('Google Drive');
+    }
+  });
+  tokenClient.requestAccessToken();
+}
+
+async function initDrive() {
+  // Find or create SINGULAR folder
+  let folderId = await findDriveFolder();
+  if (!folderId) folderId = await createDriveFolder();
+  state.driveFolderId = folderId;
+
+  // Find or create universe.json
+  let fileId = await findUniverseFile(folderId);
+  if (!fileId) {
+    fileId = await createUniverseFile(folderId);
+    state.universe = createUniverse();
+  } else {
+    state.driveFileId = fileId;
+    state.universe = await loadUniverseFile(fileId);
+  }
+  state.driveFileId = fileId;
+}
+
+async function driveRequest(url, options = {}) {
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      'Authorization': 'Bearer ' + state.accessToken,
+      'Content-Type': 'application/json',
+      ...(options.headers || {})
+    }
+  });
+  return res.json();
+}
+
+async function findDriveFolder() {
+  const q = `name='${FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+  const data = await driveRequest(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)`);
+  return data.files && data.files[0] ? data.files[0].id : null;
+}
+
+async function createDriveFolder() {
+  const data = await driveRequest('https://www.googleapis.com/drive/v3/files', {
+    method: 'POST',
+    body: JSON.stringify({ name: FOLDER_NAME, mimeType: 'application/vnd.google-apps.folder' })
+  });
+  return data.id;
+}
+
+async function findUniverseFile(folderId) {
+  const q = `name='${UNIVERSE_FILENAME}' and '${folderId}' in parents and trashed=false`;
+  const data = await driveRequest(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)`);
+  return data.files && data.files[0] ? data.files[0].id : null;
+}
+
+async function createUniverseFile(folderId) {
+  const universe = createUniverse();
+  const meta = { name: UNIVERSE_FILENAME, parents: [folderId] };
+  const form = new FormData();
+  form.append('metadata', new Blob([JSON.stringify(meta)], { type: 'application/json' }));
+  form.append('file', new Blob([JSON.stringify(universe, null, 2)], { type: 'application/json' }));
+
+  const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + state.accessToken },
+    body: form
+  });
+  const data = await res.json();
+  state.universe = universe;
+  return data.id;
+}
+
+async function loadUniverseFile(fileId) {
+  const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+    headers: { 'Authorization': 'Bearer ' + state.accessToken }
+  });
+  return res.json();
+}
+
+async function saveUniverse() {
+  if (state.mode === 'local') {
+    localStorage.setItem('singular_universe', JSON.stringify(state.universe));
+    return;
+  }
+  if (!state.driveFileId || !state.accessToken) return;
+  await fetch(`https://www.googleapis.com/upload/drive/v3/files/${state.driveFileId}?uploadType=media`, {
+    method: 'PATCH',
+    headers: {
+      'Authorization': 'Bearer ' + state.accessToken,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(state.universe, null, 2)
+  });
+}
+
+// ══════════════════════════════════════════
+// LOCAL MODE
+// ══════════════════════════════════════════
+function connectLocal() {
+  state.mode = 'local';
+  const saved = localStorage.getItem('singular_universe');
+  state.universe = saved ? JSON.parse(saved) : createUniverse();
+  launchUniverse('Yerel');
+}
+
+// ══════════════════════════════════════════
+// LAUNCH
+// ══════════════════════════════════════════
+function launchUniverse(modeLabel) {
+  const boot = document.getElementById('boot');
+  boot.classList.add('fade-out');
+
+  setTimeout(() => {
+    boot.style.display = 'none';
+    const univ = document.getElementById('universe');
+    univ.classList.add('active');
+
+    document.getElementById('status-dot').classList.add('connected');
+    document.getElementById('status-text').textContent = modeLabel;
+
+    initCosmos();
+    renderExistingEntries();
+
+    document.getElementById('input-field').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleInput();
+    });
+
+    document.getElementById('input-field').focus();
+  }, 800);
+}
+
+// ══════════════════════════════════════════
+// COSMOS / SVG ENGINE
+// ══════════════════════════════════════════
+const SVG_NS = 'http://www.w3.org/2000/svg';
+let svgEl, cx, cy, animFrame;
+
+const NODE_COLORS = {
+  core:     { fill: 'rgba(167,139,250,0.15)', stroke: '#a78bfa' },
+  question: { fill: 'rgba(96,165,250,0.12)',  stroke: '#60a5fa' },
+  answer:   { fill: 'rgba(52,211,153,0.12)',  stroke: '#34d399' },
+  tag:      { fill: 'rgba(245,158,11,0.12)',  stroke: '#f59e0b' },
+  person:   { fill: 'rgba(244,114,182,0.12)', stroke: '#f472b6' },
+  action:   { fill: 'rgba(167,139,250,0.12)', stroke: '#a78bfa' }
+};
+
+function initCosmos() {
+  svgEl = document.getElementById('cosmos');
+  cx = window.innerWidth / 2;
+  cy = window.innerHeight / 2;
+
+  drawOrbits();
+  drawCoreNode();
+  pulseCore();
+
+  window.addEventListener('resize', () => {
+    cx = window.innerWidth / 2;
+    cy = window.innerHeight / 2;
+    svgEl.innerHTML = '';
+    drawOrbits();
+    drawCoreNode();
+    rerenderNodes();
+  });
+}
+
+function drawOrbits() {
+  [120, 220, 340, 480].forEach(r => {
+    const c = svgCreate('circle');
+    c.setAttribute('cx', cx);
+    c.setAttribute('cy', cy);
+    c.setAttribute('r', r);
+    c.setAttribute('class', 'orbit-ring');
+    svgEl.appendChild(c);
+  });
+}
+
+function drawCoreNode() {
+  const g = svgCreate('g');
+  g.setAttribute('id', 'core-group');
+
+  // glow
+  const glow = svgCreate('circle');
+  glow.setAttribute('cx', cx); glow.setAttribute('cy', cy);
+  glow.setAttribute('r', '48'); glow.setAttribute('class', 'core-inner');
+  g.appendChild(glow);
+
+  // ring
+  const ring = svgCreate('circle');
+  ring.setAttribute('cx', cx); ring.setAttribute('cy', cy);
+  ring.setAttribute('r', '28'); ring.setAttribute('class', 'core-outer');
+  g.appendChild(ring);
+
+  // dot
+  const dot = svgCreate('circle');
+  dot.setAttribute('cx', cx); dot.setAttribute('cy', cy);
+  dot.setAttribute('r', '4'); dot.setAttribute('class', 'core-dot');
+  g.appendChild(dot);
+
+  // pulse ring
+  const pulse = svgCreate('circle');
+  pulse.setAttribute('cx', cx); pulse.setAttribute('cy', cy);
+  pulse.setAttribute('r', '28'); pulse.setAttribute('class', 'core-pulse');
+  pulse.setAttribute('id', 'pulse-ring');
+  g.appendChild(pulse);
+
+  // label
+  const label = svgCreate('text');
+  label.setAttribute('x', cx); label.setAttribute('y', cy + 44);
+  label.setAttribute('text-anchor', 'middle');
+  label.setAttribute('fill', 'rgba(167,139,250,0.4)');
+  label.setAttribute('font-size', '8');
+  label.setAttribute('font-family', 'DM Mono, monospace');
+  label.setAttribute('letter-spacing', '3');
+  label.textContent = 'SINGULAR';
+  g.appendChild(label);
+
+  g.style.cursor = 'pointer';
+  g.onclick = () => openPanel({ type: 'core', text: 'Senin evreninin merkezi.', tags: [], created: state.universe?.meta?.created });
+
+  svgEl.appendChild(g);
+}
+
+function pulseCore() {
+  const ring = document.getElementById('pulse-ring');
+  if (!ring) return;
+  let r = 28, opacity = 0.6, growing = true;
+
+  function step() {
+    if (growing) { r += 0.3; opacity -= 0.008; }
+    if (r > 60) { growing = false; r = 28; opacity = 0.5; }
+
+    ring.setAttribute('r', r);
+    ring.setAttribute('opacity', opacity);
+    requestAnimationFrame(step);
+  }
+  step();
+}
+
+function svgCreate(tag) {
+  return document.createElementNS(SVG_NS, tag);
+}
+
+// ══════════════════════════════════════════
+// NODE PLACEMENT
+// ══════════════════════════════════════════
+function getNodePosition(index, total, orbitRadius) {
+  const angle = (index / Math.max(total, 1)) * 2 * Math.PI - Math.PI / 2;
+  return {
+    x: cx + orbitRadius * Math.cos(angle),
+    y: cy + orbitRadius * Math.sin(angle)
+  };
+}
+
+function orbitForCount(count) {
+  if (count <= 6) return 140;
+  if (count <= 14) return 240;
+  if (count <= 26) return 360;
+  return 490;
+}
+
+function addNodeToGraph(entry) {
+  const total = state.nodes.length + 1;
+  const orbit = orbitForCount(total);
+  const pos = getNodePosition(state.nodes.length, total, orbit);
+
+  const nodeData = { ...entry, x: pos.x, y: pos.y };
+  state.nodes.push(nodeData);
+
+  const colors = NODE_COLORS[entry.type] || NODE_COLORS.answer;
+
+  const g = svgCreate('g');
+  g.setAttribute('class', 'g-node');
+  g.setAttribute('data-id', entry.id);
+  g.style.opacity = '0';
+
+  // link to core
+  const link = svgCreate('line');
+  link.setAttribute('x1', cx); link.setAttribute('y1', cy);
+  link.setAttribute('x2', pos.x); link.setAttribute('y2', pos.y);
+  link.setAttribute('class', 'g-link');
+  link.setAttribute('data-id', entry.id);
+  svgEl.insertBefore(link, svgEl.firstChild.nextSibling);
+
+  // node circle
+  const circle = svgCreate('circle');
+  circle.setAttribute('cx', pos.x); circle.setAttribute('cy', pos.y);
+  circle.setAttribute('r', '10');
+  circle.setAttribute('fill', colors.fill);
+  circle.setAttribute('stroke', colors.stroke);
+  g.appendChild(circle);
+
+  // type indicator dot
+  const dot = svgCreate('circle');
+  dot.setAttribute('cx', pos.x); dot.setAttribute('cy', pos.y);
+  dot.setAttribute('r', '3');
+  dot.setAttribute('fill', colors.stroke);
+  g.appendChild(dot);
+
+  // label
+  const label = svgCreate('text');
+  label.setAttribute('x', pos.x);
+  label.setAttribute('y', pos.y + 20);
+  label.setAttribute('text-anchor', 'middle');
+  const shortText = entry.text.length > 18 ? entry.text.slice(0, 18) + '…' : entry.text;
+  label.textContent = shortText;
+  g.appendChild(label);
+
+  g.onclick = () => openPanel(entry);
+
+  // fade in
+  svgEl.appendChild(g);
+  setTimeout(() => { g.style.transition = 'opacity 0.6s'; g.style.opacity = '1'; }, 50);
+
+  // update count
+  document.getElementById('node-count').textContent = state.nodes.length + ' node';
+
+  // hide hint after first entry
+  if (state.nodes.length === 1) {
+    document.getElementById('hint').style.opacity = '0';
+  }
+}
+
+function rerenderNodes() {
+  // Remove existing nodes and links
+  document.querySelectorAll('.g-node, .g-link').forEach(el => el.remove());
+  const savedNodes = [...state.nodes];
+  state.nodes = [];
+  savedNodes.forEach(n => addNodeToGraph(n));
+}
+
+function renderExistingEntries() {
+  if (!state.universe) return;
+  state.universe.entries.forEach(entry => addNodeToGraph(entry));
+}
+
+// ══════════════════════════════════════════
+// INPUT HANDLER
+// ══════════════════════════════════════════
+async function handleInput() {
+  const field = document.getElementById('input-field');
+  const text = field.value.trim();
+  if (!text) return;
+
+  field.value = '';
+
+  // Create entry
+  const entry = addEntry(text);
+
+  // Add to graph
+  addNodeToGraph(entry);
+
+  // Save
+  await saveUniverse();
+}
+
+// ══════════════════════════════════════════
+// DETAIL PANEL
+// ══════════════════════════════════════════
+function openPanel(entry) {
+  document.getElementById('panel-type').textContent = entry.type || 'node';
+  document.getElementById('panel-title').textContent = entry.text || '—';
+  document.getElementById('panel-meta').textContent = entry.created ? new Date(entry.created).toLocaleString('tr-TR') : '—';
+
+  const tagsEl = document.getElementById('panel-tags');
+  tagsEl.innerHTML = '';
+  (entry.tags || []).forEach(tag => {
+    const span = document.createElement('span');
+    span.className = 'panel-tag';
+    span.textContent = '#' + tag;
+    tagsEl.appendChild(span);
+  });
+
+  document.getElementById('panel').classList.add('open');
+}
+
+function closePanel() {
+  document.getElementById('panel').classList.remove('open');
+}
+</script>
+</body>
+</html>
