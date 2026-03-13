@@ -521,69 +521,150 @@ function drawClusters() {
 }
 
 // ══════════════════════════════════════
-// INTERACTION
+// INTERACTION — pan + node drag
 // ══════════════════════════════════════
+function hitNode(sx, sy) {
+  const w = screenToWorld(sx, sy);
+  let hit = null, minD = Infinity;
+  S.nodes.forEach(n => {
+    const d = Math.hypot(n.x - w.x, n.y - w.y);
+    if (d < (n.r + 10) / S.scale && d < minD) { minD = d; hit = n; }
+  });
+  return hit;
+}
+
 function setupInteraction() {
-  // Pan
-  canvas.addEventListener('mousedown', e=>{
-    S.dragging=true; S.lastX=e.clientX; S.lastY=e.clientY;
-    canvas.classList.add('grabbing');
-  });
-  window.addEventListener('mousemove', e=>{
-    if(!S.dragging) return;
-    S.ox+=e.clientX-S.lastX; S.oy+=e.clientY-S.lastY;
-    S.lastX=e.clientX; S.lastY=e.clientY;
-  });
-  window.addEventListener('mouseup', e=>{
-    if(!S.dragging) return;
-    const moved=Math.abs(e.clientX-S.lastX)+Math.abs(e.clientY-S.lastY);
-    if(moved<3) handleClick(e.clientX,e.clientY);
-    S.dragging=false;
-    canvas.classList.remove('grabbing');
+  let dragNode = null;
+  let wasDragged = false;
+  let downX = 0, downY = 0;
+
+  // ── MOUSE ──
+  canvas.addEventListener('mousedown', e => {
+    downX = e.clientX; downY = e.clientY;
+    wasDragged = false;
+    dragNode = hitNode(e.clientX, e.clientY);
+    if (dragNode) {
+      dragNode._wasPinned = dragNode.pinned;
+      dragNode.pinned = true;
+      dragNode.vx = 0; dragNode.vy = 0;
+      canvas.style.cursor = 'grabbing';
+    } else {
+      S.dragging = true;
+      S.lastX = e.clientX; S.lastY = e.clientY;
+      canvas.classList.add('grabbing');
+    }
   });
 
-  // Wheel zoom
-  canvas.addEventListener('wheel', e=>{
-    e.preventDefault();
-    const f=e.deltaY>0?0.88:1.14;
-    const wx=(e.clientX-S.ox)/S.scale, wy=(e.clientY-S.oy)/S.scale;
-    S.scale=Math.max(0.08,Math.min(6,S.scale*f));
-    S.ox=e.clientX-wx*S.scale; S.oy=e.clientY-wy*S.scale;
-  },{passive:false});
+  window.addEventListener('mousemove', e => {
+    const dx = e.clientX - downX, dy = e.clientY - downY;
+    if (Math.abs(dx) + Math.abs(dy) > 3) wasDragged = true;
 
-  // Touch
-  let touches={}, pinchDist=0;
-  canvas.addEventListener('touchstart',e=>{
-    [...e.touches].forEach(t=>{touches[t.identifier]={x:t.clientX,y:t.clientY};});
-    if(e.touches.length===2) {
-      const a=e.touches[0],b=e.touches[1];
-      pinchDist=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);
-    } else if(e.touches.length===1) {
-      S.dragging=true; S.lastX=e.touches[0].clientX; S.lastY=e.touches[0].clientY;
+    if (dragNode) {
+      const w = screenToWorld(e.clientX, e.clientY);
+      dragNode.x = w.x; dragNode.y = w.y;
+      dragNode.vx = 0; dragNode.vy = 0;
+    } else if (S.dragging) {
+      S.ox += e.clientX - S.lastX;
+      S.oy += e.clientY - S.lastY;
+      S.lastX = e.clientX; S.lastY = e.clientY;
     }
   });
-  canvas.addEventListener('touchmove',e=>{
+
+  window.addEventListener('mouseup', e => {
+    if (dragNode) {
+      // Alt key = permanent pin, otherwise release to physics
+      if (e.altKey) {
+        dragNode.pinned = true; // keep pinned
+      } else {
+        dragNode.pinned = dragNode._wasPinned || false;
+      }
+      if (!wasDragged) {
+        S.selectedId = dragNode.id;
+        openPanel(dragNode.entry);
+      }
+      dragNode = null;
+      canvas.style.cursor = 'grab';
+    } else if (S.dragging) {
+      if (!wasDragged) handleClick(e.clientX, e.clientY);
+      S.dragging = false;
+      canvas.classList.remove('grabbing');
+    }
+    wasDragged = false;
+  });
+
+  // ── WHEEL ZOOM ──
+  canvas.addEventListener('wheel', e => {
     e.preventDefault();
-    if(e.touches.length===2) {
-      const a=e.touches[0],b=e.touches[1];
-      const d=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);
-      const f=d/pinchDist; pinchDist=d;
-      const mx=(a.clientX+b.clientX)/2, my=(a.clientY+b.clientY)/2;
-      const wx=(mx-S.ox)/S.scale, wy=(my-S.oy)/S.scale;
-      S.scale=Math.max(0.08,Math.min(6,S.scale*f));
-      S.ox=mx-wx*S.scale; S.oy=my-wy*S.scale;
-    } else if(e.touches.length===1&&S.dragging) {
-      S.ox+=e.touches[0].clientX-S.lastX; S.oy+=e.touches[0].clientY-S.lastY;
-      S.lastX=e.touches[0].clientX; S.lastY=e.touches[0].clientY;
+    const f = e.deltaY > 0 ? 0.88 : 1.14;
+    const wx = (e.clientX - S.ox) / S.scale, wy = (e.clientY - S.oy) / S.scale;
+    S.scale = Math.max(0.08, Math.min(6, S.scale * f));
+    S.ox = e.clientX - wx * S.scale; S.oy = e.clientY - wy * S.scale;
+  }, { passive: false });
+
+  // ── TOUCH ──
+  let touches = {}, pinchDist = 0, touchDragNode = null, touchWasDragged = false, touchDownX = 0, touchDownY = 0;
+
+  canvas.addEventListener('touchstart', e => {
+    [...e.touches].forEach(t => { touches[t.identifier] = { x: t.clientX, y: t.clientY }; });
+    if (e.touches.length === 2) {
+      const a = e.touches[0], b = e.touches[1];
+      pinchDist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+      touchDragNode = null;
+    } else if (e.touches.length === 1) {
+      const t = e.touches[0];
+      touchDownX = t.clientX; touchDownY = t.clientY; touchWasDragged = false;
+      touchDragNode = hitNode(t.clientX, t.clientY);
+      if (touchDragNode) {
+        touchDragNode._wasPinned = touchDragNode.pinned;
+        touchDragNode.pinned = true;
+        touchDragNode.vx = 0; touchDragNode.vy = 0;
+      } else {
+        S.dragging = true; S.lastX = t.clientX; S.lastY = t.clientY;
+      }
     }
-  },{passive:false});
-  canvas.addEventListener('touchend',e=>{
-    if(e.changedTouches.length===1&&e.touches.length===0) {
-      const t=e.changedTouches[0];
-      const prev=touches[t.identifier];
-      if(prev&&Math.abs(t.clientX-prev.x)+Math.abs(t.clientY-prev.y)<10) handleClick(t.clientX,t.clientY);
+  });
+
+  canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (e.touches.length === 2) {
+      const a = e.touches[0], b = e.touches[1];
+      const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+      const f = d / pinchDist; pinchDist = d;
+      const mx = (a.clientX + b.clientX) / 2, my = (a.clientY + b.clientY) / 2;
+      const wx = (mx - S.ox) / S.scale, wy = (my - S.oy) / S.scale;
+      S.scale = Math.max(0.08, Math.min(6, S.scale * f));
+      S.ox = mx - wx * S.scale; S.oy = my - wy * S.scale;
+    } else if (e.touches.length === 1) {
+      const t = e.touches[0];
+      const dx = t.clientX - touchDownX, dy = t.clientY - touchDownY;
+      if (Math.abs(dx) + Math.abs(dy) > 4) touchWasDragged = true;
+      if (touchDragNode) {
+        const w = screenToWorld(t.clientX, t.clientY);
+        touchDragNode.x = w.x; touchDragNode.y = w.y;
+        touchDragNode.vx = 0; touchDragNode.vy = 0;
+      } else if (S.dragging) {
+        S.ox += t.clientX - S.lastX; S.oy += t.clientY - S.lastY;
+        S.lastX = t.clientX; S.lastY = t.clientY;
+      }
     }
-    S.dragging=false; touches={};
+  }, { passive: false });
+
+  canvas.addEventListener('touchend', e => {
+    if (touchDragNode) {
+      touchDragNode.pinned = touchDragNode._wasPinned || false;
+      if (!touchWasDragged) {
+        S.selectedId = touchDragNode.id;
+        openPanel(touchDragNode.entry);
+      }
+      touchDragNode = null;
+    } else if (e.changedTouches.length === 1 && e.touches.length === 0) {
+      if (!touchWasDragged) {
+        const t = e.changedTouches[0];
+        handleClick(t.clientX, t.clientY);
+      }
+      S.dragging = false;
+    }
+    touchWasDragged = false; touches = {};
   });
 }
 
