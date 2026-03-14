@@ -3464,7 +3464,6 @@ function drawOrbits(){
 
 function drawCore(){
   const g=svgMk('g');g.id='coreG';
-  // Halos
   [55,38,24].forEach((r,i)=>{
     const h=svgMk('circle');h.setAttribute('cx',W/2);h.setAttribute('cy',H/2);
     h.setAttribute('r',r);h.setAttribute('fill','none');
@@ -3482,16 +3481,25 @@ function drawCore(){
   pulse.setAttribute('r','16');pulse.setAttribute('fill','none');
   pulse.setAttribute('stroke','var(--core)');pulse.setAttribute('stroke-width','.4');
   pulse.setAttribute('opacity','0');pulse.id='pulseRing';g.appendChild(pulse);
-  const lbl=svgMk('text');lbl.setAttribute('x',W/2);lbl.setAttribute('y',H/2+40);
-  lbl.setAttribute('text-anchor','middle');lbl.setAttribute('fill','rgba(167,139,250,.22)');
-  lbl.setAttribute('font-size','6');lbl.setAttribute('font-family','DM Mono,monospace');
-  lbl.setAttribute('letter-spacing','4');lbl.textContent='SINGULAR';g.appendChild(lbl);
+  // Name label — "SINGULAR" yerine kullanıcı adı gösterilecek
+  const selfName = S.universe?.profile?.name || 'SINGULAR';
+  const lbl=svgMk('text');lbl.setAttribute('x',W/2);lbl.setAttribute('y',H/2+42);
+  lbl.setAttribute('text-anchor','middle');lbl.setAttribute('fill','rgba(167,139,250,.5)');
+  lbl.setAttribute('font-size','9');lbl.setAttribute('font-family','DM Mono,monospace');
+  lbl.setAttribute('letter-spacing','3');lbl.id='coreLabel';
+  lbl.textContent=selfName.toUpperCase();g.appendChild(lbl);
   g.style.cursor='pointer';g.onclick=()=>{
-    const selfE=S.universe.entities.find(e=>e.properties?.is_self);
-    if(selfE){ focusEntity(selfE.id); setTimeout(()=>openPanelEntity(selfE.id),400); }
+    const selfE=S.universe?.entities.find(e=>e.properties?.is_self);
+    if(selfE) openPanelEntity(selfE.id);
     else openPanelCore();
   };
   svgEl.appendChild(g);
+}
+
+// Core label'ını self entity adıyla güncelle
+function _updateCoreLabel(name){
+  const lbl=document.getElementById('coreLabel');
+  if(lbl) lbl.textContent=(name||'SINGULAR').toUpperCase();
 }
 
 function animateCore(){
@@ -3729,26 +3737,31 @@ function spawnDomainNode(ent){
 
 function spawnEntityNode(ent, domainId){
   if(S.nodes.find(n=>n.id===ent.id))return;
-  // 'ben/self' entity: merkeze yakın, hafifçe sabitlenmiş
   const isSelf = ent.properties?.is_self || ent.slug==='ben' || ent.slug==='self';
-  let bx, by;
+
   if(isSelf){
-    // 'ben' entity — tam merkeze yakın
-    bx = W/2; by = H/2 + 60;
-  } else {
-    // Domain yıldızının çok yakınına spawn et — spring hemen aktif olsun
-    const domNode = domainId ? S.nodes.find(n=>n.id==='domain_'+domainId) : null;
-    const spawnAngle = Math.random()*Math.PI*2;
-    const spawnR = 35 + Math.random()*25;  // çok yakın spawn, spring çeker
-    bx = domNode ? domNode.x + spawnR*Math.cos(spawnAngle) : W/2 + 120*Math.cos(spawnAngle);
-    by = domNode ? domNode.y + spawnR*Math.sin(spawnAngle) : H/2 + 120*Math.sin(spawnAngle);
+    // Self entity = cosmos core. Fizik engine için node oluştur ama SVG node'u yok.
+    // Core (W/2, H/2) üzerine sıkı pin'le — diğer entity'ler buna spring ile bağlanır.
+    const node={id:ent.id,x:W/2,y:H/2,vx:0,vy:0,
+      kind:'entity',ref:ent,pinned:true,dragging:false,isSelf:true};
+    S.nodes.push(node);
+    // Core label'ı self adıyla güncelle
+    _updateCoreLabel(ent.label);
+    return;  // SVG node spawn etme — core kendisi zaten var
   }
 
+  // Domain yıldızının yakınına spawn et
+  const domNode = domainId ? S.nodes.find(n=>n.id==='domain_'+domainId) : null;
+  const spawnAngle = Math.random()*Math.PI*2;
+  const spawnR = 35 + Math.random()*25;
+  const bx = domNode ? domNode.x + spawnR*Math.cos(spawnAngle) : W/2 + 120*Math.cos(spawnAngle);
+  const by = domNode ? domNode.y + spawnR*Math.sin(spawnAngle) : H/2 + 120*Math.sin(spawnAngle);
+
   const node={id:ent.id,x:bx,y:by,
-    vx:isSelf?0:(Math.random()-.5)*1.5,
-    vy:isSelf?0:(Math.random()-.5)*1.5,
+    vx:(Math.random()-.5)*1.5,
+    vy:(Math.random()-.5)*1.5,
     kind:ent.type==='credential'?'credential':'entity',
-    ref:ent, pinned:isSelf, dragging:false};  // self is pinned at center
+    ref:ent, pinned:false, dragging:false};
   S.nodes.push(node);
 
   const isCredential=ent.type==='credential';
@@ -4125,13 +4138,6 @@ function renderExisting(){
   });
   S.universe.entities.filter(e=>e.type!=='domain'&&!e.properties?.deleted).forEach(e=>{
     spawnEntityNode(e,e.domain);
-    // Self entity'ye özel class + pin
-    if(e.properties?.is_self){
-      const g=svgEl?.querySelector(`[data-nid="${e.id}"]`);
-      if(g) g.classList.add('is-self');
-      const n=S.nodes.find(x=>x.id===e.id);
-      if(n) n.pinned=true;
-    }
   });
   S.universe.questions.forEach(q=>spawnQuestionNode(q,detectDomain(q.text)));
   S.universe.links.forEach(l=>drawLink(l.from,l.to,l.relation));
@@ -4398,15 +4404,12 @@ function processStatement(text){
       ALIAS_INDEX['ben'] = newName;
       ALIAS_INDEX[newName.toLowerCase()] = newName;
       ENTITY_TYPE_MEMORY[newName.toLowerCase()] = 'person';
-      // Cosmos node label güncelle
-      const gLbl = svgEl?.querySelector(`[data-nid="${selfEnt.id}"] text`);
-      if(gLbl) gLbl.textContent = newName.slice(0,16);
-      // Self entity özel görünüm + pin
-      const gSelf = svgEl?.querySelector(`[data-nid="${selfEnt.id}"]`);
-      if(gSelf) gSelf.classList.add('is-self');
+      // Core label güncelle — self entity = cosmos core
+      _updateCoreLabel(newName);
+      // Self node fizik konumunu sabitle (hâlâ W/2, H/2'de olmalı)
       const selfNode = S.nodes.find(n=>n.id===selfEnt.id);
-      if(selfNode){ selfNode.pinned=true; selfNode.x=W/2; selfNode.y=H/2+70; }
-      // İlk isim girişinde — sadece kısa bir onay
+      if(selfNode){ selfNode.pinned=true; selfNode.x=W/2; selfNode.y=H/2; }
+      // İlk isim girişinde — kısa onay
       const isFirstName = !oldLabel || oldLabel === 'ben';
       if(isFirstName){
         setTimeout(()=>showToast(`Merhaba, ${newName}. Evrenin hazır.`), 300);
