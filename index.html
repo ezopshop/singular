@@ -1990,121 +1990,145 @@ const ONTOLOGY = {
       "label": "çocuğu",
       "spring_k": 0.05,
       "rest_len": 85,
-      "visual": "rgba(244,114,182,.45)"
+      "visual": "rgba(244,114,182,.7)"
     },
     "parent_of": {
       "label": "ebeveyni",
       "spring_k": 0.05,
       "rest_len": 85,
-      "visual": "rgba(244,114,182,.45)"
+      "visual": "rgba(244,114,182,.7)"
     },
     "spouse_of": {
       "label": "eşi",
       "spring_k": 0.06,
       "rest_len": 70,
-      "visual": "rgba(244,114,182,.6)"
+      "visual": "rgba(244,114,182,.8)"
     },
     "sibling_of": {
       "label": "kardeşi",
       "spring_k": 0.04,
       "rest_len": 90,
-      "visual": "rgba(244,114,182,.35)"
+      "visual": "rgba(244,114,182,.55)"
     },
     "relative_of": {
       "label": "akrabası",
       "spring_k": 0.025,
       "rest_len": 120,
-      "visual": "rgba(244,114,182,.2)"
+      "visual": "rgba(244,114,182,.35)"
     },
     "fills_role": {
       "label": "rolünü doldurur",
       "spring_k": 0.055,
       "rest_len": 70,
-      "visual": "rgba(244,114,182,.6)"
+      "visual": "rgba(244,114,182,.75)"
     },
     "works_at": {
       "label": "çalışır",
       "spring_k": 0.03,
       "rest_len": 110,
-      "visual": "rgba(251,146,60,.3)"
+      "visual": "rgba(251,146,60,.55)"
     },
     "works_on": {
       "label": "çalışıyor",
       "spring_k": 0.03,
       "rest_len": 115,
-      "visual": "rgba(251,146,60,.25)"
+      "visual": "rgba(251,146,60,.45)"
     },
     "owns": {
       "label": "sahibi",
       "spring_k": 0.025,
       "rest_len": 130,
-      "visual": "rgba(34,211,238,.2)"
+      "visual": "rgba(34,211,238,.4)"
     },
     "stored_in": {
       "label": "saklandığı yer",
       "spring_k": 0.035,
       "rest_len": 100,
-      "visual": "rgba(96,165,250,.2)"
+      "visual": "rgba(96,165,250,.4)"
     },
     "located_at": {
       "label": "konumu",
       "spring_k": 0.025,
       "rest_len": 120,
-      "visual": "rgba(52,211,153,.25)"
+      "visual": "rgba(52,211,153,.45)"
     },
     "lives_in": {
       "label": "yaşıyor",
       "spring_k": 0.025,
-      "rest_len": 120,
-      "visual": "rgba(52,211,153,.25)"
+      "rest_len": 110,
+      "visual": "rgba(52,211,153,.55)"
+    },
+    "born_in": {
+      "label": "doğduğu yer",
+      "spring_k": 0.02,
+      "rest_len": 130,
+      "visual": "rgba(52,211,153,.45)"
     },
     "belongs_to_domain": {
       "label": "alanı",
-      "spring_k": 0.08,
-      "rest_len": 90,
-      "visual": "rgba(167,139,250,.2)"
+      "spring_k": 0.06,
+      "rest_len": 95,
+      "visual": "rgba(167,139,250,.25)"
     },
     "related_to": {
       "label": "ilgili",
       "spring_k": 0.015,
-      "rest_len": 165,
-      "visual": "rgba(148,163,184,.14)"
+      "rest_len": 155,
+      "visual": "rgba(148,163,184,.32)"
     },
     "mentions": {
       "label": "bahseder",
       "spring_k": 0.007,
-      "rest_len": 210,
-      "visual": "rgba(148,163,184,.07)"
+      "rest_len": 200,
+      "visual": "rgba(148,163,184,.18)"
     },
     "asks_about": {
       "label": "sorusu",
-      "spring_k": 0.01,
-      "rest_len": 115,
-      "visual": "rgba(96,165,250,.18)"
+      "spring_k": 0.012,
+      "rest_len": 105,
+      "visual": "rgba(96,165,250,.45)"
     },
     "answered_by": {
       "label": "cevabı",
-      "spring_k": 0.045,
-      "rest_len": 55,
-      "visual": "rgba(52,211,153,.35)"
+      "spring_k": 0.05,
+      "rest_len": 50,
+      "visual": "rgba(52,211,153,.6)"
     },
     "has_property": {
       "label": "değeri",
       "spring_k": 0.04,
-      "rest_len": 80,
-      "visual": "rgba(167,139,250,.25)"
+      "rest_len": 75,
+      "visual": "rgba(167,139,250,.45)"
     },
     "likes": {
       "label": "seviyor",
       "spring_k": 0.02,
-      "rest_len": 140,
-      "visual": "rgba(233,121,249,.2)"
+      "rest_len": 135,
+      "visual": "rgba(233,121,249,.4)"
     },
     "is_a": {
       "label": "türü",
       "spring_k": 0.04,
-      "rest_len": 75,
-      "visual": "rgba(163,230,53,.25)"
+      "rest_len": 70,
+      "visual": "rgba(163,230,53,.4)"
+    },
+    "anniversary_of": {
+      "label": "yıldönümü",
+      "spring_k": 0.02,
+      "rest_len": 120,
+      "visual": "rgba(251,146,60,.4)"
+    },
+    "due_on": {
+      "label": "bitiş tarihi",
+      "spring_k": 0.025,
+      "rest_len": 110,
+      "visual": "rgba(248,113,113,.45)"
+    },
+    "happens_on": {
+      "label": "gerçekleşiyor",
+      "spring_k": 0.02,
+      "rest_len": 115,
+      "visual": "rgba(251,146,60,.38)"
     }
   },
   "property_types": {
@@ -2583,11 +2607,17 @@ const REL_SPRING = Object.fromEntries(
 
 // LINK_STYLE → ONTOLOGY.relation_types'dan türetilir
 const LINK_STYLE = Object.fromEntries(
-  Object.entries(ONTOLOGY.relation_types).map(([id, cfg]) => [id, {
-    stroke: cfg.visual,
-    width:  id === 'child_of' || id === 'parent_of' || id === 'spouse_of' || id === 'fills_role' ? '1.1' : '.5',
-    dash:   id === 'asks_about' || id === 'is_a' ? '3 4' : null
-  }])
+  Object.entries(ONTOLOGY.relation_types).map(([id, cfg]) => {
+    // Kalınlık: ilişki gücüne göre
+    const strong = ['child_of','parent_of','spouse_of','fills_role','sibling_of'].includes(id);
+    const medium = ['works_at','works_on','lives_in','born_in','owns','answered_by','has_property','asks_about'].includes(id);
+    const width = strong ? '1.4' : medium ? '0.9' : '0.5';
+    return [id, {
+      stroke: cfg.visual,
+      width,
+      dash: id === 'asks_about' || id === 'is_a' || id === 'related_to' ? '3 4' : null
+    }];
+  })
 );
 
 // RELATION_TYPES (display labels)
@@ -3553,26 +3583,27 @@ function physicsLoop(){
     const mass = NODE_MASS[n.kind] || 2;
 
     if(n.kind === 'domain'){
-      // ── DOMAIN FİZİĞİ: yumuşak home çekimi + organik drift ──────────
-      const pos = DOMAIN_POSITIONS[n.ref?.slug];
-      if(!pos) return;
+      // ── DOMAIN FİZİĞİ: CEMO merkezli orbit + organik nefes ──────────
+      const slug = n.ref?.slug;
+      if(!slug) return;
 
-      // Home pozisyon — entity yoğunluğuna göre hafifçe kayar
       const entCount = S.universe.links.filter(l=>
         (l.to===n.id||l.from===n.id) && l.relation==='belongs_to_domain'
       ).length;
-      // Ağır domain'ler daha az sürüklenir
       const domMass = 1 + entCount * 0.4;
 
+      // Home pozisyon — polar koordinat, dinamik yarıçap
+      const home = getDomainHomePos(slug);
+
       // Nefes hareketi — her domain farklı fazda
-      const phase = (pos[0] + pos[1]) * Math.PI * 1.7; // pozisyona göre faz
-      const breathR = 18 + entCount * 1.5; // içerik arttıkça daha az soluk
+      const angle = DOMAIN_ANGLES[slug] || 0;
+      const phase = angle * 2.1;
+      const breathR = Math.max(8, 18 - entCount * 1.2); // içerik arttıkça az sallanır
       const breathX = Math.cos(_breathT * 0.7 + phase) * breathR;
       const breathY = Math.sin(_breathT * 1.1 + phase * 0.8) * breathR;
 
-      // Hedef: home + nefes offset
-      const targetX = pos[0]*W + breathX;
-      const targetY = pos[1]*H + breathY;
+      const targetX = home.x + breathX;
+      const targetY = home.y + breathY;
 
       // Home'a yay çekimi
       const dx = targetX - n.x, dy = targetY - n.y;
@@ -3590,10 +3621,9 @@ function physicsLoop(){
         }
       });
 
-      // Damping + hız sınırı (domain'ler çok yavaş)
       n.vx *= 0.92; n.vy *= 0.92;
       const spd = Math.sqrt(n.vx*n.vx+n.vy*n.vy);
-      const maxDomSpd = 0.8 + entCount * 0.1;
+      const maxDomSpd = 0.8 + entCount * 0.05;
       if(spd > maxDomSpd){ n.vx=n.vx/spd*maxDomSpd; n.vy=n.vy/spd*maxDomSpd; }
 
       n.x += n.vx; n.y += n.vy;
@@ -3659,12 +3689,24 @@ function physicsLoop(){
 
 // Link görsel güncelleme — güçlü ilişkiler daha parlak
 function updateLinkOpacity(){
+  const z = S.vpS;
+  // Zoom'a göre temel opacity boost — yakına geldikçe linkler belirginleşir
+  const zoomBoost = z < 0.5 ? 0.4 : z < 1.0 ? 0.65 : z < 2.0 ? 0.9 : 1.0;
+
   svgEl.querySelectorAll('.g-link').forEach(line => {
     const rel = line.getAttribute('data-rel');
-    const spring = REL_SPRING[rel];
-    if(!spring) return;
-    const opacity = Math.min(0.65, spring.k * 9 + 0.05);
-    line.setAttribute('opacity', opacity);
+    if(rel === 'belongs_to_domain'){
+      // Domain link'leri zoom'a göre: uzakta görünmez, yakında hafif
+      line.setAttribute('opacity', z < 0.6 ? '0' : (z < 1.2 ? '0.15' : '0.3'));
+      return;
+    }
+    const style = LINK_STYLE[rel];
+    if(!style) return;
+    // Temel opacity → stroke renk içinde tanımlı, biz sadece opacity attribute yazıyoruz
+    // strong links: daima görünür; weak links: zoom'a göre
+    const strong = ['child_of','parent_of','spouse_of','fills_role','sibling_of'].includes(rel);
+    const baseOpacity = strong ? zoomBoost : zoomBoost * 0.75;
+    line.setAttribute('opacity', Math.min(1, baseOpacity).toFixed(2));
   });
 }
 
@@ -3707,37 +3749,57 @@ function getNodeColor(kind,domainOrId){
   return '#e2e0f0';
 }
 
-// Domain index → evenly spaced angles so stars spread out
-// Domain'lerin ekrandaki sabit pozisyonları — tüm ontology domainleri kapsanır
-const DOMAIN_POSITIONS = {
-  identity:    [0.50, 0.16],  // üst merkez — BEN
-  family:      [0.16, 0.28],  // sol üst
-  work:        [0.84, 0.28],  // sağ üst
-  contacts:    [0.12, 0.50],  // sol
-  projects:    [0.88, 0.50],  // sağ
-  places:      [0.14, 0.70],  // sol alt
-  finance:     [0.86, 0.70],  // sağ alt
-  health:      [0.22, 0.84],  // sol alt köşe
-  media:       [0.78, 0.84],  // sağ alt köşe
-  memory:      [0.36, 0.84],  // alt sol-orta
-  preferences: [0.64, 0.84],  // alt sağ-orta
-  knowledge:   [0.68, 0.18],  // üst sağ
-  documents:   [0.32, 0.18],  // üst sol
-  credentials: [0.50, 0.90],  // alt merkez (hassas)
-  // aliases
-  docs:        [0.32, 0.18],
-  work:        [0.84, 0.28],
+// Domain'lerin CEMO (W/2, H/2) etrafındaki açıları — saatler gibi
+// Aktif domain'ler bu açılara göre sıralanır, yarıçap ekrana göre hesaplanır
+const DOMAIN_ANGLES = {
+  identity:    -Math.PI/2,          // 12 saat — yukarı merkez
+  family:      -Math.PI/2 + Math.PI*2/14 * 1,
+  knowledge:   -Math.PI/2 + Math.PI*2/14 * 2,
+  work:        -Math.PI/2 + Math.PI*2/14 * 3,
+  projects:    -Math.PI/2 + Math.PI*2/14 * 4,
+  finance:     -Math.PI/2 + Math.PI*2/14 * 5,
+  credentials: -Math.PI/2 + Math.PI*2/14 * 6,
+  health:      -Math.PI/2 + Math.PI*2/14 * 7,
+  media:       -Math.PI/2 + Math.PI*2/14 * 8,
+  preferences: -Math.PI/2 + Math.PI*2/14 * 9,
+  memory:      -Math.PI/2 + Math.PI*2/14 * 10,
+  places:      -Math.PI/2 + Math.PI*2/14 * 11,
+  contacts:    -Math.PI/2 + Math.PI*2/14 * 12,
+  documents:   -Math.PI/2 + Math.PI*2/14 * 13,
 };
-const DOMAIN_ORDER = Object.keys(DOMAIN_POSITIONS);
+
+// Domain home pozisyonunu hesapla — CEMO merkezli, ekrana orantılı yarıçap
+function getDomainHomePos(slug){
+  const angle = DOMAIN_ANGLES[slug];
+  if(angle === undefined) return {x: W/2, y: H/2};
+  // Yarıçap: ekranın kısa kenarının %30-38'i — içerik artınca biraz dışa açılır
+  const activeDomains = Object.keys(S.universe?.domains || {}).length || 1;
+  const entCount = S.universe?.links.filter(l=>
+    (l.to==='domain_'+slug||l.from==='domain_'+slug) && l.relation==='belongs_to_domain'
+  ).length || 0;
+  const baseR = Math.min(W, H) * 0.30;
+  const domainR = baseR + entCount * 3;  // içerik arttıkça biraz dışa
+  return {
+    x: W/2 + Math.cos(angle) * domainR,
+    y: H/2 + Math.sin(angle) * domainR * 0.75,  // dikey eksen biraz sıkıştır
+  };
+}
+
+// Eski DOMAIN_POSITIONS — geriye uyumluluk için tutuyoruz ama artık spawn'da kullanılmıyor
+const DOMAIN_POSITIONS = {
+  identity:[.50,.16],family:[.16,.28],work:[.84,.28],contacts:[.12,.50],
+  projects:[.88,.50],places:[.14,.70],finance:[.86,.70],health:[.22,.84],
+  media:[.78,.84],memory:[.36,.84],preferences:[.64,.84],knowledge:[.68,.18],
+  documents:[.32,.18],credentials:[.50,.90],docs:[.32,.18],
+};
 
 function spawnDomainNode(ent){
   if(S.nodes.find(n=>n.id===ent.id))return;
   const cfg=DOMAINS[ent.slug]||DOMAINS.knowledge;
-  // Sabit pozisyon — domain yıldızları ekrana yapışık durur
-  const pos = DOMAIN_POSITIONS[ent.slug];
-  const x = pos ? pos[0]*W : W/2 + (Math.random()-.5)*300;
-  const y = pos ? pos[1]*H : H/2 + (Math.random()-.5)*200;
-  // Domain'ler artık soft-anchor ile hareket eder — pinned değil
+  // CEMO merkezli polar koordinat sistemi
+  const home = getDomainHomePos(ent.slug);
+  const x = home.x, y = home.y;
+  // Domain'ler soft-anchor ile hareket eder — pinned değil
   const node={id:ent.id,x,y,vx:0,vy:0,kind:'domain',ref:ent,pinned:false,dragging:false};
   S.nodes.push(node);
 
@@ -4113,10 +4175,15 @@ function applyZoomProjection(){
   });
   svgEl.querySelectorAll('.g-link').forEach(l => {
     const rel = l.getAttribute('data-rel');
-    // family/strong links always visible, weak links only at zoom 3+
-    const strong = ['child_of','parent_of','fills_role','belongs_to_domain','spouse_of'].includes(rel);
-    const visible = zoomLevel >= 3 || (zoomLevel >= 2 && strong);
+    const strong = ['child_of','parent_of','fills_role','spouse_of','sibling_of'].includes(rel);
+    const semantic = ['works_at','lives_in','born_in','related_to','asks_about','answered_by','likes','owns'].includes(rel);
+    // belongs_to_domain: çok uzakta gizle, diğer durumlarda çok soluk göster
+    const isDomain = rel === 'belongs_to_domain';
+    const visible = isDomain
+      ? zoomLevel >= 2
+      : zoomLevel >= 3 || (zoomLevel >= 2 && (strong || semantic));
     l.style.opacity = visible ? '' : '0';
+    l.style.pointerEvents = visible ? 'all' : 'none';
   });
 }
 
