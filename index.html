@@ -2887,7 +2887,7 @@ const S = {
   // Physics nodes
   nodes:[],   // {id, x, y, vx, vy, kind, ref, pinned, dragging}
   // Viewport
-  vpX:0, vpY:0, vpS:0.82,  // İlk açılış biraz uzak — cosmos büyüdükçe zoom in edilir
+  vpX:0, vpY:0, vpS:1.0,   // Başlangıç: core tam ekran ortasında
   panning:false, panSX:0, panSY:0, panOX:0, panOY:0,
   dragNode:null,
   _animFrame:null,  // active animation frame id
@@ -3507,11 +3507,17 @@ function initCosmos(){
   drawCore();
   animateCore();
   initInteraction();
+
+  // Başlangıç viewport: core tam ekran ortasında (vpS=1.0, core at W/2,H/2)
+  S.vpX = 0; S.vpY = 0; S.vpS = 1.0;
+  applyVP();
+
   window.addEventListener('resize',()=>{
     W=window.innerWidth;H=window.innerHeight;
     svgEl.innerHTML='';
     buildDefs();drawOrbits();drawCore();animateCore();
     rerenderAll();
+    setTimeout(()=>smartInitialView(), 80);
   });
   requestAnimationFrame(physicsLoop);
 }
@@ -3900,6 +3906,7 @@ function spawnEntityNode(ent, domainId){
   attachDrag(g,node);
   svgEl.appendChild(g);
   requestAnimationFrame(()=>{g.style.transition='opacity .7s';g.style.opacity='1';});
+  if(!S._rendering) onNodeSpawned();
 }
 
 function spawnQuestionNode(q, domainId){
@@ -3955,9 +3962,37 @@ function spawnQuestionNode(q, domainId){
   attachDrag(g,node);
   svgEl.appendChild(g);
   requestAnimationFrame(()=>{g.style.transition='opacity .6s';g.style.opacity='1';});
+  if(!S._rendering) onNodeSpawned();
 }
 
-// ── DRAW LINK — relation-aware visual language
+// ── ON NODE SPAWNED — yeni node gelince viewport güncelle ───────────────
+// renderExisting sırasında değil, kullanıcı etkileşimiyle gelen node'larda çalışır
+let _spawnViewTimer = null;
+function onNodeSpawned(){
+  // Debounce — birden fazla node aynı anda gelirse tek seferde hesapla
+  if(_spawnViewTimer) clearTimeout(_spawnViewTimer);
+  _spawnViewTimer = setTimeout(()=>{
+    _spawnViewTimer = null;
+    const count = S.nodes.length;
+    if(count === 0) return;
+
+    // Yeni node ekran içinde mi? Değilse gentle zoom out
+    // Eğer 2-3 node varsa yakına, fazlası varsa fit yap
+    if(count <= 2){
+      smartInitialView();
+    } else {
+      // Mevcut view'da görünür olmayan node var mı kontrol et
+      const anyOutside = S.nodes.some(n=>{
+        const sx = (n.x + S.vpX) * S.vpS;
+        const sy = (n.y + S.vpY) * S.vpS;
+        return sx < -20 || sy < -20 || sx > W+20 || sy > H+20;
+      });
+      if(anyOutside) smartInitialView();
+    }
+  }, 350);
+}
+
+
 // [LINK_STYLE_BLOCK — moved to ONTOLOGY layer]
 function drawLink(fromId, toId, relation){
   // Don't draw links involving deleted/hidden entities
@@ -4190,17 +4225,14 @@ function zoomBy(f){
 }
 
 function resetView(){
-  // Animate back to showing the cosmos core in the effective center
-  const {cx, cy} = effectiveCenter();
-  const coreX = W/2, coreY = H/2;  // core is at canvas center
-  const targetScale = 1.0;
-  // offset so core ends up at effective center
-  const targetVpX = cx / targetScale - coreX;
-  const targetVpY = cy / targetScale - coreY;
-  animateViewport(targetVpX, targetVpY, targetScale, 400, ()=>{
-    clearFocus();
-    applyZoomProjection();
-  });
+  clearFocus();
+  // Akıllı reset: node varsa hepsini göster, yoksa core'u ortala
+  if(S.nodes.length > 0){
+    smartInitialView();
+  } else {
+    const {cx, cy} = effectiveCenter();
+    animateViewport(0, 0, 1.0, 400, ()=>applyZoomProjection());
+  }
 }
 
 function rerenderAll(){
@@ -4222,6 +4254,7 @@ function rerenderAll(){
 
 function renderExisting(){
   if(!S.universe)return;
+  S._rendering = true;  // bulk load sırasında viewport nudge'ı durdur
   Object.values(S.universe.domains).forEach(did=>{
     const ent=S.universe.entities.find(e=>e.id===did);
     if(ent) spawnDomainNode(ent);
@@ -4239,6 +4272,60 @@ function renderExisting(){
   S.universe.questions.forEach(q=>spawnQuestionNode(q,detectDomain(q.text)));
   S.universe.links.forEach(l=>drawLink(l.from,l.to,l.relation));
   updateCounters();
+  S._rendering = false;
+  // Akıllı başlangıç view — node sayısına göre
+  setTimeout(()=>smartInitialView(), 120);
+}
+
+// ── SMART INITIAL VIEW ─────────────────────────────────────────────────
+// Node sayısına göre en iyi başlangıç zoom + pan hesaplar
+function smartInitialView(){
+  const {cx, cy} = effectiveCenter();
+  const allNodes = S.nodes;
+
+  if(allNodes.length === 0){
+    // Boş evren: core tam ortada, net görünür
+    animateViewport(0, 0, 1.0, 500, ()=>applyZoomProjection());
+    return;
+  }
+
+  // Sadece domain node'ları varsa (ilk açılış, henüz entity yok)
+  const nonDomainNodes = allNodes.filter(n=>n.kind !== 'domain');
+  if(nonDomainNodes.length === 0){
+    // Domain yıldızları görünsün ama çok uzak olmasın
+    // Core (W/2, H/2) merkez, domain'ler çevresinde — %70-80 zoom iyi görünür
+    animateViewport(0, 0, 0.72, 600, ()=>applyZoomProjection());
+    return;
+  }
+
+  // Node'ların bounding box'ını hesapla (tüm node'lar dahil)
+  const xs = allNodes.map(n=>n.x);
+  const ys = allNodes.map(n=>n.y);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  const bW = maxX - minX || 1;
+  const bH = maxY - minY || 1;
+  const centerX = (minX + maxX) / 2;
+  const centerY = (minY + maxY) / 2;
+
+  // Padding — kenarlardan boşluk bırak
+  const entityCount = nonDomainNodes.length;
+  const pad = entityCount <= 3 ? 200 : entityCount <= 8 ? 160 : 110;
+  const scaleX = (W - pad*2) / bW;
+  const scaleY = (H - pad*2) / bH;
+  let targetS = Math.min(scaleX, scaleY);
+
+  // Node sayısına göre min/max sınırlar (UX: ne çok yakın ne çok uzak)
+  if(entityCount <= 2)       targetS = Math.min(Math.max(targetS, 0.85), 1.3);
+  else if(entityCount <= 6)  targetS = Math.min(Math.max(targetS, 0.65), 1.05);
+  else if(entityCount <= 15) targetS = Math.min(Math.max(targetS, 0.48), 0.85);
+  else if(entityCount <= 40) targetS = Math.min(Math.max(targetS, 0.32), 0.65);
+  else                       targetS = Math.min(Math.max(targetS, 0.22), 0.50);
+
+  const targetVpX = cx / targetS - centerX;
+  const targetVpY = cy / targetS - centerY;
+
+  animateViewport(targetVpX, targetVpY, targetS, 700, ()=>applyZoomProjection());
 }
 
 // ══════════════════════════════════════════
