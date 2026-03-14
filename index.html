@@ -1197,41 +1197,212 @@ function handleInput(){
 }
 
 // ══════════════════════════════════════════
-// SUGGESTION LAYER
+// INPUT INTENT DETECTION
+// ══════════════════════════════════════════
+function detectInputType(text){
+  const t = text.trim();
+  const lower = t.toLowerCase();
+
+  // Date: dd.mm.yyyy or dd/mm/yyyy
+  if(/^\d{1,2}[./]\d{1,2}([./]\d{2,4})?$/.test(t)) return 'date';
+
+  // Time: hh:mm
+  if(/^\d{1,2}:\d{2}$/.test(t)) return 'time';
+
+  // Year alone
+  if(/^\d{4}$/.test(t) && parseInt(t)>1900 && parseInt(t)<2100) return 'year';
+
+  // Looks like a credential/account (contains @ or known service names)
+  if(t.includes('@') && t.includes('.')) return 'email';
+  const credServices=['gmail','hotmail','yahoo','proton','icloud','outlook','netflix','spotify','amazon','github','instagram','twitter','facebook','linkedin','tiktok','youtube'];
+  if(credServices.some(s=>lower.includes(s))) return 'credential';
+
+  // URL
+  if(/^https?:\/\/|^www\./.test(t)) return 'url';
+
+  // Phone number
+  if(/^[\+\d\s\-()]{7,15}$/.test(t) && /\d{5,}/.test(t)) return 'phone';
+
+  // Place — Turkish cities/towns, capitalized, or known place indicators
+  const placeKw=['şehir','ilçe','köy','mahalle','cadde','sokak','bulvar','istanbul','ankara','izmir','maraş','elbistan','kahramanmaraş'];
+  if(placeKw.some(k=>lower.includes(k))) return 'place';
+
+  // Person — capitalized name, 2-15 chars, no spaces or one space (first+last)
+  if(/^[A-ZÇĞİÖŞÜ][a-züğışöçA-ZÇĞİÖŞÜ]+(\s[A-ZÇĞİÖŞÜ][a-züğışöçA-ZÇĞİÖŞÜ]+)?$/.test(t) && t.length>=2 && t.length<=25) return 'person';
+
+  // Project — known project names or project-like words
+  const projKw=['proje','uygulama','site','platform','sistem','app','startup'];
+  if(projKw.some(k=>lower.includes(k))) return 'project';
+
+  // Document/file
+  const docKw=['sözleşme','belge','dosya','diploma','sertifika','pasaport','ehliyet','kimlik'];
+  if(docKw.some(k=>lower.includes(k))) return 'document';
+
+  // Short fact (1-3 words, no verb) → likely a seed/fact
+  const wordCount = t.split(/\s+/).length;
+  if(wordCount <= 3 && !/[?!]/.test(t)) return 'fact';
+
+  return 'concept';
+}
+
+// Type-specific suggestion packs
+const SUGGESTION_PACKS = {
+  person: (t) => [
+    {text:`${t} kim?`, fam:'identity', icon:'?'},
+    {text:`${t} benimle nasıl tanışık?`, fam:'family', icon:'↔'},
+    {text:`${t} nerede yaşıyor?`, fam:'places', icon:'◉'},
+    {text:`${t} ne iş yapıyor?`, fam:'work', icon:'◆'},
+    {text:`${t} ne zaman doğdu?`, fam:'identity', icon:'◈'},
+    {text:`${t} telefonu nedir?`, fam:'contacts', icon:'#'},
+  ],
+  place: (t) => [
+    {text:`${t} nerede?`, fam:'places', icon:'◉'},
+    {text:`${t} ile ilgili anım nedir?`, fam:'memory', icon:'◈'},
+    {text:`${t} kim yaşıyor?`, fam:'family', icon:'@'},
+    {text:`${t}'a ne zaman gittim?`, fam:'memory', icon:'◈'},
+    {text:`${t} neden önemli benim için?`, fam:'identity', icon:'?'},
+  ],
+  date: (t) => [
+    {text:`${t} tarihinde ne oldu?`, fam:'memory', icon:'◈'},
+    {text:`${t} kimin doğum günü?`, fam:'family', icon:'@'},
+    {text:`${t} hangi önemli olay?`, fam:'memory', icon:'◈'},
+    {text:`${t} tarihi neden önemli?`, fam:'knowledge', icon:'?'},
+  ],
+  year: (t) => [
+    {text:`${t} yılında ne oldu?`, fam:'memory', icon:'◈'},
+    {text:`${t} yılında neredeyim?`, fam:'places', icon:'◉'},
+    {text:`${t} yılında ne işteydim?`, fam:'work', icon:'◆'},
+  ],
+  time: (t) => [
+    {text:`${t} saatinde ne yaparım genellikle?`, fam:'preferences', icon:'◈'},
+    {text:`${t} ile ilgili ne hatırlıyorum?`, fam:'memory', icon:'◈'},
+  ],
+  project: (t) => [
+    {text:`${t} nedir?`, fam:'projects', icon:'?'},
+    {text:`${t} ne aşamada?`, fam:'projects', icon:'→'},
+    {text:`${t} için sonraki adım nedir?`, fam:'projects', icon:'◆'},
+    {text:`${t} kimlerle ilgili?`, fam:'projects', icon:'@'},
+    {text:`${t} neden önemli?`, fam:'projects', icon:'?'},
+  ],
+  credential: (t) => [
+    {text:`${t} hesabı nerede?`, fam:'credentials', icon:'⬡'},
+    {text:`${t} kullanıcı adım nedir?`, fam:'credentials', icon:'⬡'},
+    {text:`${t} şifresi nerede saklı?`, fam:'credentials', icon:'⬡'},
+    {text:`${t} ne için kullanıyorum?`, fam:'knowledge', icon:'?'},
+  ],
+  url: (t) => [
+    {text:`${t} nedir?`, fam:'docs', icon:'?'},
+    {text:`${t} ne için kullanıyorum?`, fam:'docs', icon:'?'},
+    {text:`${t} hangi hesaba ait?`, fam:'credentials', icon:'⬡'},
+  ],
+  email: (t) => [
+    {text:`${t} hangi platformda?`, fam:'credentials', icon:'⬡'},
+    {text:`${t} ne için kullanıyorum?`, fam:'credentials', icon:'⬡'},
+    {text:`${t} şifresi nerede?`, fam:'credentials', icon:'⬡'},
+  ],
+  phone: (t) => [
+    {text:`${t} kimin numarası?`, fam:'contacts', icon:'@'},
+    {text:`${t} hangi operatör?`, fam:'knowledge', icon:'?'},
+  ],
+  document: (t) => [
+    {text:`${t} nerede saklı?`, fam:'docs', icon:'□'},
+    {text:`${t} ne zaman alındı?`, fam:'docs', icon:'◈'},
+    {text:`${t} ne için gerekli?`, fam:'knowledge', icon:'?'},
+    {text:`${t} son geçerlilik tarihi?`, fam:'docs', icon:'◈'},
+  ],
+  fact: (t) => [
+    {text:`${t} nedir?`, fam:'knowledge', icon:'?'},
+    {text:`${t} benim için ne ifade ediyor?`, fam:'identity', icon:'?'},
+    {text:`${t} ile ilgili ne biliyorum?`, fam:'knowledge', icon:'?'},
+  ],
+  concept: (t) => [
+    {text:`${t} nedir?`, fam:'knowledge', icon:'?'},
+    {text:`${t} nerede?`, fam:'places', icon:'◉'},
+    {text:`${t} benimle ilgisi nedir?`, fam:'identity', icon:'?'},
+    {text:`${t} hakkında ne yapmalıyım?`, fam:'projects', icon:'◆'},
+  ],
+};
+
+// Type labels for display
+const TYPE_LABELS = {
+  person:'kişi', place:'yer', date:'tarih', year:'yıl', time:'saat',
+  project:'proje', credential:'hesap', email:'e-posta', phone:'telefon',
+  document:'belge', fact:'bilgi', url:'link', concept:'kavram',
+};
+
+// ══════════════════════════════════════════
+// SUGGESTION LAYER — intent-aware
 // ══════════════════════════════════════════
 function showSugLayer(topic){
-  const isPerson=/^[A-ZÇĞİÖŞÜ][a-züğışöçA-ZÇĞİÖŞÜ]+$/.test(topic)&&topic.length>=3;
-  const sugs=isPerson?[
-    {text:`${topic} kim?`,fam:'identity'},
-    {text:`${topic} ile ilişkim ne?`,fam:'family'},
-    {text:`${topic} neden önemli bana?`,fam:'identity'},
-  ]:[
-    {text:`${topic} nedir?`,fam:'knowledge'},
-    {text:`${topic} nerede?`,fam:'docs'},
-    {text:`${topic} hakkında ne yapmalıyım?`,fam:'projects'},
-    {text:`${topic} neden önemli?`,fam:'knowledge'},
-  ];
-  document.getElementById('suglbl').innerHTML=`<span style="opacity:.5">"${topic}"</span> → nasıl bir soru?`;
+  const inputType = detectInputType(topic);
+  const typeLabel = TYPE_LABELS[inputType] || 'kavram';
+  const pack = SUGGESTION_PACKS[inputType] || SUGGESTION_PACKS.concept;
+  const sugs = pack(topic);
+
+  document.getElementById('suglbl').innerHTML=
+    `<span style="opacity:.5">"${topic}"</span> <span style="color:var(--core);opacity:.7;font-size:.45rem;letter-spacing:.2em">${typeLabel}</span> → nasıl bir soru?`;
+
   const opts=document.getElementById('sugopts');opts.innerHTML='';
-  sugs.forEach(s=>{
+
+  // Top 4 suggestions
+  sugs.slice(0,4).forEach(s=>{
     const btn=document.createElement('button');btn.className='sug-opt';
-    btn.innerHTML=`<span class="sug-arr">→</span><span>${s.text}</span>`;
-    btn.onclick=()=>{hideSug();document.getElementById('input-field').value='';const q=mkQuestion({text:s.text,family:s.fam});bigBang(s.text,q);updateCounters();saveUniverse();openFacetPanel(q);};
+    btn.innerHTML=`<span class="sug-arr">${s.icon||'→'}</span><span>${s.text}</span>`;
+    btn.onclick=()=>{
+      hideSug();document.getElementById('input-field').value='';
+      const q=mkQuestion({text:s.text,family:s.fam});
+      bigBang(s.text,q);updateCounters();saveUniverse();openFacetPanel(q);
+    };
     opts.appendChild(btn);
   });
-  // Direct statement option
+
+  // More options if pack has >4
+  if(sugs.length > 4){
+    const more=document.createElement('button');more.className='sug-opt';
+    more.style.cssText='opacity:.5;font-size:.6rem;';
+    more.innerHTML=`<span class="sug-arr">…</span><span>daha fazla soru</span>`;
+    more.onclick=()=>{
+      more.remove();
+      sugs.slice(4).forEach(s=>{
+        const btn=document.createElement('button');btn.className='sug-opt';
+        btn.innerHTML=`<span class="sug-arr">${s.icon||'→'}</span><span>${s.text}</span>`;
+        btn.onclick=()=>{hideSug();document.getElementById('input-field').value='';const q=mkQuestion({text:s.text,family:s.fam});bigBang(s.text,q);updateCounters();saveUniverse();openFacetPanel(q);};
+        opts.appendChild(btn);
+      });
+    };
+    opts.appendChild(more);
+  }
+
+  // Direct save — FIRST for fact/date/time types, LAST for others
+  const directFirst = ['date','time','year','phone','email','url'].includes(inputType);
   const stmt=document.createElement('button');stmt.className='sug-opt';
-  stmt.innerHTML=`<span class="sug-arr">✦</span><span>"${topic}" → direkt kaydet (ifade)</span>`;
+  stmt.innerHTML=`<span class="sug-arr">✦</span><span>"${topic}" → direkt kaydet</span>`;
   stmt.onclick=()=>{
     hideSug();document.getElementById('input-field').value='';
-    const domId=detectDomain(topic);ensureDomain(domId);
-    const ent=mkEntity('concept',topic,domId);spawnEntityNode(ent,domId);
+    const domId=detectDomainForType(inputType,topic);
+    ensureDomain(domId);
+    const entType = inputType==='person'?'person':inputType==='place'?'place':inputType==='date'||inputType==='year'?'event':inputType==='credential'||inputType==='email'?'credential':'concept';
+    const ent=mkEntity(entType,topic,domId);
+    spawnEntityNode(ent,domId);
     addLink(ent.id,'domain_'+domId,'belongs_to_domain');
     rawEntry(topic,'seed',null,null);saveUniverse();updateCounters();
   };
-  opts.appendChild(stmt);
+  if(directFirst) opts.insertBefore(stmt, opts.firstChild);
+  else opts.appendChild(stmt);
+
   document.getElementById('sug-layer').classList.add('on');
 }
+
+function detectDomainForType(inputType, text){
+  const map = {
+    person:'family', place:'places', date:'memory', year:'memory',
+    time:'knowledge', project:'projects', credential:'credentials',
+    email:'credentials', phone:'contacts', document:'docs',
+    url:'docs', fact:'knowledge', concept:'knowledge',
+  };
+  return map[inputType] || detectDomain(text);
+}
+
 function hideSug(){document.getElementById('sug-layer').classList.remove('on');}
 
 // ══════════════════════════════════════════
