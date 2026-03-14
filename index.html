@@ -1088,7 +1088,7 @@ const MODE_SESSION_KEY = 'singular_mode';   // 'google' | 'local'
 const Q_TEMPLATES = [
   {id:'kim',     label:'kim',           family:'identity', suffix:'kim?'},
   {id:'nedir',   label:'nedir',         family:'knowledge',suffix:'nedir?'},
-  {id:'nerede',  label:'nerede',        family:'docs',     suffix:'nerede?'},
+  {id:'nerede',  label:'nerede',        family:'places',   suffix:'nerede?'},
   {id:'nezaman', label:'ne zaman',      family:'knowledge',suffix:'ne zaman?'},
   {id:'nasil',   label:'nasıl',         family:'knowledge',suffix:'nasıl?'},
   {id:'neden',   label:'neden',         family:'knowledge',suffix:'neden önemli?'},
@@ -1110,7 +1110,7 @@ const FAMILY_FACETS = {
   // Projeler
   projects:     ['amaç','şu an nerede','sonraki adım','kimlerle','neden önemli'],
   // Yerler
-  places:       ['adres / link','şehir','nasıl ulaşırım','notlar'],
+  places:       ['cevap','ilçe / mahalle','nasıl ulaşırım','notlar'],
   // Finans — numara/hesap soruları
   finance:      ['banka adı','iban / hesap no','kart türü','notlar'],
   credentials:  ['değer / numara','nerede saklanıyor','notlar'],
@@ -1364,6 +1364,20 @@ function bigBang(text, questionObj){
     buildEntityRelations(spawnedEnts, questionObj);
   }
 
+  // 'nerede?' sorusu — topic entity'sini places domain'ine bağla
+  if(questionObj && questionObj.family === 'places' && questionObj.topic){
+    const topicSlug = questionObj.topic.toLowerCase().replace(/\s+/g,'_');
+    const existingPlace = S.universe.entities.find(e=>e.slug===topicSlug);
+    if(existingPlace && existingPlace.domain !== 'places'){
+      existingPlace.domain = 'places';
+      // Re-link to places domain
+      ensureDomain('places');
+      if(!S.universe.links.find(l=>l.from===existingPlace.id&&l.to==='domain_places')){
+        addLink(existingPlace.id,'domain_places','belongs_to_domain');
+      }
+    }
+  }
+
   return {domainId, entities:spawnedEnts};
 }
 
@@ -1510,10 +1524,8 @@ function detectFamily(text){
   }
   if(/kiminle|kimlerle/.test(t)) return 'family';
   // Yer soruları
-  if(/nerede|adresim|adresi/.test(t)){
-    if(/ev|ofis|yaşıyorum/.test(t)) return 'places';
-    return 'places';
-  }
+  if(/nerede/.test(t)) return 'places';
+  if(/adresim|adresi/.test(t)) return 'places';
   // Numara / belge soruları → credentials / finance
   if(/numaram|numara|nedir/.test(t)){
     if(/vergi|tc kimlik|pasaport|ehliyet/.test(t)) return 'credentials';
@@ -2627,9 +2639,30 @@ function saveFacets(){
       if(gCirc) gCirc.setAttribute('fill','rgba(96,165,250,.25)');
     }
 
-    // E) GENEL: cevap varlığı oluştur ve question'a bağla
-    else if(v.length > 1 && !['tanım','örnek','notlar','önemi','ilerleme'].includes(facet)){
-      // Uzun değer değil, kısa entity-like cevaplar için node
+    // E) 'cevap' facet — yer/tercih/bilgi sorularında direkt cevap entity'si
+    else if(facet === 'cevap' && v.length > 1){
+      const ansEnt = mkEntity('answer_value', v.slice(0,40), q.family, {is_answer:true, for_facet:facet, answer_from:q.id});
+      if(!S.nodes.find(n=>n.id===ansEnt.id)){
+        spawnEntityNode(ansEnt, q.family);
+        if(!S.universe.links.find(l=>l.from===q.id&&l.to===ansEnt.id)){
+          addLink(q.id, ansEnt.id, 'answered_by');
+        }
+        // Yer sorusu cevabı → places domain'e bağla
+        if(q.family === 'places'){
+          ensureDomain('places');
+          if(!S.universe.links.find(l=>l.from===ansEnt.id&&l.to==='domain_places')){
+            addLink(ansEnt.id,'domain_places','belongs_to_domain');
+          }
+          // Topic entity'sini de places'a bağla
+          const topicEnt = q.topic ? S.universe.entities.find(e=>e.label.toLowerCase()===q.topic.toLowerCase()) : null;
+          if(topicEnt && !S.universe.links.find(l=>l.from===topicEnt.id&&l.to==='domain_places')){
+            addLink(topicEnt.id,'domain_places','belongs_to_domain');
+          }
+        }
+      }
+    }
+    // F) GENEL: kısa somut cevaplar için answer node
+    else if(v.length > 1 && !['tanım','örnek','notlar','önemi','ilerleme','kaynak','ilgili kavramlar'].includes(facet)){
       if(v.length < 60 && !/^\d+$/.test(v)){
         const ansEnt = mkEntity('answer_value', v.slice(0,40), q.family, {is_answer:true, for_facet:facet, answer_from:q.id});
         if(!S.nodes.find(n=>n.id===ansEnt.id)){
