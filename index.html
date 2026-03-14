@@ -3519,95 +3519,138 @@ function animateCore(){
 
 // Relation weights: ne kadar güçlü çekim üretir
 // [REL_SPRING_BLOCK — moved to ONTOLOGY layer]
-// Node kütlesi: domain yıldızları ağır, savrulmaz
+// Node kütlesi
 const NODE_MASS = {
-  domain   : 12,
+  domain   : 8,    // biraz hafifledik — hareket edebilsin
   entity   : 3,
   question : 2,
   answer   : 1.5,
   credential: 2.5,
 };
 
-// Global repulsion: tüm node'lar birbirini iter
 const REPEL_STRENGTH = 2800;
-const REPEL_MIN      = 30;   // bu mesafenin altında maximum iter
-const DAMP           = 0.78;
-const MAX_SPEED      = 3.5;
-// Domain'ler merkez çekiminden muaf — kendi anlam ağırlıklarıyla durur
-const CENTER_PULL    = 0.004;
-// Domain anchor: domain yıldızları ekrana bağlı kalır (merkezden fazla kaçmaz)
-const DOMAIN_ANCHOR  = 0.012;
+const REPEL_MIN      = 30;
+const DAMP           = 0.88;   // yüksek damping = akıcı, sallanmasız
+const MAX_SPEED      = 2.2;    // domain'ler çok hızlı gitmesin
+const DOMAIN_HOME_K  = 0.018;  // home pozisyona yay katsayısı — zayıf ama sürekli
+const DOMAIN_MAX_DRIFT = 0.12; // home'dan max sapma oranı (ekran %'si)
+
+// Evrensel nefes — çok yavaş sinüzoidal hareket
+let _breathT = 0;
 
 function physicsLoop(){
   if(!svgEl||!S.nodes.length){ requestAnimationFrame(physicsLoop); return; }
 
+  _breathT += 0.0008; // çok yavaş — ~2 dakikada bir tam tur
   const cx = W/2, cy = H/2;
 
   S.nodes.forEach(n => {
-    if(n.pinned || n.dragging) return;
+    if(n.dragging) return;
+
+    // Self entity — daima tam merkez
+    if(n.isSelf){ n.x=W/2; n.y=H/2; return; }
+
     const mass = NODE_MASS[n.kind] || 2;
 
-    // 1. SEMANTIC SPRING FORCES — ilişkilerden doğan kuvvetler
-    const links = S.universe.links.filter(l => l.from === n.id || l.to === n.id);
-    links.forEach(link => {
-      const otherId = link.from === n.id ? link.to : link.from;
-      const other = S.nodes.find(x => x.id === otherId);
-      if(!other) return;
+    if(n.kind === 'domain'){
+      // ── DOMAIN FİZİĞİ: yumuşak home çekimi + organik drift ──────────
+      const pos = DOMAIN_POSITIONS[n.ref?.slug];
+      if(!pos) return;
 
+      // Home pozisyon — entity yoğunluğuna göre hafifçe kayar
+      const entCount = S.universe.links.filter(l=>
+        (l.to===n.id||l.from===n.id) && l.relation==='belongs_to_domain'
+      ).length;
+      // Ağır domain'ler daha az sürüklenir
+      const domMass = 1 + entCount * 0.4;
+
+      // Nefes hareketi — her domain farklı fazda
+      const phase = (pos[0] + pos[1]) * Math.PI * 1.7; // pozisyona göre faz
+      const breathR = 18 + entCount * 1.5; // içerik arttıkça daha az soluk
+      const breathX = Math.cos(_breathT * 0.7 + phase) * breathR;
+      const breathY = Math.sin(_breathT * 1.1 + phase * 0.8) * breathR;
+
+      // Hedef: home + nefes offset
+      const targetX = pos[0]*W + breathX;
+      const targetY = pos[1]*H + breathY;
+
+      // Home'a yay çekimi
+      const dx = targetX - n.x, dy = targetY - n.y;
+      n.vx += dx * DOMAIN_HOME_K / domMass;
+      n.vy += dy * DOMAIN_HOME_K / domMass;
+
+      // Domain'ler birbirini iter (üst üste binmesin)
+      S.nodes.filter(m=>m.kind==='domain'&&m!==n).forEach(m=>{
+        const ex = n.x-m.x, ey = n.y-m.y;
+        const ed = Math.sqrt(ex*ex+ey*ey)||1;
+        if(ed < 160){
+          const f = 320/(ed*ed);
+          n.vx += (ex/ed)*f/domMass;
+          n.vy += (ey/ed)*f/domMass;
+        }
+      });
+
+      // Damping + hız sınırı (domain'ler çok yavaş)
+      n.vx *= 0.92; n.vy *= 0.92;
+      const spd = Math.sqrt(n.vx*n.vx+n.vy*n.vy);
+      const maxDomSpd = 0.8 + entCount * 0.1;
+      if(spd > maxDomSpd){ n.vx=n.vx/spd*maxDomSpd; n.vy=n.vy/spd*maxDomSpd; }
+
+      n.x += n.vx; n.y += n.vy;
+      return;
+    }
+
+    // ── ENTITY / QUESTION FİZİĞİ ────────────────────────────────────────
+
+    // 1. Semantic spring forces
+    const links = S.universe.links.filter(l => l.from===n.id || l.to===n.id);
+    links.forEach(link => {
+      const otherId = link.from===n.id ? link.to : link.from;
+      const other = S.nodes.find(x=>x.id===otherId);
+      if(!other) return;
       const spring = REL_SPRING[link.relation];
       if(!spring) return;
-
-      const dx = other.x - n.x, dy = other.y - n.y;
-      const dist = Math.sqrt(dx*dx + dy*dy) || 1;
-      const stretch = dist - spring.restLen;  // ne kadar gerildi
-
-      // Spring force: F = k * stretch (Hooke yasası)
-      const fx = (dx/dist) * spring.k * stretch / mass;
-      const fy = (dy/dist) * spring.k * stretch / mass;
-      n.vx += fx;
-      n.vy += fy;
+      const dx = other.x-n.x, dy = other.y-n.y;
+      const dist = Math.sqrt(dx*dx+dy*dy)||1;
+      const stretch = dist - spring.restLen;
+      n.vx += (dx/dist)*spring.k*stretch/mass;
+      n.vy += (dy/dist)*spring.k*stretch/mass;
     });
 
-    // 2. GLOBAL REPULSION — tüm node çiftleri birbirini iter
+    // 2. Global repulsion
     S.nodes.forEach(m => {
-      if(m === n) return;
-      const ex = n.x - m.x, ey = n.y - m.y;
-      const ed = Math.sqrt(ex*ex + ey*ey) || 1;
-      const minD = REPEL_MIN;
+      if(m===n) return;
+      const ex=n.x-m.x, ey=n.y-m.y;
+      const ed=Math.sqrt(ex*ex+ey*ey)||1;
       if(ed < 240){
-        const f = REPEL_STRENGTH / (ed * ed * mass);
-        n.vx += (ex/ed) * f;
-        n.vy += (ey/ed) * f;
+        const f=REPEL_STRENGTH/(ed*ed*mass);
+        n.vx+=(ex/ed)*f; n.vy+=(ey/ed)*f;
       }
     });
 
-    // 3. Bağlantısız node'lar en yakın domain'e çekilir (uçmayı engeller)
-    if(n.kind !== 'domain' && links.length === 0){
-      // En yakın domain'i bul
-      const domNodes = S.nodes.filter(x=>x.kind==='domain');
+    // 3. Bağlantısız node'lar en yakın domain'e çekilir
+    if(links.length===0){
+      const domNodes=S.nodes.filter(x=>x.kind==='domain');
       if(domNodes.length){
-        let nearest = domNodes[0], nearDist = 99999;
-        domNodes.forEach(d=>{
-          const dd=Math.hypot(n.x-d.x,n.y-d.y);
-          if(dd<nearDist){nearDist=dd;nearest=d;}
-        });
-        n.vx += (nearest.x - n.x) * 0.006;
-        n.vy += (nearest.y - n.y) * 0.006;
+        let nearest=domNodes[0],nearDist=99999;
+        domNodes.forEach(d=>{const dd=Math.hypot(n.x-d.x,n.y-d.y);if(dd<nearDist){nearDist=dd;nearest=d;}});
+        n.vx+=(nearest.x-n.x)*0.006; n.vy+=(nearest.y-n.y)*0.006;
       }
     }
 
-    // 4. Domain pinned — fizik loop üstte zaten skip eder
-    // (domain'ler DOMAIN_POSITIONS'ta sabit durur)
+    // 4. Hafif nefes — entity'ler de soluk alıyor, ama çok az
+    const ePhase = n.id.charCodeAt(2)||0;
+    n.vx += Math.cos(_breathT*1.3+ePhase)*0.04;
+    n.vy += Math.sin(_breathT*0.9+ePhase)*0.04;
 
     // 5. Damping + speed cap
     n.vx *= DAMP; n.vy *= DAMP;
-    const spd = Math.sqrt(n.vx*n.vx + n.vy*n.vy);
-    if(spd > MAX_SPEED){ n.vx = n.vx/spd * MAX_SPEED; n.vy = n.vy/spd * MAX_SPEED; }
+    const spd=Math.sqrt(n.vx*n.vx+n.vy*n.vy);
+    if(spd>MAX_SPEED){ n.vx=n.vx/spd*MAX_SPEED; n.vy=n.vy/spd*MAX_SPEED; }
 
-    n.x += n.vx; n.y += n.vy;
+    n.x+=n.vx; n.y+=n.vy;
   });
 
-  // Update link visual opacity based on relation strength (visual feedback)
   updateLinkOpacity();
   updateDomainSize();
   updateNodePositions();
@@ -3694,8 +3737,8 @@ function spawnDomainNode(ent){
   const pos = DOMAIN_POSITIONS[ent.slug];
   const x = pos ? pos[0]*W : W/2 + (Math.random()-.5)*300;
   const y = pos ? pos[1]*H : H/2 + (Math.random()-.5)*200;
-  // Domain'ler PINNED — fizik onları hareket ettirmez
-  const node={id:ent.id,x,y,vx:0,vy:0,kind:'domain',ref:ent,pinned:true,dragging:false};
+  // Domain'ler artık soft-anchor ile hareket eder — pinned değil
+  const node={id:ent.id,x,y,vx:0,vy:0,kind:'domain',ref:ent,pinned:false,dragging:false};
   S.nodes.push(node);
 
   const g=svgMk('g');g.setAttribute('class','g-domain');g.setAttribute('data-nid',ent.id);
@@ -3962,12 +4005,9 @@ function initInteraction(){
     if(S.dragNode){
       const n = S.dragNode.node;
       n.dragging = false;
-      // Domain node: yeni drag pozisyonunu kaydet
-      if(n.kind === 'domain' && n._wasPinned){
-        // Yeni pozisyona pin'le
-        n.pinned = true;
-        n.vx = 0; n.vy = 0;
-      }
+      // Domain: serbest bırak, fizik yumuşakça home'a döndürür
+      // (artık pin'lemiyoruz — soft-anchor halleder)
+      n.vx = 0; n.vy = 0;
       S.dragNode = null;
     }
     S.panning=false; svgEl.classList.remove('panning');
