@@ -7,19 +7,25 @@
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Serif+Display:ital@0;1&display=swap');
+
 :root {
-  --bg:#080810;--bg2:#0e0e1a;
-  --core:#a78bfa;--text:#e2e0f0;--text-muted:#6b6880;--text-dim:#3a3850;
+  --bg:#080810;--bg2:#0e0e1a;--bg3:#13131f;
+  --core:#a78bfa;--core-glow:rgba(167,139,250,0.15);
+  --text:#e2e0f0;--text-muted:#6b6880;--text-dim:#3a3850;
   --border:rgba(167,139,250,0.12);--border-bright:rgba(167,139,250,0.3);
-  --panel:rgba(8,8,16,0.97);
+  /* node type colors */
+  --q:#60a5fa;--a:#34d399;--ent:#f472b6;--dec:#f59e0b;--ctx:#94a3b8;
+  --panel:rgba(10,10,20,0.98);
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;height:100vh;overflow:hidden;}
+
+/* ── BOOT ─────────────────────────────── */
 #boot{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg);z-index:100;transition:opacity .8s ease,transform .8s ease;}
 #boot.fade-out{opacity:0;transform:scale(1.04);pointer-events:none;}
 .boot-logo{font-family:'DM Serif Display',serif;font-size:3.5rem;letter-spacing:.3em;opacity:.9;margin-bottom:.25rem;}
 .boot-sub{font-size:.6rem;letter-spacing:.4em;color:var(--text-muted);text-transform:uppercase;margin-bottom:3.5rem;}
-.boot-card{background:var(--bg2);border:.5px solid var(--border-bright);border-radius:12px;padding:2rem 2.5rem;width:340px;text-align:center;}
+.boot-card{background:var(--bg2);border:.5px solid var(--border-bright);border-radius:12px;padding:2rem 2.5rem;width:360px;text-align:center;}
 .boot-card-title{font-size:.65rem;letter-spacing:.25em;color:var(--text-muted);text-transform:uppercase;margin-bottom:1.5rem;}
 .btn-google{width:100%;padding:.85rem 1.25rem;background:transparent;border:.5px solid var(--border-bright);border-radius:8px;color:var(--text);font-family:'DM Mono',monospace;font-size:.75rem;letter-spacing:.1em;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:.75rem;transition:background .2s,border-color .2s;margin-bottom:.75rem;}
 .btn-google:hover{background:rgba(167,139,250,.07);border-color:var(--core);}
@@ -27,40 +33,110 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;heig
 .btn-local{width:100%;padding:.7rem 1.25rem;background:transparent;border:.5px solid var(--text-dim);border-radius:8px;color:var(--text-muted);font-family:'DM Mono',monospace;font-size:.7rem;letter-spacing:.1em;cursor:pointer;transition:color .2s,border-color .2s;}
 .btn-local:hover{color:var(--text);border-color:var(--text-muted);}
 .boot-note{font-size:.6rem;color:var(--text-dim);margin-top:1.25rem;line-height:1.7;}
-.boot-reconnect{margin-top:1rem;font-size:.62rem;color:#34d399;letter-spacing:.1em;cursor:pointer;text-decoration:underline;display:none;}
+
+/* ── UNIVERSE ─────────────────────────── */
 #universe{position:fixed;inset:0;opacity:0;transition:opacity 1s ease;pointer-events:none;}
 #universe.active{opacity:1;pointer-events:all;}
-#canvas{position:absolute;inset:0;cursor:grab;}
-#canvas.grabbing{cursor:grabbing;}
-#status{position:fixed;top:1.5rem;left:1.5rem;display:flex;align-items:center;gap:.5rem;font-size:.6rem;letter-spacing:.15em;color:var(--text-dim);text-transform:uppercase;z-index:20;}
+#cosmos{position:absolute;inset:0;width:100%;height:100%;}
+
+/* SVG node types */
+.orbit-ring{fill:none;stroke:rgba(167,139,250,.04);stroke-width:.5;}
+.core-outer{fill:none;stroke:var(--core);stroke-width:.5;opacity:.4;}
+.core-inner{fill:var(--core-glow);}
+.core-dot{fill:var(--core);}
+.core-pulse{fill:none;stroke:var(--core);stroke-width:.5;opacity:0;}
+
+.g-node{cursor:pointer;}
+.g-node text{font-family:'DM Mono',monospace;font-size:9px;fill:rgba(226,224,240,.5);pointer-events:none;}
+.g-link{fill:none;stroke-width:.5;}
+.g-link.core-link{stroke:rgba(167,139,250,.1);}
+.g-link.answer-link{stroke:rgba(52,211,153,.2);stroke-dasharray:3 3;}
+.g-link.entity-link{stroke:rgba(244,114,182,.15);stroke-dasharray:2 4;}
+
+/* ── STATUS BAR ───────────────────────── */
+#status{position:fixed;top:1.5rem;left:1.5rem;display:flex;align-items:center;gap:.5rem;font-size:.6rem;letter-spacing:.15em;color:var(--text-dim);text-transform:uppercase;}
 .status-dot{width:5px;height:5px;border-radius:50%;background:var(--text-dim);transition:background .3s;}
 .status-dot.connected{background:#34d399;box-shadow:0 0 6px #34d399;}
-#topright{position:fixed;top:1.5rem;right:1.5rem;text-align:right;font-size:.6rem;letter-spacing:.1em;color:var(--text-dim);text-transform:uppercase;line-height:1.9;z-index:20;}
-#hint{position:fixed;bottom:5.5rem;left:50%;transform:translateX(-50%);font-size:.62rem;letter-spacing:.2em;color:var(--text-dim);text-transform:uppercase;transition:opacity .5s;white-space:nowrap;pointer-events:none;z-index:20;}
-#input-bar{position:fixed;bottom:2.5rem;left:50%;transform:translateX(-50%);width:min(600px,85vw);display:flex;align-items:center;background:var(--bg2);border:.5px solid var(--border-bright);border-radius:12px;overflow:hidden;box-shadow:0 0 40px rgba(167,139,250,.08);z-index:20;}
-#input-field{flex:1;padding:1rem 1.25rem;background:transparent;border:none;outline:none;color:var(--text);font-family:'DM Mono',monospace;font-size:.78rem;letter-spacing:.03em;}
+
+#topright{position:fixed;top:1.5rem;right:1.5rem;text-align:right;font-size:.6rem;letter-spacing:.1em;color:var(--text-dim);text-transform:uppercase;line-height:2;}
+
+/* ── LEGEND ───────────────────────────── */
+#legend{position:fixed;bottom:8.5rem;left:1.5rem;display:flex;flex-direction:column;gap:.35rem;opacity:.5;}
+.legend-row{display:flex;align-items:center;gap:.5rem;font-size:.55rem;letter-spacing:.1em;color:var(--text-dim);}
+.legend-dot{width:7px;height:7px;border-radius:50%;}
+
+/* ── INPUT BAR ────────────────────────── */
+#input-bar{position:fixed;bottom:2.5rem;left:50%;transform:translateX(-50%);width:min(640px,92vw);background:var(--bg2);border:.5px solid var(--border-bright);border-radius:12px;overflow:hidden;box-shadow:0 0 40px rgba(167,139,250,.08);}
+.input-mode-hint{padding:.5rem 1.25rem .0rem;font-size:.55rem;letter-spacing:.2em;color:var(--text-dim);text-transform:uppercase;display:flex;align-items:center;gap:.5rem;}
+.input-mode-pill{display:inline-block;padding:.1rem .5rem;border-radius:10px;font-size:.5rem;letter-spacing:.15em;}
+.pill-q{background:rgba(96,165,250,.1);color:var(--q);}
+.pill-a{background:rgba(52,211,153,.1);color:var(--a);}
+.pill-ctx{background:rgba(148,163,184,.08);color:var(--ctx);}
+.input-row{display:flex;align-items:center;}
+#input-field{flex:1;padding:.85rem 1.25rem;background:transparent;border:none;outline:none;color:var(--text);font-family:'DM Mono',monospace;font-size:.78rem;letter-spacing:.03em;}
 #input-field::placeholder{color:var(--text-muted);}
-#input-send{padding:.75rem 1.25rem;background:transparent;border:none;border-left:.5px solid var(--border);color:var(--core);cursor:pointer;font-size:1rem;transition:background .2s;}
-#input-send:hover{background:rgba(167,139,250,.1);}
-#zoom-controls{position:fixed;bottom:2.5rem;right:1.5rem;display:flex;flex-direction:column;gap:.4rem;z-index:20;}
-.zoom-btn{width:32px;height:32px;background:var(--bg2);border:.5px solid var(--border-bright);border-radius:6px;color:var(--text-muted);cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;transition:color .2s;}
-.zoom-btn:hover{color:var(--text);}
-#panel{position:fixed;top:50%;right:-400px;transform:translateY(-50%);width:320px;max-height:76vh;background:var(--panel);border:.5px solid var(--border-bright);border-radius:12px;padding:1.5rem;transition:right .4s cubic-bezier(.16,1,.3,1);overflow-y:auto;z-index:50;backdrop-filter:blur(24px);}
+#input-send{padding:.75rem 1.25rem;background:transparent;border:none;border-left:.5px solid var(--border);color:var(--core);cursor:pointer;font-size:1rem;font-family:'DM Mono',monospace;transition:background .2s;}
+#input-send:hover{background:var(--core-glow);}
+
+/* ── HINT / SUGGESTIONS ───────────────── */
+#hint{position:fixed;bottom:6rem;left:50%;transform:translateX(-50%);font-size:.62rem;letter-spacing:.2em;color:var(--text-dim);text-transform:uppercase;text-align:center;transition:opacity .5s;white-space:nowrap;pointer-events:none;}
+#suggestions{position:fixed;bottom:7.2rem;left:50%;transform:translateX(-50%);width:min(640px,92vw);display:flex;flex-wrap:wrap;gap:.4rem;justify-content:center;opacity:0;transition:opacity .4s;}
+#suggestions.visible{opacity:1;}
+.sug-btn{font-size:.62rem;padding:.3rem .7rem;background:transparent;border:.5px solid var(--border);border-radius:20px;color:var(--text-muted);cursor:pointer;font-family:'DM Mono',monospace;letter-spacing:.05em;transition:color .2s,border-color .2s,background .2s;}
+.sug-btn:hover{color:var(--text);border-color:var(--core);background:rgba(167,139,250,.06);}
+
+/* ── PANEL ────────────────────────────── */
+#panel{position:fixed;top:50%;right:-400px;transform:translateY(-50%);width:360px;max-height:78vh;background:var(--panel);border:.5px solid var(--border-bright);border-radius:12px;padding:1.5rem;transition:right .4s cubic-bezier(.16,1,.3,1);overflow-y:auto;z-index:50;}
 #panel.open{right:1.5rem;}
 .panel-close{position:absolute;top:1rem;right:1rem;background:transparent;border:none;color:var(--text-muted);cursor:pointer;font-size:.9rem;font-family:'DM Mono',monospace;}
 .panel-close:hover{color:var(--text);}
-.panel-badge{display:inline-block;font-size:.5rem;letter-spacing:.3em;text-transform:uppercase;padding:.22rem .55rem;border-radius:4px;margin-bottom:.75rem;}
-.panel-title{font-family:'DM Serif Display',serif;font-size:1.05rem;color:var(--text);margin-bottom:.5rem;line-height:1.5;}
-.panel-meta{font-size:.55rem;color:var(--text-dim);margin-bottom:1rem;}
-.panel-section{margin-bottom:.85rem;}
-.panel-section-label{font-size:.52rem;letter-spacing:.25em;text-transform:uppercase;color:var(--text-muted);margin-bottom:.35rem;}
-.panel-section-body{font-size:.66rem;color:var(--text-muted);line-height:1.7;}
-.panel-chips{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.35rem;}
-.panel-chip{font-size:.56rem;padding:.18rem .5rem;border-radius:4px;cursor:pointer;transition:opacity .2s;}
-.panel-chip:hover{opacity:.7;}
-.panel-rels{display:flex;flex-direction:column;gap:.3rem;margin-top:.35rem;}
-.panel-rel{font-size:.6rem;padding:.3rem .6rem;background:rgba(52,211,153,.04);border:.5px solid rgba(52,211,153,.15);border-radius:6px;color:var(--text-muted);cursor:pointer;transition:background .2s;}
-.panel-rel:hover{background:rgba(52,211,153,.1);}
+.panel-type-badge{display:inline-block;font-size:.5rem;letter-spacing:.3em;text-transform:uppercase;padding:.25rem .6rem;border-radius:4px;margin-bottom:.75rem;}
+.badge-question{background:rgba(96,165,250,.12);color:var(--q);}
+.badge-answer{background:rgba(52,211,153,.12);color:var(--a);}
+.badge-entity{background:rgba(244,114,182,.12);color:var(--ent);}
+.badge-decision{background:rgba(245,158,11,.12);color:var(--dec);}
+.badge-context{background:rgba(148,163,184,.08);color:var(--ctx);}
+.badge-core{background:rgba(167,139,250,.12);color:var(--core);}
+.panel-title{font-family:'DM Serif Display',serif;font-size:1.05rem;color:var(--text);margin-bottom:.75rem;line-height:1.5;}
+.panel-meta{font-size:.58rem;color:var(--text-dim);margin-bottom:1rem;letter-spacing:.08em;}
+.panel-section{margin-bottom:1rem;}
+.panel-label{font-size:.55rem;letter-spacing:.25em;text-transform:uppercase;color:var(--text-muted);margin-bottom:.4rem;}
+.panel-body-text{font-size:.68rem;color:var(--text-muted);line-height:1.7;}
+.panel-divider{border:none;border-top:.5px solid var(--border);margin:.75rem 0;}
+
+/* Facets */
+.facet-list{display:flex;flex-direction:column;gap:.35rem;margin-top:.25rem;}
+.facet-item{display:flex;gap:.6rem;align-items:flex-start;padding:.45rem .6rem;border:.5px solid var(--border);border-radius:6px;}
+.facet-key{font-size:.55rem;letter-spacing:.1em;color:var(--text-dim);text-transform:uppercase;min-width:70px;padding-top:.05rem;}
+.facet-val{font-size:.68rem;color:var(--text);flex:1;line-height:1.5;}
+.facet-val.empty{color:var(--text-dim);font-style:italic;}
+.facet-val input{background:transparent;border:none;outline:none;color:var(--text);font-family:'DM Mono',monospace;font-size:.68rem;width:100%;letter-spacing:.02em;}
+.facet-val input::placeholder{color:var(--text-dim);}
+
+/* Answers inline */
+.answer-list{display:flex;flex-direction:column;gap:.4rem;margin-top:.25rem;}
+.answer-item{padding:.45rem .6rem;border:.5px solid rgba(52,211,153,.15);border-radius:6px;font-size:.68rem;color:var(--text-muted);line-height:1.5;}
+.answer-item strong{color:var(--a);font-weight:400;}
+
+/* Action buttons */
+.panel-actions{display:flex;flex-direction:column;gap:.35rem;margin-top:.25rem;}
+.panel-action-btn{font-size:.62rem;padding:.35rem .7rem;background:transparent;border:.5px solid var(--border);border-radius:6px;color:var(--text-muted);cursor:pointer;font-family:'DM Mono',monospace;text-align:left;transition:color .2s,border-color .2s;}
+.panel-action-btn:hover{color:var(--text);border-color:var(--core);}
+.panel-answer-btn{border-color:rgba(52,211,153,.2);color:var(--a);}
+.panel-answer-btn:hover{border-color:var(--a);background:rgba(52,211,153,.04);}
+
+/* Tags */
+.tag-row{display:flex;flex-wrap:wrap;gap:.35rem;}
+.tag-pill{font-size:.58rem;padding:.2rem .55rem;border:.5px solid var(--border-bright);border-radius:4px;color:var(--core);}
+
+/* Family badge */
+.family-badge{display:inline-block;font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;padding:.15rem .5rem;border-radius:10px;background:rgba(96,165,250,.08);color:var(--q);margin-left:.5rem;}
+
+/* Question status */
+.q-status{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:.4rem;vertical-align:middle;}
+.q-open{background:var(--q);box-shadow:0 0 5px var(--q);}
+.q-answered{background:var(--a);box-shadow:0 0 5px var(--a);}
+
 ::-webkit-scrollbar{width:3px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
@@ -68,41 +144,61 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;heig
 </head>
 <body>
 
+<!-- BOOT -->
 <div id="boot">
   <div class="boot-logo">SINGULAR</div>
-  <div class="boot-sub">kişisel evren sistemi</div>
+  <div class="boot-sub">soru merkezli hafıza motoru</div>
   <div class="boot-card">
     <div class="boot-card-title">Evrenini nerede saklayalım?</div>
     <button class="btn-google" onclick="connectGoogle()">
-      <svg viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+      <svg viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
       Google Drive ile bağlan
     </button>
     <button class="btn-local" onclick="connectLocal()">Yerel cihazda sakla</button>
     <div class="boot-note">Google Drive: universe.json Drive'ında güvenli saklanır.<br>Yerel: Veri yalnızca bu tarayıcıda kalır.</div>
-    <div class="boot-reconnect" id="boot-reconnect" onclick="reconnectGoogle()">↻ Önceki oturumu sürdür</div>
   </div>
 </div>
 
+<!-- UNIVERSE -->
 <div id="universe">
-  <canvas id="canvas"></canvas>
-  <div id="status"><div class="status-dot" id="status-dot"></div><span id="status-text">bağlanıyor...</span></div>
+  <svg id="cosmos"></svg>
+
+  <div id="status">
+    <div class="status-dot" id="status-dot"></div>
+    <span id="status-text">bağlanıyor…</span>
+  </div>
+
   <div id="topright">
-    <div id="node-count">0 kayıt</div>
-    <div id="zoom-label" style="font-size:.55rem;color:var(--text-dim)">zoom 100%</div>
+    <div id="node-count">0 soru</div>
+    <div id="answer-count">0 cevap</div>
   </div>
-  <div id="hint">Evreni başlatmak için bir şey yaz</div>
+
+  <!-- Node legend -->
+  <div id="legend">
+    <div class="legend-row"><div class="legend-dot" style="background:var(--q)"></div>soru</div>
+    <div class="legend-row"><div class="legend-dot" style="background:var(--a)"></div>cevap</div>
+    <div class="legend-row"><div class="legend-dot" style="background:var(--ent)"></div>varlık</div>
+    <div class="legend-row"><div class="legend-dot" style="background:var(--dec)"></div>karar</div>
+  </div>
+
+  <div id="hint">Kendine bir soru sor</div>
+
+  <div id="suggestions"></div>
+
   <div id="input-bar">
-    <input id="input-field" type="text" placeholder="Bir şey yaz, bir soru sor, bir karar ver…" autocomplete="off"/>
-    <button id="input-send" onclick="handleInput()">→</button>
+    <div class="input-mode-hint" id="mode-hint">
+      <span class="input-mode-pill pill-ctx" id="mode-pill">MOD</span>
+      <span id="mode-label">ne sormak istiyorsun?</span>
+    </div>
+    <div class="input-row">
+      <input id="input-field" type="text" placeholder="Bir soru sor, bir cevap ver, bir karar yaz…" autocomplete="off"/>
+      <button id="input-send" onclick="handleInput()">→</button>
+    </div>
   </div>
-  <div id="zoom-controls">
-    <button class="zoom-btn" onclick="zoomBy(1.3)">+</button>
-    <button class="zoom-btn" onclick="resetView()">⊙</button>
-    <button class="zoom-btn" onclick="zoomBy(0.77)">−</button>
-  </div>
+
   <div id="panel">
     <button class="panel-close" onclick="closePanel()">✕</button>
-    <div id="panel-badge" class="panel-badge">—</div>
+    <div class="panel-type-badge badge-answer" id="panel-badge">entry</div>
     <div class="panel-title" id="panel-title">—</div>
     <div class="panel-meta" id="panel-meta">—</div>
     <div id="panel-body"></div>
@@ -113,792 +209,794 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;heig
 // ══════════════════════════════════════
 // CONFIG
 // ══════════════════════════════════════
-const GOOGLE_CLIENT_ID = '557723915441-q49en6uqqkqm9s5fie14ejm6cak9eo6r.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID_HERE';
+const ANTHROPIC_API_KEY = 'YOUR_ANTHROPIC_API_KEY_HERE';
 const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const UNIVERSE_FILENAME = 'universe.json';
 const FOLDER_NAME = 'SINGULAR';
-const SESSION_KEY = 'singular_session';
 
 // ══════════════════════════════════════
-// VISUAL CONFIG (renderer reads this — does not shape data model)
+// QUESTION FAMILIES
 // ══════════════════════════════════════
-const VIS = {
-  entry: {
-    question: { fill:'rgba(96,165,250,0.1)',   stroke:'#60a5fa', r:11 },
-    note:     { fill:'rgba(148,163,184,0.07)', stroke:'#94a3b8', r:9  },
-    decision: { fill:'rgba(167,139,250,0.15)', stroke:'#a78bfa', r:10 },
-    default:  { fill:'rgba(52,211,153,0.08)',  stroke:'#34d399', r:10 }
-  },
-  entity: {
-    person:   { fill:'rgba(244,114,182,0.1)',  stroke:'#f472b6', r:8  },
-    place:    { fill:'rgba(96,165,250,0.08)',  stroke:'#60a5fa', r:7  },
-    time:     { fill:'rgba(251,191,36,0.08)',  stroke:'#fbbf24', r:7  },
-    topic:    { fill:'rgba(245,158,11,0.08)',  stroke:'#f59e0b', r:8  },
-    project:  { fill:'rgba(192,132,252,0.1)',  stroke:'#c084fc', r:9  },
-    decision: { fill:'rgba(167,139,250,0.12)', stroke:'#a78bfa', r:8  },
-    default:  { fill:'rgba(148,163,184,0.06)', stroke:'#94a3b8', r:7  }
-  },
-  link: {
-    mentions: 'rgba(244,114,182,0.2)',
-    tagged:   'rgba(245,158,11,0.2)',
-    follows:  'rgba(167,139,250,0.1)',
-    relates:  'rgba(52,211,153,0.2)',
-    core:     'rgba(167,139,250,0.06)'
-  }
+const QUESTION_FAMILIES = {
+  identity:     { label: 'kimlik',    patterns: [/ben kim/i, /kim olduğ/i, /ben neyim/i, /ismim/i, /adım/i] },
+  relationship: { label: 'ilişki',    patterns: [/ailem/i, /annem/i, /babam/i, /kardeş/i, /arkadaş/i, /biri kim/i, /kim kim/i] },
+  definition:   { label: 'tanım',     patterns: [/nedir\?/i, / nedir/i, /ne demek/i, /anlamı ne/i] },
+  access:       { label: 'erişim',    patterns: [/şifre/i, /nerede/i, /nasıl ulaş/i, /arşiv/i, /hesap/i, /link/i] },
+  memory:       { label: 'hafıza',    patterns: [/ne olmuştu/i, /geçmişte/i, /hatırlıyor musun/i, /ne zaman/i, /oldu/i] },
+  direction:    { label: 'yön',       patterns: [/ne yapmalı/i, /ne istiyorum/i, /nasıl yapabilirim/i, /plan/i, /hedef/i, /önce ne/i] },
+  state:        { label: 'durum',     patterns: [/şu an/i, /neredeyim/i, /ne oluyor/i, /bugün/i, /durumum/i] }
+};
+
+// FACETS per family
+const FAMILY_FACETS = {
+  identity:     ['isim','köken','roller','değerler','hedef','beni tanımlayan'],
+  relationship: ['kişi','ilişki türü','nasıl tanıştık','önemli anlar'],
+  definition:   ['tanım','örnek','ilişkili kavramlar','önemi'],
+  access:       ['konum/link','şifre/anahtar','notlar'],
+  memory:       ['ne oldu','ne zaman','kimler vardı','sonuç'],
+  direction:    ['seçenekler','engeller','karar','ilk adım'],
+  state:        ['şu anki durum','nedeni','hissettiklerim','sonraki adım']
 };
 
 // ══════════════════════════════════════
-// ════════════════════════════════════
-// DATA LAYER
+// STATE
 // ══════════════════════════════════════
+const S = {
+  mode: null,
+  accessToken: null,
+  driveFileId: null,
+  driveFolderId: null,
+  universe: null,
+  graphNodes: [],   // {id, x, y, kind, ref}  kind: question|answer|entity
+  // pending answer context
+  pendingAnswerTo: null,  // question id user is answering
+};
 
-// ── Universe schema ──────────────────
+// ══════════════════════════════════════
+// UNIVERSE MODEL
+// ══════════════════════════════════════
 function createUniverse() {
+  const now = new Date().toISOString();
   return {
-    meta: {
-      version: '0.6',
-      created: new Date().toISOString(),
-      updated: new Date().toISOString()
-    },
-    entries: [],   // user inputs — raw, always preserved
-    entities: [],  // extracted nodes: person, place, time, topic, project, decision
-    links: []      // relations between entries and entities
+    meta: { version:'1.0', created_at: now, updated_at: now },
+    profile: { name: null },
+    entries: [],    // raw log
+    questions: [],
+    answers: [],
+    entities: [],
+    links: []
   };
 }
 
-// ── Entry ─────────────────────────────
-function createEntry(text) {
-  const kind = detectKind(text);
-  return {
-    id: newId('e'),
-    text,                          // raw text — never modified
+function uid(prefix) {
+  return prefix + '_' + Date.now() + '_' + Math.random().toString(36).slice(2,5);
+}
+
+// ── Entry ──────────────────────────────
+function addEntry(text, kind, questionId, answerId) {
+  const e = { id: uid('e'), text, created_at: new Date().toISOString(),
+               kind, question_id: questionId || null, answer_id: answerId || null };
+  S.universe.entries.push(e);
+  return e;
+}
+
+// ── Question ───────────────────────────
+function addQuestion(text) {
+  const family = detectFamily(text);
+  const q = {
+    id: uid('q'),
+    text,
+    family,
+    status: 'open',
     created_at: new Date().toISOString(),
-    kind,
-    entity_ids: [],                // filled after entity resolution
-    tag_ids: [],                   // filled after tag resolution
-    raw: {}                        // reserved for future semantic data
+    updated_at: new Date().toISOString()
   };
+  S.universe.questions.push(q);
+  addEntry(text, 'question_raw', q.id, null);
+  return q;
 }
 
-function detectKind(text) {
-  const t = text.trim();
-  if (t.endsWith('?')) return 'question';
-  if (/(karar verdim|yapacağım|planım|kararım)/i.test(t)) return 'decision';
-  if (/^(yap|tamamla|ara|bul|git|al|hatırlat)/i.test(t)) return 'action';
-  return 'note';
-}
-
-// ── Entity ────────────────────────────
-// Canonical: same slug → same entity (no duplicates)
-function resolveEntity(type, label) {
-  const slug = slugify(label);
-  const existing = U.entities.find(e => e.type === type && e.slug === slug);
-  if (existing) return existing;
-  const entity = {
-    id: newId('ent'),
-    type,            // person | place | time | topic | project | decision
-    label,           // display name
-    slug,            // canonical key
+// ── Answer ─────────────────────────────
+function addAnswer(questionId, text, facet) {
+  const a = {
+    id: uid('a'),
+    question_id: questionId,
+    facet: facet || 'genel',
+    value: text,
     created_at: new Date().toISOString(),
-    entry_count: 0   // how many entries reference this
+    updated_at: new Date().toISOString()
   };
-  U.entities.push(entity);
-  return entity;
+  S.universe.answers.push(a);
+  addEntry(text, 'answer_raw', questionId, a.id);
+
+  // Update question status
+  const q = S.universe.questions.find(q => q.id === questionId);
+  if (q) { q.status = 'answered'; q.updated_at = new Date().toISOString(); }
+
+  // Extract entities from answer
+  extractEntities(a);
+
+  return a;
 }
 
-// ── Link ──────────────────────────────
-function createLink(fromId, toId, type) {
-  // Deduplicate: same from+to+type → skip
-  const exists = U.links.find(l => l.from === fromId && l.to === toId && l.type === type);
-  if (exists) return exists;
-  const link = {
-    id: newId('l'),
-    from: fromId,
-    to: toId,
-    type,   // mentions | tagged | follows | relates
-    created_at: new Date().toISOString()
-  };
-  U.links.push(link);
-  return link;
-}
-
-// ══════════════════════════════════════
-// PARSER v1 — rule-based, deterministic
-// ══════════════════════════════════════
-const TIME_TOKENS = /\b(bugün|yarın|dün|pazartesi|salı|çarşamba|perşembe|cuma|cumartesi|pazar|bu hafta|gelecek hafta|bu ay|ocak|şubat|mart|nisan|mayıs|haziran|temmuz|ağustos|eylül|ekim|kasım|aralık|\d{1,2}[./]\d{1,2}|\d{4})\b/gi;
-
-function parseEntry(entry) {
-  const text = entry.text;
-  const newEntityIds = [];
-  const newTagIds = [];
-
-  // 1. @mentions → person entities
+// ── Entity ─────────────────────────────
+function extractEntities(answer) {
+  const text = answer.value;
+  // Simple extraction: @mentions = person
   const mentions = text.match(/@([\wğüşıöçĞÜŞİÖÇ]+)/g) || [];
   mentions.forEach(m => {
     const label = m.slice(1);
-    const entity = resolveEntity('person', label);
-    entity.entry_count++;
-    const link = createLink(entry.id, entity.id, 'mentions');
-    if (!newEntityIds.includes(entity.id)) newEntityIds.push(entity.id);
-    _ = link; // used
-  });
-
-  // 2. #tags → topic entities
-  const tags = text.match(/#([\wğüşıöçĞÜŞİÖÇ]+)/g) || [];
-  tags.forEach(t => {
-    const label = t.slice(1);
-    const entity = resolveEntity('topic', label);
-    entity.entry_count++;
-    createLink(entry.id, entity.id, 'tagged');
-    if (!newEntityIds.includes(entity.id)) newEntityIds.push(entity.id);
-    if (!newTagIds.includes(entity.id)) newTagIds.push(entity.id);
-  });
-
-  // 3. Time tokens → time entities
-  const timeMatches = text.match(TIME_TOKENS) || [];
-  const uniqueTimes = [...new Set(timeMatches.map(t => t.toLowerCase()))];
-  uniqueTimes.forEach(t => {
-    const entity = resolveEntity('time', t);
-    entity.entry_count++;
-    createLink(entry.id, entity.id, 'mentions');
-    if (!newEntityIds.includes(entity.id)) newEntityIds.push(entity.id);
-  });
-
-  // 4. follows — link to previous entry chronologically
-  const entries = U.entries;
-  const idx = entries.findIndex(e => e.id === entry.id);
-  if (idx > 0) {
-    const prev = entries[idx - 1];
-    createLink(prev.id, entry.id, 'follows');
-  }
-
-  // 5. relates — entries sharing any entity
-  entries.forEach(e => {
-    if (e.id === entry.id) return;
-    const shared = newEntityIds.filter(eid => e.entity_ids.includes(eid));
-    if (shared.length > 0) {
-      createLink(entry.id, e.id, 'relates');
+    if (!S.universe.entities.find(e => e.slug === label.toLowerCase())) {
+      const ent = { id: uid('ent'), type:'person', label, slug: label.toLowerCase(), created_at: new Date().toISOString() };
+      S.universe.entities.push(ent);
+      S.universe.links.push({ id: uid('l'), from: answer.id, to: ent.id, type:'mentions', created_at: new Date().toISOString() });
+      addEntityNode(ent);
     }
   });
+}
 
-  // Write back resolved ids
-  entry.entity_ids = newEntityIds;
-  entry.tag_ids = newTagIds;
+// ── Context / Decision ─────────────────
+function addContextEntry(text) {
+  const isDecision = /(karar verdim|yapacağım|planım|hedefim)/i.test(text);
+  const kind = isDecision ? 'decision' : 'context';
+  addEntry(text, kind, null, null);
+
+  if (isDecision) {
+    const dec = { id: uid('dec'), type:'decision', label: text.slice(0,60), slug: uid('d'), created_at: new Date().toISOString() };
+    S.universe.entities.push(dec);
+    addEntityNode(dec, 'decision');
+  }
 }
 
 // ══════════════════════════════════════
-// GRAPH MODEL — derived from data, not coupled to it
+// QUESTION FAMILY DETECTION
 // ══════════════════════════════════════
-// Each graph node wraps an entry or entity
-// gNode: { id, kind:'entry'|'entity'|'core', ref, x, y, vx, vy, r, pinned }
-
-const G = {
-  nodes: [],
-  renderLinks: []  // computed from U.links for renderer
-};
-
-function buildGraphFromUniverse() {
-  G.nodes = [];
-  G.renderLinks = [];
-
-  // Core node
-  G.nodes.push({ id:'core', kind:'core', ref:null, x:0, y:0, vx:0, vy:0, r:28, pinned:true });
-
-  // Entry nodes
-  U.entries.forEach(e => {
-    G.nodes.push(spawnNode('entry', e, e.id));
-  });
-
-  // Entity nodes
-  U.entities.forEach(ent => {
-    G.nodes.push(spawnNode('entity', ent, ent.id));
-  });
-
-  // Render links from data links
-  rebuildRenderLinks();
-}
-
-function spawnNode(kind, ref, id) {
-  const angle = Math.random() * Math.PI * 2;
-  const dist = 80 + Math.random() * 180;
-  return {
-    id, kind, ref,
-    x: Math.cos(angle)*dist, y: Math.sin(angle)*dist,
-    vx:0, vy:0,
-    r: nodeR(kind, ref),
-    pinned: false
-  };
-}
-
-function nodeR(kind, ref) {
-  if (kind === 'core') return 28;
-  if (kind === 'entry') {
-    const v = VIS.entry[ref.kind] || VIS.entry.default;
-    return v.r;
+function detectFamily(text) {
+  for (const [fam, cfg] of Object.entries(QUESTION_FAMILIES)) {
+    if (cfg.patterns.some(p => p.test(text))) return fam;
   }
-  if (kind === 'entity') {
-    const v = VIS.entity[ref.type] || VIS.entity.default;
-    return v.r;
-  }
-  return 9;
-}
-
-function addToGraph(kind, ref) {
-  const existing = G.nodes.find(n => n.id === ref.id);
-  if (existing) return existing;
-  const node = spawnNode(kind, ref, ref.id);
-  G.nodes.push(node);
-  return node;
-}
-
-function rebuildRenderLinks() {
-  G.renderLinks = U.links.map(l => ({
-    from: l.from, to: l.to, type: l.type
-  }));
-  // Core → all entry nodes
-  U.entries.forEach(e => {
-    G.renderLinks.push({ from:'core', to:e.id, type:'core' });
-  });
+  return 'definition';
 }
 
 // ══════════════════════════════════════
-// PHYSICS
+// INPUT CLASSIFICATION
 // ══════════════════════════════════════
-const FORCE = { repulsion:1600, linkDist:110, linkK:0.035, centerK:0.006, damping:0.82 };
-
-function tick() {
-  const nodes = G.nodes;
-  const n = nodes.length;
-  if (n < 2) return;
-
-  // Repulsion
-  for (let i=0; i<n; i++) {
-    const a=nodes[i]; if(a.pinned) continue;
-    for (let j=i+1; j<n; j++) {
-      const b=nodes[j];
-      let dx=a.x-b.x, dy=a.y-b.y;
-      const d2=dx*dx+dy*dy||1;
-      if(d2>80000) continue;
-      const f=FORCE.repulsion/d2, d=Math.sqrt(d2);
-      dx/=d; dy/=d;
-      a.vx+=dx*f; a.vy+=dy*f;
-      if(!b.pinned){b.vx-=dx*f; b.vy-=dy*f;}
-    }
-  }
-
-  // Link attraction
-  G.renderLinks.forEach(l => {
-    const a=G.nodes.find(n=>n.id===l.from);
-    const b=G.nodes.find(n=>n.id===l.to);
-    if(!a||!b) return;
-    const dx=b.x-a.x, dy=b.y-a.y;
-    const dist=Math.sqrt(dx*dx+dy*dy)||1;
-    const f=(dist-FORCE.linkDist)*FORCE.linkK;
-    const fx=dx/dist*f, fy=dy/dist*f;
-    if(!a.pinned){a.vx+=fx; a.vy+=fy;}
-    if(!b.pinned){b.vx-=fx; b.vy-=fy;}
-  });
-
-  // Center pull + integrate
-  nodes.forEach(n=>{
-    if(n.pinned) return;
-    n.vx+=(0-n.x)*FORCE.centerK;
-    n.vy+=(0-n.y)*FORCE.centerK;
-    n.vx*=FORCE.damping; n.vy*=FORCE.damping;
-    n.x+=n.vx; n.y+=n.vy;
-  });
+function classifyInput(text) {
+  const t = text.trim();
+  if (t.endsWith('?')) return 'question';
+  if (S.pendingAnswerTo) return 'answer';
+  if (/(karar verdim|yapacağım|planım|hedefim)/i.test(t)) return 'decision';
+  return 'context';
 }
-
-// ══════════════════════════════════════
-// CANVAS RENDERER
-// ══════════════════════════════════════
-let canvas, ctx, W, H;
-const VP = { scale:1, ox:0, oy:0 };
-let selectedId = null;
-
-function initCanvas() {
-  canvas = document.getElementById('canvas');
-  W=canvas.width=window.innerWidth; H=canvas.height=window.innerHeight;
-  ctx=canvas.getContext('2d');
-  VP.ox=W/2; VP.oy=H/2;
-  window.addEventListener('resize',()=>{ W=canvas.width=window.innerWidth; H=canvas.height=window.innerHeight; });
-  setupInteraction();
-  (function loop(){ tick(); draw(); requestAnimationFrame(loop); })();
-}
-
-function w2s(wx,wy){ return { x:wx*VP.scale+VP.ox, y:wy*VP.scale+VP.oy }; }
-function s2w(sx,sy){ return { x:(sx-VP.ox)/VP.scale, y:(sy-VP.oy)/VP.scale }; }
-
-function draw() {
-  ctx.clearRect(0,0,W,H);
-
-  // BG
-  const bg=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H)*.7);
-  bg.addColorStop(0,'rgba(14,8,32,1)'); bg.addColorStop(1,'rgba(4,4,12,1)');
-  ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
-
-  const coreNode=G.nodes.find(n=>n.id==='core');
-  if(coreNode) drawCore(coreNode);
-
-  // Links
-  G.renderLinks.forEach(l=>{
-    const a=G.nodes.find(n=>n.id===l.from);
-    const b=G.nodes.find(n=>n.id===l.to);
-    if(!a||!b) return;
-    const sa=w2s(a.x,a.y), sb=w2s(b.x,b.y);
-    if(sa.x<-200&&sb.x<-200||sa.x>W+200&&sb.x>W+200) return;
-    ctx.beginPath(); ctx.moveTo(sa.x,sa.y); ctx.lineTo(sb.x,sb.y);
-    ctx.strokeStyle=VIS.link[l.type]||'rgba(167,139,250,0.06)';
-    ctx.lineWidth=l.type==='relates'?0.8:0.4;
-    if(l.type==='tagged'||l.type==='relates'){ ctx.setLineDash([3*VP.scale,5*VP.scale]); }
-    else ctx.setLineDash([]);
-    ctx.stroke(); ctx.setLineDash([]);
-  });
-
-  // Cluster view at low zoom
-  if(VP.scale < 0.45) { drawClusters(); return; }
-
-  // Nodes
-  G.nodes.forEach(n=>{
-    if(n.kind==='core') return;
-    const sp=w2s(n.x,n.y);
-    if(sp.x<-60||sp.x>W+60||sp.y<-60||sp.y>H+60) return;
-    drawNode(n, sp);
-  });
-
-  document.getElementById('zoom-label').textContent=`zoom ${Math.round(VP.scale*100)}%`;
-}
-
-function drawCore(n) {
-  const sp=w2s(n.x,n.y);
-  // Glow
-  const cg=ctx.createRadialGradient(sp.x,sp.y,0,sp.x,sp.y,52*VP.scale);
-  cg.addColorStop(0,'rgba(167,139,250,0.18)'); cg.addColorStop(1,'rgba(167,139,250,0)');
-  ctx.fillStyle=cg; ctx.beginPath(); ctx.arc(sp.x,sp.y,52*VP.scale,0,Math.PI*2); ctx.fill();
-  // Orbit rings
-  [130,230,350,490].forEach(r=>{
-    ctx.beginPath(); ctx.arc(sp.x,sp.y,r*VP.scale,0,Math.PI*2);
-    ctx.strokeStyle='rgba(167,139,250,0.04)'; ctx.lineWidth=0.5; ctx.stroke();
-  });
-  // Pulse
-  const now=Date.now()/1000;
-  const pr=(28+(now%2)*16)*VP.scale;
-  const po=0.35-(now%2)*0.35;
-  ctx.beginPath(); ctx.arc(sp.x,sp.y,pr,0,Math.PI*2);
-  ctx.strokeStyle=`rgba(167,139,250,${po})`; ctx.lineWidth=0.8; ctx.stroke();
-  // Ring
-  ctx.beginPath(); ctx.arc(sp.x,sp.y,28*VP.scale,0,Math.PI*2);
-  ctx.strokeStyle='rgba(167,139,250,0.35)'; ctx.lineWidth=0.5; ctx.stroke();
-  // Dot
-  ctx.beginPath(); ctx.arc(sp.x,sp.y,4*VP.scale,0,Math.PI*2);
-  ctx.fillStyle='#a78bfa'; ctx.fill();
-  // Label
-  if(VP.scale>0.4){
-    ctx.font=`7px 'DM Mono',monospace`;
-    ctx.fillStyle='rgba(167,139,250,0.28)';
-    ctx.textAlign='center'; ctx.letterSpacing='4px';
-    ctx.fillText('SINGULAR',sp.x,sp.y+44*VP.scale); ctx.letterSpacing='0px';
-  }
-}
-
-function drawNode(n, sp) {
-  const isSelected = n.id===selectedId;
-  let vis;
-  if(n.kind==='entry') vis=VIS.entry[n.ref.kind]||VIS.entry.default;
-  else vis=VIS.entity[n.ref.type]||VIS.entity.default;
-  const r=n.r*VP.scale;
-
-  // Node glow on select
-  if(isSelected){
-    const sg=ctx.createRadialGradient(sp.x,sp.y,0,sp.x,sp.y,r*2.5);
-    sg.addColorStop(0,'rgba(255,255,255,0.08)'); sg.addColorStop(1,'rgba(255,255,255,0)');
-    ctx.fillStyle=sg; ctx.beginPath(); ctx.arc(sp.x,sp.y,r*2.5,0,Math.PI*2); ctx.fill();
-  }
-
-  ctx.beginPath(); ctx.arc(sp.x,sp.y,r,0,Math.PI*2);
-  ctx.fillStyle=vis.fill; ctx.fill();
-  ctx.strokeStyle=isSelected?'#fff':vis.stroke;
-  ctx.lineWidth=isSelected?1.2:0.6; ctx.stroke();
-
-  // Entity type marker — small inner ring
-  if(n.kind==='entity'){
-    ctx.beginPath(); ctx.arc(sp.x,sp.y,r*0.45,0,Math.PI*2);
-    ctx.strokeStyle=vis.stroke; ctx.lineWidth=0.5; ctx.stroke();
-  }
-
-  // Decision diamond
-  if((n.kind==='entry'&&n.ref.kind==='decision')||(n.kind==='entity'&&n.ref.type==='decision')){
-    const s=r*0.65;
-    ctx.beginPath(); ctx.moveTo(sp.x,sp.y-s); ctx.lineTo(sp.x+s,sp.y);
-    ctx.lineTo(sp.x,sp.y+s); ctx.lineTo(sp.x-s,sp.y); ctx.closePath();
-    ctx.strokeStyle=vis.stroke; ctx.lineWidth=0.5; ctx.stroke();
-  }
-
-  // Center dot
-  ctx.beginPath(); ctx.arc(sp.x,sp.y,Math.max(1.5,2.2*Math.min(VP.scale,1)),0,Math.PI*2);
-  ctx.fillStyle=vis.stroke; ctx.fill();
-
-  // Label
-  if(VP.scale>0.5){
-    const label = n.kind==='entry' ? n.ref.text : n.ref.label;
-    const short = label.length>20 ? label.slice(0,20)+'…' : label;
-    ctx.font=`${Math.max(8,9*Math.min(VP.scale,1.2))}px 'DM Mono',monospace`;
-    ctx.fillStyle= n.kind==='entity' ? 'rgba(226,224,240,0.35)' : 'rgba(226,224,240,0.5)';
-    ctx.textAlign='center';
-    ctx.fillText(short, sp.x, sp.y+r+11*Math.min(VP.scale,1));
-  }
-}
-
-function drawClusters() {
-  // Group entry nodes by first tag entity
-  const groups = {};
-  G.nodes.forEach(n=>{
-    if(n.kind!=='entry') return;
-    const tagId=n.ref.tag_ids?.[0];
-    const key=tagId ? (U.entities.find(e=>e.id===tagId)?.label||'misc') : 'misc';
-    if(!groups[key]) groups[key]=[];
-    groups[key].push(n);
-  });
-  Object.entries(groups).forEach(([key,nodes])=>{
-    if(nodes.length<1) return;
-    let cx=0,cy=0;
-    nodes.forEach(n=>{cx+=n.x;cy+=n.y;});
-    cx/=nodes.length; cy/=nodes.length;
-    const sp=w2s(cx,cy);
-    const r=Math.max(35,nodes.length*10)*VP.scale;
-    const g=ctx.createRadialGradient(sp.x,sp.y,0,sp.x,sp.y,r);
-    g.addColorStop(0,'rgba(96,165,250,0.12)'); g.addColorStop(1,'rgba(96,165,250,0)');
-    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(sp.x,sp.y,r,0,Math.PI*2); ctx.fill();
-    ctx.font=`${Math.max(9,11*VP.scale)}px 'DM Mono',monospace`;
-    ctx.fillStyle='rgba(96,165,250,0.55)'; ctx.textAlign='center';
-    ctx.fillText(`${key} (${nodes.length})`,sp.x,sp.y);
-  });
-}
-
-// ══════════════════════════════════════
-// INTERACTION
-// ══════════════════════════════════════
-function hitNode(sx,sy) {
-  const w=s2w(sx,sy); let hit=null, minD=Infinity;
-  G.nodes.forEach(n=>{
-    const d=Math.hypot(n.x-w.x,n.y-w.y);
-    if(d<(n.r+10)/VP.scale&&d<minD){minD=d;hit=n;}
-  });
-  return hit;
-}
-
-function setupInteraction() {
-  let dragNode=null, wasDragged=false, downX=0, downY=0;
-
-  canvas.addEventListener('mousedown',e=>{
-    downX=e.clientX; downY=e.clientY; wasDragged=false;
-    dragNode=hitNode(e.clientX,e.clientY);
-    if(dragNode){ dragNode._wp=dragNode.pinned; dragNode.pinned=true; dragNode.vx=dragNode.vy=0; canvas.style.cursor='grabbing'; }
-    else{ VP._drag=true; VP._lx=e.clientX; VP._ly=e.clientY; canvas.classList.add('grabbing'); }
-  });
-  window.addEventListener('mousemove',e=>{
-    if(Math.abs(e.clientX-downX)+Math.abs(e.clientY-downY)>3) wasDragged=true;
-    if(dragNode){ const w=s2w(e.clientX,e.clientY); dragNode.x=w.x; dragNode.y=w.y; dragNode.vx=dragNode.vy=0; }
-    else if(VP._drag){ VP.ox+=e.clientX-VP._lx; VP.oy+=e.clientY-VP._ly; VP._lx=e.clientX; VP._ly=e.clientY; }
-  });
-  window.addEventListener('mouseup',e=>{
-    if(dragNode){
-      dragNode.pinned=e.altKey||dragNode._wp||false;
-      if(!wasDragged){ selectedId=dragNode.id; openPanel(dragNode); }
-      dragNode=null; canvas.style.cursor='grab';
-    } else if(VP._drag){
-      if(!wasDragged) handleClick(e.clientX,e.clientY);
-      VP._drag=false; canvas.classList.remove('grabbing');
-    }
-    wasDragged=false;
-  });
-  canvas.addEventListener('wheel',e=>{
-    e.preventDefault();
-    const f=e.deltaY>0?0.88:1.14;
-    const wx=(e.clientX-VP.ox)/VP.scale, wy=(e.clientY-VP.oy)/VP.scale;
-    VP.scale=Math.max(0.08,Math.min(6,VP.scale*f));
-    VP.ox=e.clientX-wx*VP.scale; VP.oy=e.clientY-wy*VP.scale;
-  },{passive:false});
-
-  // Touch
-  let tDragNode=null, tWasDragged=false, tDownX=0, tDownY=0, pinchDist=0, tTouches={};
-  canvas.addEventListener('touchstart',e=>{
-    [...e.touches].forEach(t=>{tTouches[t.identifier]={x:t.clientX,y:t.clientY};});
-    if(e.touches.length===2){
-      pinchDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
-      tDragNode=null;
-    } else if(e.touches.length===1){
-      const t=e.touches[0]; tDownX=t.clientX; tDownY=t.clientY; tWasDragged=false;
-      tDragNode=hitNode(t.clientX,t.clientY);
-      if(tDragNode){tDragNode._wp=tDragNode.pinned;tDragNode.pinned=true;tDragNode.vx=tDragNode.vy=0;}
-      else{VP._drag=true;VP._lx=t.clientX;VP._ly=t.clientY;}
-    }
-  });
-  canvas.addEventListener('touchmove',e=>{
-    e.preventDefault();
-    if(e.touches.length===2){
-      const a=e.touches[0],b=e.touches[1];
-      const d=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);
-      const f=d/pinchDist; pinchDist=d;
-      const mx=(a.clientX+b.clientX)/2, my=(a.clientY+b.clientY)/2;
-      const wx=(mx-VP.ox)/VP.scale, wy=(my-VP.oy)/VP.scale;
-      VP.scale=Math.max(0.08,Math.min(6,VP.scale*f));
-      VP.ox=mx-wx*VP.scale; VP.oy=my-wy*VP.scale;
-    } else if(e.touches.length===1){
-      const t=e.touches[0];
-      if(Math.abs(t.clientX-tDownX)+Math.abs(t.clientY-tDownY)>4) tWasDragged=true;
-      if(tDragNode){const w=s2w(t.clientX,t.clientY);tDragNode.x=w.x;tDragNode.y=w.y;tDragNode.vx=tDragNode.vy=0;}
-      else if(VP._drag){VP.ox+=t.clientX-VP._lx;VP.oy+=t.clientY-VP._ly;VP._lx=t.clientX;VP._ly=t.clientY;}
-    }
-  },{passive:false});
-  canvas.addEventListener('touchend',e=>{
-    if(tDragNode){tDragNode.pinned=tDragNode._wp||false;if(!tWasDragged){selectedId=tDragNode.id;openPanel(tDragNode);}tDragNode=null;}
-    else if(e.changedTouches.length===1&&e.touches.length===0&&!tWasDragged){handleClick(e.changedTouches[0].clientX,e.changedTouches[0].clientY);}
-    VP._drag=false; tWasDragged=false; tTouches={};
-  });
-}
-
-function handleClick(sx,sy){
-  const n=hitNode(sx,sy);
-  if(n){selectedId=n.id;openPanel(n);}
-  else{selectedId=null;closePanel();}
-}
-
-function zoomBy(f){
-  const wx=(W/2-VP.ox)/VP.scale, wy=(H/2-VP.oy)/VP.scale;
-  VP.scale=Math.max(0.08,Math.min(6,VP.scale*f));
-  VP.ox=W/2-wx*VP.scale; VP.oy=H/2-wy*VP.scale;
-}
-function resetView(){VP.scale=1;VP.ox=W/2;VP.oy=H/2;}
-
-// ══════════════════════════════════════
-// PANEL
-// ══════════════════════════════════════
-function openPanel(gNode) {
-  const badge=document.getElementById('panel-badge');
-  const body=document.getElementById('panel-body');
-  body.innerHTML='';
-
-  if(gNode.kind==='core'){
-    badge.textContent='evren'; badge.style.cssText='background:rgba(167,139,250,.12);color:#a78bfa';
-    document.getElementById('panel-title').textContent='SINGULAR — Senin Evrenin';
-    document.getElementById('panel-meta').textContent=U.meta.created?new Date(U.meta.created).toLocaleString('tr-TR'):'';
-    body.innerHTML=`<div style="font-size:.66rem;color:var(--text-muted);line-height:2">
-      ${U.entries.length} kayıt<br>${U.entities.length} varlık<br>${U.links.length} bağlantı</div>`;
-    document.getElementById('panel').classList.add('open'); return;
-  }
-
-  if(gNode.kind==='entry'){
-    const e=gNode.ref;
-    badge.textContent=e.kind; badge.style.cssText=`background:${(VIS.entry[e.kind]||VIS.entry.default).fill};color:${(VIS.entry[e.kind]||VIS.entry.default).stroke}`;
-    document.getElementById('panel-title').textContent=e.text;
-    document.getElementById('panel-meta').textContent=new Date(e.created_at).toLocaleString('tr-TR');
-
-    // Entities attached
-    const entities=U.entities.filter(ent=>e.entity_ids.includes(ent.id));
-    if(entities.length){
-      const sec=mkSec('Bağlı varlıklar');
-      const chips=document.createElement('div'); chips.className='panel-chips';
-      entities.forEach(ent=>{
-        const ch=document.createElement('span'); ch.className='panel-chip';
-        const v=VIS.entity[ent.type]||VIS.entity.default;
-        ch.style.cssText=`background:${v.fill};color:${v.stroke};border:.5px solid ${v.stroke}40`;
-        ch.textContent=(ent.type==='person'?'@':ent.type==='topic'?'#':'')+ent.label;
-        ch.onclick=()=>{ const gn=G.nodes.find(n=>n.id===ent.id); if(gn){selectedId=gn.id;openPanel(gn);} };
-        chips.appendChild(ch);
-      });
-      sec.appendChild(chips); body.appendChild(sec);
-    }
-
-    // Related entries via 'relates' links
-    const relIds=U.links.filter(l=>(l.from===e.id||l.to===e.id)&&l.type==='relates').map(l=>l.from===e.id?l.to:l.from);
-    const relEntries=[...new Set(relIds)].map(id=>U.entries.find(e=>e.id===id)).filter(Boolean);
-    if(relEntries.length){
-      const sec=mkSec('İlişkili kayıtlar');
-      const list=document.createElement('div'); list.className='panel-rels';
-      relEntries.slice(0,6).forEach(re=>{
-        const btn=document.createElement('div'); btn.className='panel-rel';
-        btn.textContent=re.text.length>40?re.text.slice(0,40)+'…':re.text;
-        btn.onclick=()=>{ const gn=G.nodes.find(n=>n.id===re.id); if(gn){selectedId=gn.id;openPanel(gn);} };
-        list.appendChild(btn);
-      });
-      sec.appendChild(list); body.appendChild(sec);
-    }
-  }
-
-  if(gNode.kind==='entity'){
-    const ent=gNode.ref;
-    const v=VIS.entity[ent.type]||VIS.entity.default;
-    badge.textContent=ent.type; badge.style.cssText=`background:${v.fill};color:${v.stroke}`;
-    document.getElementById('panel-title').textContent=ent.label;
-    document.getElementById('panel-meta').textContent=`${ent.entry_count} kayıtta geçiyor · ${new Date(ent.created_at).toLocaleString('tr-TR')}`;
-
-    // Entries mentioning this entity
-    const mentioningIds=U.links.filter(l=>l.to===ent.id).map(l=>l.from);
-    const entries=[...new Set(mentioningIds)].map(id=>U.entries.find(e=>e.id===id)).filter(Boolean);
-    if(entries.length){
-      const sec=mkSec('Bu varlığı içeren kayıtlar');
-      const list=document.createElement('div'); list.className='panel-rels';
-      entries.slice(0,6).forEach(e=>{
-        const btn=document.createElement('div'); btn.className='panel-rel';
-        btn.textContent=e.text.length>40?e.text.slice(0,40)+'…':e.text;
-        btn.onclick=()=>{ const gn=G.nodes.find(n=>n.id===e.id); if(gn){selectedId=gn.id;openPanel(gn);} };
-        list.appendChild(btn);
-      });
-      sec.appendChild(list); body.appendChild(sec);
-    }
-  }
-
-  document.getElementById('panel').classList.add('open');
-}
-
-function mkSec(label){
-  const s=document.createElement('div'); s.className='panel-section';
-  const l=document.createElement('div'); l.className='panel-section-label'; l.textContent=label;
-  s.appendChild(l); return s;
-}
-function closePanel(){document.getElementById('panel').classList.remove('open');selectedId=null;}
 
 // ══════════════════════════════════════
 // INPUT HANDLER
 // ══════════════════════════════════════
 async function handleInput() {
-  const f=document.getElementById('input-field');
-  const text=f.value.trim(); if(!text) return;
-  f.value='';
+  const field = document.getElementById('input-field');
+  const text = field.value.trim();
+  if (!text) return;
+  field.value = '';
+  hideSuggestions();
 
-  // 1. Create entry (raw preserved)
-  const entry=createEntry(text);
-  U.entries.push(entry);
+  const kind = classifyInput(text);
 
-  // 2. Parse → entities + links
-  parseEntry(entry);
+  if (kind === 'question') {
+    const q = addQuestion(text);
+    addQuestionNode(q);
+    setPendingAnswer(q);
+    openPanelQuestion(q.id);
+  } else if (kind === 'answer' && S.pendingAnswerTo) {
+    const a = addAnswer(S.pendingAnswerTo, text, null);
+    addAnswerNode(a, S.pendingAnswerTo);
+    drawAnswerLink(a.id, S.pendingAnswerTo);
+    clearPendingAnswer();
+    openPanelAnswer(a.id);
+  } else {
+    // context / decision
+    addContextEntry(text);
+  }
 
-  // 3. Update graph
-  addToGraph('entry', entry);
-  // New entities might have been created — add them too
-  U.entities.forEach(ent=>{
-    if(!G.nodes.find(n=>n.id===ent.id)) addToGraph('entity',ent);
+  await saveUniverse();
+  updateCounters();
+}
+
+// ══════════════════════════════════════
+// INPUT MODE UI
+// ══════════════════════════════════════
+function setPendingAnswer(question) {
+  S.pendingAnswerTo = question.id;
+  const pill = document.getElementById('mode-pill');
+  const label = document.getElementById('mode-label');
+  pill.textContent = 'CEVAP';
+  pill.className = 'input-mode-pill pill-a';
+  label.textContent = `"${question.text.slice(0,40)}${question.text.length>40?'…':''}" — cevabını yaz veya soru ile devam et`;
+  document.getElementById('input-field').placeholder = 'Cevabını yaz… (yeni soru için ? ile bitir)';
+  showSuggestions(getFacetSuggestions(question.family));
+}
+
+function clearPendingAnswer() {
+  S.pendingAnswerTo = null;
+  const pill = document.getElementById('mode-pill');
+  const label = document.getElementById('mode-label');
+  pill.textContent = 'SORU';
+  pill.className = 'input-mode-pill pill-q';
+  label.textContent = 'ne sormak istiyorsun?';
+  document.getElementById('input-field').placeholder = 'Bir soru sor, bir cevap ver, bir karar yaz…';
+}
+
+function getFacetSuggestions(family) {
+  const facets = FAMILY_FACETS[family] || [];
+  return facets.map(f => f + ':');
+}
+
+function updateCounters() {
+  const qc = S.universe.questions.length;
+  const ac = S.universe.answers.length;
+  document.getElementById('node-count').textContent = qc + (qc===1?' soru':' soru');
+  document.getElementById('answer-count').textContent = ac + (ac===1?' cevap':' cevap');
+}
+
+// ══════════════════════════════════════
+// COSMOS ENGINE
+// ══════════════════════════════════════
+const NS = 'http://www.w3.org/2000/svg';
+let svgEl, cx, cy;
+
+const NODE_STYLES = {
+  question: { fill:'rgba(96,165,250,.15)',  stroke:'#60a5fa',  r:13 },
+  answer:   { fill:'rgba(52,211,153,.12)',  stroke:'#34d399',  r:9  },
+  entity:   { fill:'rgba(244,114,182,.12)', stroke:'#f472b6',  r:7  },
+  decision: { fill:'rgba(245,158,11,.12)',  stroke:'#f59e0b',  r:10 },
+  context:  { fill:'rgba(148,163,184,.08)', stroke:'#94a3b8',  r:6  }
+};
+
+function svgMk(tag) { return document.createElementNS(NS, tag); }
+
+function initCosmos() {
+  svgEl = document.getElementById('cosmos');
+  cx = window.innerWidth / 2;
+  cy = window.innerHeight / 2;
+  drawOrbits();
+  drawCore();
+  animateCore();
+  window.addEventListener('resize', () => {
+    cx = window.innerWidth / 2; cy = window.innerHeight / 2;
+    svgEl.innerHTML = '';
+    drawOrbits(); drawCore(); animateCore();
+    rerenderAll();
   });
-  rebuildRenderLinks();
+}
 
-  // 4. Save
-  saveUniverse();
-  saveSession();
+function drawOrbits() {
+  [100,180,280,400].forEach(r => {
+    const c = svgMk('circle');
+    c.setAttribute('cx',cx); c.setAttribute('cy',cy);
+    c.setAttribute('r',r); c.setAttribute('class','orbit-ring');
+    svgEl.appendChild(c);
+  });
+}
 
-  if(U.entries.length===1) document.getElementById('hint').style.opacity='0';
-  document.getElementById('node-count').textContent=U.entries.length+' kayıt · '+U.entities.length+' varlık';
+function drawCore() {
+  const g = svgMk('g'); g.id = 'core-g';
+  [[52,'core-inner'],[30,'core-outer'],[4,'core-dot']].forEach(([r,cls]) => {
+    const c = svgMk('circle');
+    c.setAttribute('cx',cx); c.setAttribute('cy',cy);
+    c.setAttribute('r',r); c.setAttribute('class',cls);
+    g.appendChild(c);
+  });
+  const pulse = svgMk('circle');
+  pulse.setAttribute('cx',cx); pulse.setAttribute('cy',cy);
+  pulse.setAttribute('r','30'); pulse.setAttribute('class','core-pulse');
+  pulse.id = 'pulse-ring'; g.appendChild(pulse);
+  const lbl = svgMk('text');
+  lbl.setAttribute('x',cx); lbl.setAttribute('y',cy+44);
+  lbl.setAttribute('text-anchor','middle');
+  lbl.setAttribute('fill','rgba(167,139,250,.3)');
+  lbl.setAttribute('font-size','7');
+  lbl.setAttribute('font-family','DM Mono,monospace');
+  lbl.setAttribute('letter-spacing','3');
+  lbl.textContent = 'SINGULAR'; g.appendChild(lbl);
+  g.style.cursor = 'pointer';
+  g.onclick = () => openPanelCore();
+  svgEl.appendChild(g);
+}
+
+function animateCore() {
+  const ring = document.getElementById('pulse-ring');
+  if (!ring) return;
+  let r = 30, op = 0.5;
+  (function step() {
+    r += 0.22; op -= 0.005;
+    if (r > 65) { r = 30; op = 0.5; }
+    ring.setAttribute('r',r); ring.setAttribute('opacity',op);
+    requestAnimationFrame(step);
+  })();
+}
+
+// ── Positioning ────────────────────────
+function getOrbit(nodeKind) {
+  return { question:160, answer:260, entity:360, decision:160, context:460 }[nodeKind] || 260;
+}
+
+function getPos(index, total, orbit) {
+  const angle = (index / Math.max(total,1)) * 2 * Math.PI - Math.PI / 2;
+  return { x: cx + orbit * Math.cos(angle), y: cy + orbit * Math.sin(angle) };
+}
+
+function countNodesOfKind(kind) {
+  return S.graphNodes.filter(n => n.kind === kind).length;
+}
+
+// ── Add nodes ──────────────────────────
+function addQuestionNode(q) {
+  const idx = countNodesOfKind('question');
+  const total = S.universe.questions.length;
+  const pos = getPos(idx, total, getOrbit('question'));
+  _addNode({ id: q.id, x: pos.x, y: pos.y, kind:'question', ref: q });
+}
+
+function addAnswerNode(a, questionId) {
+  // Place near its question node
+  const qNode = S.graphNodes.find(n => n.id === questionId);
+  let pos;
+  if (qNode) {
+    const angle = Math.atan2(qNode.y - cy, qNode.x - cx);
+    const spread = (Math.random() - 0.5) * 0.6;
+    const orbit = getOrbit('answer');
+    pos = { x: cx + orbit * Math.cos(angle + spread), y: cy + orbit * Math.sin(angle + spread) };
+  } else {
+    const idx = countNodesOfKind('answer');
+    pos = getPos(idx, S.universe.answers.length, getOrbit('answer'));
+  }
+  _addNode({ id: a.id, x: pos.x, y: pos.y, kind:'answer', ref: a });
+}
+
+function addEntityNode(ent, typeOverride) {
+  const kind = typeOverride || 'entity';
+  const idx = countNodesOfKind(kind);
+  const pos = getPos(idx, S.universe.entities.length, getOrbit(kind));
+  _addNode({ id: ent.id, x: pos.x, y: pos.y, kind, ref: ent });
+}
+
+function _addNode({ id, x, y, kind, ref }) {
+  S.graphNodes.push({ id, x, y, kind, ref });
+  const style = NODE_STYLES[kind] || NODE_STYLES.context;
+
+  const g = svgMk('g');
+  g.setAttribute('class','g-node'); g.setAttribute('data-id', id);
+  g.style.opacity = '0';
+
+  // Core link (for questions)
+  if (kind === 'question' || kind === 'decision') {
+    const link = svgMk('line');
+    link.setAttribute('x1',cx); link.setAttribute('y1',cy);
+    link.setAttribute('x2',x);  link.setAttribute('y2',y);
+    link.setAttribute('class','g-link core-link');
+    link.setAttribute('data-link-id', id);
+    svgEl.insertBefore(link, svgEl.children[5] || null);
+  }
+
+  const circle = svgMk('circle');
+  circle.setAttribute('cx',x); circle.setAttribute('cy',y);
+  circle.setAttribute('r', style.r);
+  circle.setAttribute('fill', style.fill);
+  circle.setAttribute('stroke', style.stroke);
+  circle.setAttribute('stroke-width', kind === 'question' ? '1' : '.5');
+  g.appendChild(circle);
+
+  const dot = svgMk('circle');
+  dot.setAttribute('cx',x); dot.setAttribute('cy',y);
+  dot.setAttribute('r','2.5'); dot.setAttribute('fill', style.stroke);
+  g.appendChild(dot);
+
+  const lbl = svgMk('text');
+  lbl.setAttribute('x',x); lbl.setAttribute('y', y + style.r + 11);
+  lbl.setAttribute('text-anchor','middle');
+  const labelText = ref?.text || ref?.label || ref?.value || '';
+  const short = labelText.length > 14 ? labelText.slice(0,14)+'…' : labelText;
+  lbl.textContent = short;
+  g.appendChild(lbl);
+
+  g.onclick = () => {
+    if (kind === 'question') openPanelQuestion(id);
+    else if (kind === 'answer') openPanelAnswer(id);
+    else openPanelEntity(id);
+  };
+
+  svgEl.appendChild(g);
+  requestAnimationFrame(() => { g.style.transition = 'opacity .6s'; g.style.opacity = '1'; });
+
+  if (S.universe.questions.length + S.universe.answers.length === 1) {
+    document.getElementById('hint').style.opacity = '0';
+  }
+}
+
+function drawAnswerLink(answerId, questionId) {
+  const aNode = S.graphNodes.find(n => n.id === answerId);
+  const qNode = S.graphNodes.find(n => n.id === questionId);
+  if (!aNode || !qNode) return;
+  const line = svgMk('line');
+  line.setAttribute('x1', qNode.x); line.setAttribute('y1', qNode.y);
+  line.setAttribute('x2', aNode.x); line.setAttribute('y2', aNode.y);
+  line.setAttribute('class','g-link answer-link');
+  svgEl.insertBefore(line, svgEl.children[5] || null);
+}
+
+function rerenderAll() {
+  document.querySelectorAll('.g-node,[data-link-id],.answer-link,.entity-link').forEach(el => el.remove());
+  const saved = [...S.graphNodes];
+  S.graphNodes = [];
+  saved.forEach(n => {
+    if (n.kind === 'question') addQuestionNode(n.ref);
+    else if (n.kind === 'answer') addAnswerNode(n.ref, n.ref.question_id);
+    else addEntityNode(n.ref, n.kind);
+  });
+  // re-draw answer links
+  S.universe.answers.forEach(a => drawAnswerLink(a.id, a.question_id));
+}
+
+function renderExistingEntries() {
+  if (!S.universe) return;
+  S.universe.questions.forEach(q => addQuestionNode(q));
+  S.universe.answers.forEach(a => addAnswerNode(a, a.question_id));
+  S.universe.entities.forEach(e => addEntityNode(e));
+  S.universe.answers.forEach(a => drawAnswerLink(a.id, a.question_id));
+  updateCounters();
+  // restore mode
+  clearPendingAnswer();
 }
 
 // ══════════════════════════════════════
-// UNIVERSE — live reference
+// DETAIL PANEL
 // ══════════════════════════════════════
-let U = createUniverse();
-
-// ══════════════════════════════════════
-// STORAGE — Google Drive + Local
-// ══════════════════════════════════════
-function saveSession(){
-  if(S.mode!=='google') return;
-  sessionStorage.setItem(SESSION_KEY,JSON.stringify({mode:S.mode,accessToken:S.accessToken,tokenExpiry:S.tokenExpiry,driveFileId:S.driveFileId,driveFolderId:S.driveFolderId}));
+function openPanelCore() {
+  const qCount = S.universe.questions.length;
+  const aCount = S.universe.answers.length;
+  const body = `${qCount} soru · ${aCount} cevap · ${S.universe.entities.length} varlık`;
+  const suggested = Object.values(QUESTION_FAMILIES).slice(0,4).map(f =>
+    `${f.label} hakkında bir soru sor?`
+  );
+  _renderPanel({ badge:'core', badgeClass:'badge-core',
+    title:'Senin evrenin', meta: S.universe.meta.created_at ? new Date(S.universe.meta.created_at).toLocaleString('tr-TR') : '—',
+    sections:[{ label:'Özet', text: body }],
+    actions: suggested, actionKind:'question' });
 }
-function loadSession(){
-  try{const d=JSON.parse(sessionStorage.getItem(SESSION_KEY)||'null');if(!d)return null;if(d.tokenExpiry&&Date.now()>d.tokenExpiry){sessionStorage.removeItem(SESSION_KEY);return null;}return d;}catch{return null;}
+
+function openPanelQuestion(qId) {
+  const q = S.universe.questions.find(x => x.id === qId);
+  if (!q) return;
+  const answers = S.universe.answers.filter(a => a.question_id === qId);
+  const family = QUESTION_FAMILIES[q.family];
+  const facets = FAMILY_FACETS[q.family] || [];
+
+  const panelBody = document.getElementById('panel-body');
+  panelBody.innerHTML = '';
+
+  // Badge
+  const badge = document.getElementById('panel-badge');
+  badge.textContent = 'soru';
+  badge.className = 'panel-type-badge badge-question';
+
+  // Title
+  const titleEl = document.getElementById('panel-title');
+  const statusDot = `<span class="q-status ${q.status === 'open' ? 'q-open' : 'q-answered'}"></span>`;
+  titleEl.innerHTML = statusDot + q.text;
+  titleEl.dataset.entryId = q.id;
+
+  document.getElementById('panel-meta').textContent =
+    new Date(q.created_at).toLocaleString('tr-TR') + (family ? ' · ' + family.label : '');
+
+  // Answers section
+  if (answers.length > 0) {
+    const sec = _makeSection('Cevaplar');
+    const list = document.createElement('div');
+    list.className = 'answer-list';
+    answers.forEach(a => {
+      const item = document.createElement('div');
+      item.className = 'answer-item';
+      item.innerHTML = `<strong>${a.facet}</strong>: ${a.value}`;
+      list.appendChild(item);
+    });
+    sec.appendChild(list);
+    panelBody.appendChild(sec);
+    panelBody.appendChild(_divider());
+  }
+
+  // Facet suggestions
+  if (facets.length) {
+    const sec = _makeSection('Cevap boyutları');
+    const list = document.createElement('div');
+    list.className = 'facet-list';
+    facets.forEach(f => {
+      const item = document.createElement('div');
+      item.className = 'facet-item';
+      const key = document.createElement('div');
+      key.className = 'facet-key'; key.textContent = f;
+      const val = document.createElement('div');
+      val.className = 'facet-val';
+      const existing = answers.find(a => a.facet === f);
+      if (existing) {
+        val.textContent = existing.value;
+      } else {
+        val.innerHTML = `<input placeholder="ekle…" data-facet="${f}" data-qid="${q.id}"/>`;
+        val.querySelector('input').addEventListener('keydown', e => {
+          if (e.key === 'Enter' && e.target.value.trim()) {
+            const a = addAnswer(q.id, e.target.value.trim(), f);
+            addAnswerNode(a, q.id);
+            drawAnswerLink(a.id, q.id);
+            saveUniverse(); updateCounters();
+            openPanelQuestion(q.id); // refresh
+          }
+        });
+      }
+      item.appendChild(key); item.appendChild(val);
+      list.appendChild(item);
+    });
+    sec.appendChild(list);
+    panelBody.appendChild(sec);
+  }
+
+  // Answer via input button
+  const ansBtn = document.createElement('button');
+  ansBtn.className = 'panel-action-btn panel-answer-btn';
+  ansBtn.style.marginTop = '.75rem';
+  ansBtn.textContent = '→ Input alanında cevapla';
+  ansBtn.onclick = () => { setPendingAnswer(q); closePanel(); document.getElementById('input-field').focus(); };
+  panelBody.appendChild(ansBtn);
+
+  document.getElementById('panel').classList.add('open');
 }
 
-const S={mode:null,accessToken:null,tokenExpiry:null,driveFileId:null,driveFolderId:null};
+function openPanelAnswer(aId) {
+  const a = S.universe.answers.find(x => x.id === aId);
+  if (!a) return;
+  const q = S.universe.questions.find(x => x.id === a.question_id);
 
-function connectGoogle(){
-  if(!window.google){alert('Google Identity Services yüklenemedi.');return;}
-  google.accounts.oauth2.initTokenClient({
-    client_id:GOOGLE_CLIENT_ID,scope:DRIVE_SCOPE,
-    callback:async(resp)=>{
-      if(resp.error)return;
-      S.accessToken=resp.access_token; S.tokenExpiry=Date.now()+(resp.expires_in*1000)-60000; S.mode='google';
-      await initDrive(); saveSession(); launchUniverse('Google Drive');
+  const badge = document.getElementById('panel-badge');
+  badge.textContent = 'cevap'; badge.className = 'panel-type-badge badge-answer';
+
+  const titleEl = document.getElementById('panel-title');
+  titleEl.textContent = a.value; titleEl.dataset.entryId = a.id;
+  document.getElementById('panel-meta').textContent = new Date(a.created_at).toLocaleString('tr-TR');
+
+  const panelBody = document.getElementById('panel-body');
+  panelBody.innerHTML = '';
+
+  if (q) {
+    const sec = _makeSection('Sorusu');
+    const p = document.createElement('div');
+    p.className = 'panel-body-text';
+    p.style.cursor = 'pointer';
+    p.textContent = q.text;
+    p.onclick = () => openPanelQuestion(q.id);
+    sec.appendChild(p); panelBody.appendChild(sec);
+    panelBody.appendChild(_divider());
+  }
+
+  if (a.facet) {
+    panelBody.appendChild(_simpleSection('Boyut', a.facet));
+  }
+
+  document.getElementById('panel').classList.add('open');
+}
+
+function openPanelEntity(entId) {
+  const ent = S.universe.entities.find(x => x.id === entId);
+  if (!ent) return;
+  const badge = document.getElementById('panel-badge');
+  badge.textContent = ent.type; badge.className = 'panel-type-badge badge-entity';
+  document.getElementById('panel-title').textContent = ent.label;
+  document.getElementById('panel-meta').textContent = new Date(ent.created_at).toLocaleString('tr-TR');
+  document.getElementById('panel-body').innerHTML = '';
+  document.getElementById('panel').classList.add('open');
+}
+
+function _makeSection(label) {
+  const sec = document.createElement('div');
+  sec.className = 'panel-section';
+  const lbl = document.createElement('div');
+  lbl.className = 'panel-label'; lbl.textContent = label;
+  sec.appendChild(lbl);
+  return sec;
+}
+
+function _simpleSection(label, text) {
+  const sec = _makeSection(label);
+  const p = document.createElement('div');
+  p.className = 'panel-body-text'; p.textContent = text;
+  sec.appendChild(p);
+  return sec;
+}
+
+function _divider() {
+  const hr = document.createElement('hr');
+  hr.className = 'panel-divider';
+  return hr;
+}
+
+function _renderPanel({ badge, badgeClass, title, meta, sections, actions, actionKind }) {
+  const badgeEl = document.getElementById('panel-badge');
+  badgeEl.textContent = badge; badgeEl.className = 'panel-type-badge ' + badgeClass;
+  document.getElementById('panel-title').textContent = title;
+  document.getElementById('panel-meta').textContent = meta;
+  const body = document.getElementById('panel-body');
+  body.innerHTML = '';
+  sections.forEach(s => body.appendChild(_simpleSection(s.label, s.text)));
+  if (actions?.length) {
+    const sec = _makeSection('Önerilen sorular');
+    const actList = document.createElement('div');
+    actList.className = 'panel-actions';
+    actions.forEach(a => {
+      const btn = document.createElement('button');
+      btn.className = 'panel-action-btn'; btn.textContent = a;
+      btn.onclick = () => {
+        document.getElementById('input-field').value = a.endsWith('?') ? a : a + '?';
+        document.getElementById('input-field').focus();
+        closePanel();
+      };
+      actList.appendChild(btn);
+    });
+    sec.appendChild(actList); body.appendChild(sec);
+  }
+  document.getElementById('panel').classList.add('open');
+}
+
+function closePanel() {
+  document.getElementById('panel').classList.remove('open');
+}
+
+// ══════════════════════════════════════
+// SUGGESTIONS
+// ══════════════════════════════════════
+function showSuggestions(items) {
+  if (!items?.length) return;
+  const el = document.getElementById('suggestions');
+  el.innerHTML = '';
+  items.slice(0,4).forEach(q => {
+    const btn = document.createElement('button');
+    btn.className = 'sug-btn'; btn.textContent = q;
+    btn.onclick = () => {
+      document.getElementById('input-field').value = q;
+      document.getElementById('input-field').focus();
+      hideSuggestions();
+    };
+    el.appendChild(btn);
+  });
+  el.classList.add('visible');
+}
+
+function hideSuggestions() {
+  document.getElementById('suggestions').classList.remove('visible');
+}
+
+// ══════════════════════════════════════
+// GOOGLE DRIVE
+// ══════════════════════════════════════
+function connectGoogle() {
+  if (!window.google) { alert('Google Identity Services yüklenemedi.'); return; }
+  const tc = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID, scope: DRIVE_SCOPE,
+    callback: async (resp) => {
+      if (resp.error) { console.error(resp); return; }
+      S.accessToken = resp.access_token; S.mode = 'google';
+      await initDrive();
+      launchUniverse('Google Drive');
     }
-  }).requestAccessToken();
-}
-async function reconnectGoogle(){
-  const ses=loadSession(); if(!ses){connectGoogle();return;}
-  Object.assign(S,ses);
-  try{U=await loadFile(S.driveFileId); migrateUniverse(); launchUniverse('Google Drive');}
-  catch{sessionStorage.removeItem(SESSION_KEY);connectGoogle();}
-}
-async function initDrive(){
-  let fid=await findFolder();if(!fid)fid=await createFolder();S.driveFolderId=fid;
-  let fileId=await findFile(fid);
-  if(!fileId){U=createUniverse();fileId=await createFile(fid);}
-  else{S.driveFileId=fileId;U=await loadFile(fileId);migrateUniverse();}
-  S.driveFileId=fileId;
-}
-function migrateUniverse(){
-  // Migrate old schema (entries without entity_ids) to new schema
-  if(!U.entities) U.entities=[];
-  if(!U.links) U.links=[];
-  U.entries.forEach(e=>{
-    if(!e.entity_ids) e.entity_ids=[];
-    if(!e.tag_ids) e.tag_ids=[];
-    if(!e.kind&&e.raw?.type) e.kind=e.raw.type;
-    if(!e.kind) e.kind='note';
-    if(!e.created_at&&e.created) e.created_at=e.created;
   });
-  // Remove old-style links (they'll be rebuilt from entity_ids)
-}
-async function dReq(url,opts={}){const r=await fetch(url,{...opts,headers:{'Authorization':'Bearer '+S.accessToken,'Content-Type':'application/json',...(opts.headers||{})}});return r.json();}
-async function findFolder(){const d=await dReq(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(`name='${FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`)}&fields=files(id)`);return d.files?.[0]?.id||null;}
-async function createFolder(){const d=await dReq('https://www.googleapis.com/drive/v3/files',{method:'POST',body:JSON.stringify({name:FOLDER_NAME,mimeType:'application/vnd.google-apps.folder'})});return d.id;}
-async function findFile(fid){const d=await dReq(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(`name='${UNIVERSE_FILENAME}' and '${fid}' in parents and trashed=false`)}&fields=files(id)`);return d.files?.[0]?.id||null;}
-async function createFile(fid){
-  const form=new FormData();
-  form.append('metadata',new Blob([JSON.stringify({name:UNIVERSE_FILENAME,parents:[fid]})],{type:'application/json'}));
-  form.append('file',new Blob([JSON.stringify(U,null,2)],{type:'application/json'}));
-  const r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',{method:'POST',headers:{'Authorization':'Bearer '+S.accessToken},body:form});
-  return (await r.json()).id;
-}
-async function loadFile(id){const r=await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`,{headers:{'Authorization':'Bearer '+S.accessToken}});return r.json();}
-async function saveUniverse(){
-  U.meta.updated=new Date().toISOString();
-  if(S.mode==='local'){localStorage.setItem('singular_universe',JSON.stringify(U));return;}
-  if(!S.driveFileId||!S.accessToken)return;
-  await fetch(`https://www.googleapis.com/upload/drive/v3/files/${S.driveFileId}?uploadType=media`,{method:'PATCH',headers:{'Authorization':'Bearer '+S.accessToken,'Content-Type':'application/json'},body:JSON.stringify(U,null,2)});
+  tc.requestAccessToken();
 }
 
-function connectLocal(){
-  S.mode='local';
-  const saved=localStorage.getItem('singular_universe');
-  U=saved?JSON.parse(saved):createUniverse(); migrateUniverse(); launchUniverse('Yerel');
+async function initDrive() {
+  let fid = await findDriveFolder();
+  if (!fid) fid = await createDriveFolder();
+  S.driveFolderId = fid;
+  let fileId = await findUniverseFile(fid);
+  if (!fileId) {
+    S.universe = createUniverse();
+    fileId = await createUniverseFile(fid);
+  } else {
+    S.driveFileId = fileId;
+    S.universe = await loadUniverseFile(fileId);
+  }
+  S.driveFileId = fileId;
+}
+
+async function driveReq(url, opts = {}) {
+  const res = await fetch(url, {
+    ...opts,
+    headers: { 'Authorization':'Bearer '+S.accessToken, 'Content-Type':'application/json', ...(opts.headers||{}) }
+  });
+  return res.json();
+}
+
+async function findDriveFolder() {
+  const q = `name='${FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+  const d = await driveReq(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)`);
+  return d.files?.[0]?.id || null;
+}
+
+async function createDriveFolder() {
+  const d = await driveReq('https://www.googleapis.com/drive/v3/files', {
+    method:'POST', body:JSON.stringify({ name:FOLDER_NAME, mimeType:'application/vnd.google-apps.folder' })
+  });
+  return d.id;
+}
+
+async function findUniverseFile(folderId) {
+  const q = `name='${UNIVERSE_FILENAME}' and '${folderId}' in parents and trashed=false`;
+  const d = await driveReq(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)`);
+  return d.files?.[0]?.id || null;
+}
+
+async function createUniverseFile(folderId) {
+  const form = new FormData();
+  form.append('metadata', new Blob([JSON.stringify({ name:UNIVERSE_FILENAME, parents:[folderId] })], { type:'application/json' }));
+  form.append('file', new Blob([JSON.stringify(S.universe, null, 2)], { type:'application/json' }));
+  const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+    method:'POST', headers:{ 'Authorization':'Bearer '+S.accessToken }, body:form
+  });
+  const d = await res.json();
+  return d.id;
+}
+
+async function loadUniverseFile(fileId) {
+  const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+    headers: { 'Authorization':'Bearer '+S.accessToken }
+  });
+  return res.json();
+}
+
+async function saveUniverse() {
+  S.universe.meta.updated_at = new Date().toISOString();
+  if (S.mode === 'local') {
+    localStorage.setItem('singular_universe', JSON.stringify(S.universe));
+    return;
+  }
+  if (!S.driveFileId || !S.accessToken) return;
+  await fetch(`https://www.googleapis.com/upload/drive/v3/files/${S.driveFileId}?uploadType=media`, {
+    method:'PATCH',
+    headers:{ 'Authorization':'Bearer '+S.accessToken, 'Content-Type':'application/json' },
+    body: JSON.stringify(S.universe, null, 2)
+  });
+}
+
+// ══════════════════════════════════════
+// LOCAL MODE
+// ══════════════════════════════════════
+function connectLocal() {
+  S.mode = 'local';
+  const saved = localStorage.getItem('singular_universe');
+  if (saved) {
+    try { S.universe = JSON.parse(saved); } catch { S.universe = createUniverse(); }
+  } else {
+    S.universe = createUniverse();
+  }
+  launchUniverse('Yerel');
 }
 
 // ══════════════════════════════════════
 // LAUNCH
 // ══════════════════════════════════════
-window.addEventListener('DOMContentLoaded',()=>{
-  if(loadSession()) document.getElementById('boot-reconnect').style.display='block';
-});
-
-function launchUniverse(label){
-  document.getElementById('boot').classList.add('fade-out');
-  setTimeout(()=>{
-    document.getElementById('boot').style.display='none';
-    document.getElementById('universe').classList.add('active');
+function launchUniverse(label) {
+  const boot = document.getElementById('boot');
+  boot.classList.add('fade-out');
+  setTimeout(() => {
+    boot.style.display = 'none';
+    const u = document.getElementById('universe');
+    u.classList.add('active');
     document.getElementById('status-dot').classList.add('connected');
-    document.getElementById('status-text').textContent=label;
-    initCanvas();
-    buildGraphFromUniverse();
-    document.getElementById('node-count').textContent=U.entries.length+' kayıt · '+U.entities.length+' varlık';
-    if(U.entries.length>0) document.getElementById('hint').style.opacity='0';
-    document.getElementById('input-field').addEventListener('keydown',e=>{if(e.key==='Enter')handleInput();});
+    document.getElementById('status-text').textContent = label;
+    initCosmos();
+    renderExistingEntries();
+    document.getElementById('input-field').addEventListener('keydown', e => {
+      if (e.key === 'Enter') handleInput();
+    });
     document.getElementById('input-field').focus();
-  },800);
+    clearPendingAnswer();
+  }, 800);
 }
-
-// ══════════════════════════════════════
-// UTILS
-// ══════════════════════════════════════
-function newId(prefix){ return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,5)}`; }
-function slugify(s){ return s.toLowerCase().replace(/[\sğüşıöçĞÜŞİÖÇ]/g, c=>({ğ:'g',ü:'u',ş:'s',ı:'i',ö:'o',ç:'c',Ğ:'g',Ü:'u',Ş:'s',İ:'i',Ö:'o',Ç:'c',' ':'_'}[c]||c)).replace(/[^a-z0-9_]/g,''); }
-let _ = null; // suppress unused warning
 </script>
 </body>
 </html>
