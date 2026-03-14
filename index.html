@@ -3254,12 +3254,15 @@ function extractConcepts(text, domainId){
 
 // ── Build semantic relations between entities ──────────────────────────
 function buildEntityRelations(entities, question){
-  // Ensure 'ben' self entity
+  // Self entity'yi is_self property ile bul — slug değişebilir (ben→cemo)
   let selfEnt = S.universe.entities.find(e=>e.properties?.is_self);
   if(!selfEnt){
-    selfEnt = mkEntity('person','ben','identity',{is_self:true});
-    spawnEntityNode(selfEnt,'identity');
+    // Henüz self entity yok — 'ben' placeholder oluştur
+    selfEnt = {id:uid('ent'),type:'person',label:'ben',slug:'ben',domain:'identity',
+      created_at:new Date().toISOString(),properties:{is_self:true},entityClass:'concept'};
+    S.universe.entities.push(selfEnt);
     ensureDomain('identity');
+    spawnEntityNode(selfEnt,'identity');
     addLink(selfEnt.id,'domain_identity','belongs_to_domain');
   }
 
@@ -3737,7 +3740,7 @@ function spawnDomainNode(ent){
 
 function spawnEntityNode(ent, domainId){
   if(S.nodes.find(n=>n.id===ent.id))return;
-  const isSelf = ent.properties?.is_self || ent.slug==='ben' || ent.slug==='self';
+  const isSelf = !!ent.properties?.is_self;
 
   if(isSelf){
     // Self entity = cosmos core. Fizik engine için node oluştur ama SVG node'u yok.
@@ -4056,7 +4059,9 @@ function applyZoomProjection(){
   svgEl.querySelectorAll('.g-entity').forEach(g => {
     const nid = g.getAttribute('data-nid');
     const ent = S.universe.entities.find(e=>e.id===nid);
-    const isImportant = ent?.properties?.is_self || ent?.entityClass==='real';
+    // Self entity artık core — ayrı SVG node'u gizle
+    if(ent?.properties?.is_self){ g.style.opacity='0'; g.style.pointerEvents='none'; return; }
+    const isImportant = ent?.entityClass==='real';
     const visible = zoomLevel >= 2 || (zoomLevel >= 1 && isImportant);
     g.style.opacity = visible ? '1' : '0';
     g.style.pointerEvents = visible ? 'all' : 'none';
@@ -4152,17 +4157,13 @@ function renderExisting(){
 // Kural: içerik yoksa core büyük ve yakın; içerik büyüdükçe uzaklaş.
 function smartInitialView(){
   const {cx, cy} = effectiveCenter();
-  // Core her zaman W/2, H/2 world koordinatında
   const coreWX = W/2, coreWY = H/2;
 
-  const allNodes = S.nodes;
-  const nonDomainNodes = allNodes.filter(n=>n.kind !== 'domain');
+  const nonDomainNodes = S.nodes.filter(n=>n.kind !== 'domain' && !n.isSelf);
   const entityCount = nonDomainNodes.length;
 
   if(entityCount === 0){
-    // Boş evren veya sadece domain yıldızları:
-    // Core ekranı dolduracak kadar yakın — scale 2.8 ile core ~45px görünür radius
-    // (core outer ring r=16 * scale 2.8 ≈ 45px — güzel görünür)
+    // Boş evren — core büyük ve merkezi
     const targetS = 2.8;
     const targetVpX = cx / targetS - coreWX;
     const targetVpY = cy / targetS - coreWY;
@@ -4170,9 +4171,13 @@ function smartInitialView(){
     return;
   }
 
-  // Entity'ler var — bounding box hesapla, hepsini sığdır
-  const xs = allNodes.map(n=>n.x);
-  const ys = allNodes.map(n=>n.y);
+  // Entity'ler + core bounding box — domain yıldızları dahil değil
+  const relevantNodes = [
+    {x: coreWX, y: coreWY},  // core her zaman merkez
+    ...nonDomainNodes
+  ];
+  const xs = relevantNodes.map(n=>n.x);
+  const ys = relevantNodes.map(n=>n.y);
   const minX = Math.min(...xs), maxX = Math.max(...xs);
   const minY = Math.min(...ys), maxY = Math.max(...ys);
   const bW = maxX - minX || 1;
@@ -4180,18 +4185,16 @@ function smartInitialView(){
   const centerX = (minX + maxX) / 2;
   const centerY = (minY + maxY) / 2;
 
-  // Padding — kenarlardan boşluk
-  const pad = entityCount <= 3 ? 200 : entityCount <= 8 ? 160 : 110;
+  const pad = entityCount <= 3 ? 220 : entityCount <= 8 ? 180 : 130;
   const scaleX = (W - pad*2) / bW;
   const scaleY = (H - pad*2) / bH;
   let targetS = Math.min(scaleX, scaleY);
 
-  // Node sayısına göre min/max — ne çok yakın ne çok uzak
-  if(entityCount <= 2)       targetS = Math.min(Math.max(targetS, 1.2), 2.2);
-  else if(entityCount <= 6)  targetS = Math.min(Math.max(targetS, 0.85), 1.6);
-  else if(entityCount <= 15) targetS = Math.min(Math.max(targetS, 0.55), 1.1);
-  else if(entityCount <= 40) targetS = Math.min(Math.max(targetS, 0.38), 0.80);
-  else                       targetS = Math.min(Math.max(targetS, 0.24), 0.55);
+  if(entityCount <= 2)       targetS = Math.min(Math.max(targetS, 1.4), 2.4);
+  else if(entityCount <= 6)  targetS = Math.min(Math.max(targetS, 0.90), 1.8);
+  else if(entityCount <= 15) targetS = Math.min(Math.max(targetS, 0.60), 1.2);
+  else if(entityCount <= 40) targetS = Math.min(Math.max(targetS, 0.40), 0.85);
+  else                       targetS = Math.min(Math.max(targetS, 0.26), 0.58);
 
   const targetVpX = cx / targetS - centerX;
   const targetVpY = cy / targetS - centerY;
@@ -4742,40 +4745,104 @@ function learnEntityType(label, type){
 
 
 function showSugLayer(topic){
-  // Eğer topic self entity'nin ismi ise — özel davranış
+  // ── ÖNCE: Zaten bilinen entity mi? ────────────────────────────────────
+  // Tam eşleşme veya slug eşleşmesi
+  const t = topic.trim().toLowerCase();
+  const knownEnt = S.universe.entities.find(e=>
+    !e.properties?.deleted &&
+    e.type !== 'domain' &&
+    (e.label.toLowerCase() === t ||
+     e.slug === t.replace(/\s+/g,'_'))
+  );
+
+  if(knownEnt){
+    // Entity biliniyorsa: paneli aç, eksik bilgileri öner
+    hideSug();
+    focusEntity(knownEnt.id);
+    openPanelEntity(knownEnt.id);
+
+    // Eksik sorular varsa suggestion layer'ı bilgilendirici göster
+    const relatedQs = S.universe.questions.filter(q=>
+      S.universe.links.some(l=>l.from===q.id&&l.to===knownEnt.id&&l.relation==='asks_about')
+    );
+    const openQs = relatedQs.filter(q=>q.status==='open');
+    const answeredQs = relatedQs.filter(q=>q.status==='answered');
+
+    if(openQs.length > 0 || relatedQs.length === 0){
+      // Açık sorular var veya hiç soru yok — tamamlama öner
+      document.getElementById('suglbl').innerHTML=
+        `<span style="color:rgba(167,139,250,.8)">${knownEnt.label}</span> <span style="opacity:.5">— bilinen varlık</span>`;
+      const opts=document.getElementById('sugopts'); opts.innerHTML='';
+
+      if(openQs.length > 0){
+        // Açık soruları göster — devam et
+        openQs.slice(0,3).forEach(q=>{
+          const btn=document.createElement('button');btn.className='sug-opt';
+          btn.innerHTML=`<span class="sug-arr" style="color:#60a5fa">?</span><span>${q.text}</span>`;
+          btn.onclick=()=>{ hideSug(); document.getElementById('input-field').value=''; openFacetPanel(q); };
+          opts.appendChild(btn);
+        });
+      } else {
+        // Soru yok — türüne göre yeni soru öner
+        const seedType = knownEnt.type || detectSeedType(topic);
+        const sugs = getSuggestionPack(knownEnt.label, seedType).slice(0,2);
+        sugs.forEach(s=>{
+          const btn=document.createElement('button');btn.className='sug-opt';
+          btn.innerHTML=`<span class="sug-arr">→</span><span>${s.text}</span>`;
+          btn.onclick=()=>{
+            hideSug(); document.getElementById('input-field').value='';
+            const fam=Q_TEMPLATES.find(t=>t.id===s.tid)?.family||'knowledge';
+            const q=mkQuestion({text:s.text,template:s.tid,topic:knownEnt.label,context:s.ctx,family:fam});
+            bigBang(s.text,q);
+            updateCounters(); saveUniverse(); openFacetPanel(q);
+          };
+          opts.appendChild(btn);
+        });
+      }
+
+      // "Yeni soru ekle" butonu her zaman
+      const addBtn=document.createElement('button');addBtn.className='sug-opt comp-opt';
+      addBtn.innerHTML=`<span class="sug-arr">✦</span><span>Yeni soru ekle…</span>`;
+      addBtn.onclick=()=>{ hideSug(); openComposer(knownEnt.label); };
+      opts.appendChild(addBtn);
+
+      document.getElementById('sug-layer').classList.add('on');
+    }
+    return;
+  }
+
+  // ── Self entity'nin ismi ─────────────────────────────────────────────
   const selfEnt = S.universe.entities.find(e=>e.properties?.is_self);
-  if(selfEnt && selfEnt.label.toLowerCase() === topic.toLowerCase()){
-    // Zaten ben → self soruları öner
-    const sugs = [
-      {text:`${topic} kim?`, tid:'kim', ctx:'bu'},
-      {text:`${topic} için sonraki hedef ne?`, tid:'yapmalı', ctx:'benim'},
-      {text:`${topic} neden önemli biri?`, tid:'neden', ctx:'benim'},
-    ];
+  if(selfEnt && selfEnt.label.toLowerCase() === t){
     document.getElementById('suglbl').innerHTML=
       `<span style="color:var(--core);opacity:.8">Sen zaten bu evrende varsın ✦</span>`;
     const opts=document.getElementById('sugopts'); opts.innerHTML='';
+    const sugs = [
+      {text:`${selfEnt.label} kim?`, tid:'kim', ctx:'bu'},
+      {text:`${selfEnt.label} için sonraki hedef ne?`, tid:'yapmalı', ctx:'benim'},
+      {text:`${selfEnt.label} neden önemli biri?`, tid:'neden', ctx:'benim'},
+    ];
     sugs.forEach(s=>{
       const btn=document.createElement('button');btn.className='sug-opt';
       btn.innerHTML=`<span class="sug-arr">→</span><span>${s.text}</span>`;
       btn.onclick=()=>{
         hideSug(); document.getElementById('input-field').value='';
         const fam=Q_TEMPLATES.find(t=>t.id===s.tid)?.family||'knowledge';
-        const q=mkQuestion({text:s.text,template:s.tid,topic,context:s.ctx,family:fam});
+        const q=mkQuestion({text:s.text,template:s.tid,topic:selfEnt.label,context:s.ctx,family:fam});
         bigBang(s.text,q);
         updateCounters(); saveUniverse(); openFacetPanel(q);
       };
       opts.appendChild(btn);
     });
-    // Direkt self panel aç
     focusEntity(selfEnt.id);
     setTimeout(()=>openPanelEntity(selfEnt.id), 400);
     document.getElementById('sug-layer').classList.add('on');
     return;
   }
 
+  // ── Yeni entity ───────────────────────────────────────────────────────
   const seedType = detectSeedType(topic);
 
-  // Entity'yi domain'ine otomatik kaydet
   if(seedType === 'place'){
     ensureDomain('places');
     const placeEnt = mkEntity('place', topic, 'places', {is_place:true});
@@ -4799,7 +4866,6 @@ function showSugLayer(topic){
     }
   }
 
-  // Guardrail-filtered suggestion pack
   const sugs = getSuggestionPack(topic, seedType);
 
   document.getElementById('suglbl').innerHTML=
