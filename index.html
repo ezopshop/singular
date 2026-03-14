@@ -4921,97 +4921,156 @@ function learnEntityType(label, type){
 
 
 function showSugLayer(topic){
-  // ── ÖNCE: Zaten bilinen entity mi? ────────────────────────────────────
-  // Tam eşleşme veya slug eşleşmesi
   const t = topic.trim().toLowerCase();
+
+  // ── ÖNCE: Kısmi eşleşme dahil bilinen entity mi? ─────────────────────
+  // "ali" → "Ali Sizer" da bulunur
   const knownEnt = S.universe.entities.find(e=>
-    !e.properties?.deleted &&
-    e.type !== 'domain' &&
-    (e.label.toLowerCase() === t ||
-     e.slug === t.replace(/\s+/g,'_'))
+    !e.properties?.deleted && e.type !== 'domain' && (
+      e.label.toLowerCase() === t ||
+      e.slug === t.replace(/\s+/g,'_') ||
+      e.label.toLowerCase().startsWith(t) ||
+      e.slug.startsWith(t.replace(/\s+/g,'_'))
+    )
   );
 
   if(knownEnt){
-    // Entity biliniyorsa: paneli aç, eksik bilgileri öner
-    hideSug();
     focusEntity(knownEnt.id);
-    openPanelEntity(knownEnt.id);
 
-    // Eksik sorular varsa suggestion layer'ı bilgilendirici göster
+    // Tüm cevapları topla
     const relatedQs = S.universe.questions.filter(q=>
       S.universe.links.some(l=>l.from===q.id&&l.to===knownEnt.id&&l.relation==='asks_about')
     );
+    const allAnswers = S.universe.answers.filter(a=>
+      relatedQs.some(q=>q.id===a.question_id)
+    );
     const openQs = relatedQs.filter(q=>q.status==='open');
-    const answeredQs = relatedQs.filter(q=>q.status==='answered');
 
-    if(openQs.length > 0 || relatedQs.length === 0){
-      // Açık sorular var veya hiç soru yok — tamamlama öner
-      document.getElementById('suglbl').innerHTML=
-        `<span style="color:rgba(167,139,250,.8)">${knownEnt.label}</span> <span style="opacity:.5">— bilinen varlık</span>`;
-      const opts=document.getElementById('sugopts'); opts.innerHTML='';
+    // ── BILGI KARTI modu ───────────────────────────────────────────────
+    const domColor = DOMAINS[knownEnt.domain]?.color || '#a78bfa';
+    const typeLabel = {person:'kişi',place:'yer',project:'proje',credential:'hesap',concept:'kavram',organization:'kurum',event:'olay',media_item:'medya'}[knownEnt.type] || knownEnt.type;
 
-      if(openQs.length > 0){
-        // Açık soruları göster — devam et
-        openQs.slice(0,3).forEach(q=>{
-          const btn=document.createElement('button');btn.className='sug-opt';
-          btn.innerHTML=`<span class="sug-arr" style="color:#60a5fa">?</span><span>${q.text}</span>`;
-          btn.onclick=()=>{ hideSug(); document.getElementById('input-field').value=''; openFacetPanel(q); };
-          opts.appendChild(btn);
-        });
-      } else {
-        // Soru yok — türüne göre yeni soru öner
-        const seedType = knownEnt.type || detectSeedType(topic);
-        const sugs = getSuggestionPack(knownEnt.label, seedType).slice(0,2);
-        sugs.forEach(s=>{
-          const btn=document.createElement('button');btn.className='sug-opt';
-          btn.innerHTML=`<span class="sug-arr">→</span><span>${s.text}</span>`;
-          btn.onclick=()=>{
-            hideSug(); document.getElementById('input-field').value='';
-            const fam=Q_TEMPLATES.find(t=>t.id===s.tid)?.family||'knowledge';
-            const q=mkQuestion({text:s.text,template:s.tid,topic:knownEnt.label,context:s.ctx,family:fam});
-            bigBang(s.text,q);
-            updateCounters(); saveUniverse(); openFacetPanel(q);
-          };
-          opts.appendChild(btn);
-        });
-      }
+    document.getElementById('suglbl').innerHTML=
+      `<span style="color:${domColor};font-weight:500">${knownEnt.label}</span> <span style="opacity:.35;font-size:.5rem;letter-spacing:.15em;text-transform:uppercase">${typeLabel}</span>`;
 
-      // "Yeni soru ekle" butonu her zaman
-      const addBtn=document.createElement('button');addBtn.className='sug-opt comp-opt';
-      addBtn.innerHTML=`<span class="sug-arr">✦</span><span>Yeni soru ekle…</span>`;
-      addBtn.onclick=()=>{ hideSug(); openComposer(knownEnt.label); };
-      opts.appendChild(addBtn);
+    const opts=document.getElementById('sugopts'); opts.innerHTML='';
 
-      document.getElementById('sug-layer').classList.add('on');
+    // 1. BİLİNEN CEVAPLAR — direkt göster (tıklanınca facet paneli aç)
+    if(allAnswers.length > 0){
+      const answersDiv=document.createElement('div');
+      answersDiv.style.cssText='display:flex;flex-wrap:wrap;gap:.25rem;margin-bottom:.4rem;padding:.3rem .4rem;background:rgba(255,255,255,.02);border-radius:6px;border:.5px solid rgba(255,255,255,.05);';
+      allAnswers.slice(0,6).forEach(a=>{
+        const parentQ=relatedQs.find(q=>q.id===a.question_id);
+        const chip=document.createElement('span');
+        chip.style.cssText=`font-size:.6rem;padding:.15rem .5rem;border-radius:10px;cursor:pointer;background:${hexAlpha(domColor,.1)};border:.5px solid ${hexAlpha(domColor,.25)};color:${hexAlpha(domColor,.9)};`;
+        chip.title = parentQ?.text || '';
+        chip.textContent = a.value.length > 20 ? a.value.slice(0,18)+'…' : a.value;
+        chip.onclick=()=>{
+          hideSug();
+          if(parentQ){ focusEntity(knownEnt.id); openPanelQuestion(parentQ.id); }
+          else openPanelEntity(knownEnt.id);
+        };
+        answersDiv.appendChild(chip);
+      });
+      opts.appendChild(answersDiv);
     }
+
+    // 2. AÇIK SORULAR — tamamlanmayı bekleyenler
+    if(openQs.length > 0){
+      openQs.slice(0,2).forEach(q=>{
+        const btn=document.createElement('button');btn.className='sug-opt';
+        btn.innerHTML=`<span class="sug-arr" style="color:#60a5fa;font-size:.6rem">?</span><span style="opacity:.7">${q.text.slice(0,50)}</span>`;
+        btn.onclick=()=>{ hideSug(); document.getElementById('input-field').value=''; openFacetPanel(q); };
+        opts.appendChild(btn);
+      });
+    }
+
+    // 3. HIZLI AKSİYONLAR
+    const actions=[
+      {icon:'? ', label:'yeni soru sor', action:()=>{
+        hideSug(); document.getElementById('input-field').value='';
+        openComposer(knownEnt.label);
+      }},
+      {icon:'⊙ ', label:'odakla', action:()=>{ hideSug(); focusEntity(knownEnt.id); openPanelEntity(knownEnt.id); }},
+    ];
+    actions.forEach(a=>{
+      const btn=document.createElement('button');btn.className='sug-opt comp-opt';
+      btn.style.cssText='opacity:.55;font-size:.6rem;';
+      btn.innerHTML=`<span class="sug-arr" style="font-size:.65rem">${a.icon}</span><span>${a.label}</span>`;
+      btn.onclick=a.action;
+      opts.appendChild(btn);
+    });
+
+    document.getElementById('sug-layer').classList.add('on');
     return;
   }
 
-  // ── Self entity'nin ismi ─────────────────────────────────────────────
+  // ── KISMEN ESLESEN CEVAP ARA — "alinin teli", "dila den haag" gibi ──
+  // Input içinde bilinen entity ismi + bilgi parçası varsa direkt cevap getir
+  const allEnts = S.universe.entities.filter(e=>!e.properties?.deleted&&e.type!=='domain');
+  for(const ent of allEnts){
+    const entName = ent.label.toLowerCase();
+    if(t.includes(entName) && t !== entName){
+      // Konu entity'si bulundu — cevaplara bak
+      const relQs = S.universe.questions.filter(q=>
+        S.universe.links.some(l=>l.from===q.id&&l.to===ent.id&&l.relation==='asks_about')
+      );
+      const relAnswers = S.universe.answers.filter(a=>relQs.some(q=>q.id===a.question_id));
+      if(relAnswers.length > 0){
+        // Kalan kelimeyle cevaplarda arama
+        const rest = t.replace(entName,'').trim();
+        const matched = relAnswers.filter(a=>
+          !rest || a.value.toLowerCase().includes(rest) ||
+          a.facet?.toLowerCase().includes(rest) ||
+          relQs.find(q=>q.id===a.question_id)?.text.toLowerCase().includes(rest)
+        );
+        if(matched.length > 0){
+          const domColor = DOMAINS[ent.domain]?.color || '#a78bfa';
+          document.getElementById('suglbl').innerHTML=
+            `<span style="color:${domColor}">${ent.label}</span> <span style="opacity:.4">hakkında</span>`;
+          const opts=document.getElementById('sugopts'); opts.innerHTML='';
+          matched.slice(0,4).forEach(a=>{
+            const parentQ=relQs.find(q=>q.id===a.question_id);
+            const btn=document.createElement('button');btn.className='sug-opt';
+            btn.innerHTML=`<span class="sug-arr" style="color:${domColor}">${a.facet||'cevap'}</span><span style="color:var(--text)">${a.value}</span>`;
+            btn.onclick=()=>{ hideSug(); focusEntity(ent.id); if(parentQ)openPanelQuestion(parentQ.id); else openPanelEntity(ent.id); };
+            opts.appendChild(btn);
+          });
+          document.getElementById('sug-layer').classList.add('on');
+          return;
+        }
+      }
+      break;
+    }
+  }
+
+  // ── Self entity ──────────────────────────────────────────────────────
   const selfEnt = S.universe.entities.find(e=>e.properties?.is_self);
   if(selfEnt && selfEnt.label.toLowerCase() === t){
     document.getElementById('suglbl').innerHTML=
-      `<span style="color:var(--core);opacity:.8">Sen zaten bu evrende varsın ✦</span>`;
+      `<span style="color:var(--core)">Sen — ${selfEnt.label}</span>`;
     const opts=document.getElementById('sugopts'); opts.innerHTML='';
-    const sugs = [
-      {text:`${selfEnt.label} kim?`, tid:'kim', ctx:'bu'},
-      {text:`${selfEnt.label} için sonraki hedef ne?`, tid:'yapmalı', ctx:'benim'},
-      {text:`${selfEnt.label} neden önemli biri?`, tid:'neden', ctx:'benim'},
-    ];
-    sugs.forEach(s=>{
-      const btn=document.createElement('button');btn.className='sug-opt';
-      btn.innerHTML=`<span class="sug-arr">→</span><span>${s.text}</span>`;
-      btn.onclick=()=>{
-        hideSug(); document.getElementById('input-field').value='';
-        const fam=Q_TEMPLATES.find(t=>t.id===s.tid)?.family||'knowledge';
-        const q=mkQuestion({text:s.text,template:s.tid,topic:selfEnt.label,context:s.ctx,family:fam});
-        bigBang(s.text,q);
-        updateCounters(); saveUniverse(); openFacetPanel(q);
-      };
-      opts.appendChild(btn);
-    });
+    const selfQs = S.universe.questions.filter(q=>
+      S.universe.links.some(l=>l.from===q.id&&l.to===selfEnt.id&&l.relation==='asks_about')
+    );
+    const selfAnswers = S.universe.answers.filter(a=>selfQs.some(q=>q.id===a.question_id));
+    if(selfAnswers.length>0){
+      const answersDiv=document.createElement('div');
+      answersDiv.style.cssText='display:flex;flex-wrap:wrap;gap:.25rem;margin-bottom:.3rem;';
+      selfAnswers.slice(0,5).forEach(a=>{
+        const chip=document.createElement('span');
+        chip.style.cssText='font-size:.6rem;padding:.15rem .5rem;border-radius:10px;cursor:pointer;background:rgba(167,139,250,.1);border:.5px solid rgba(167,139,250,.25);color:rgba(167,139,250,.9);';
+        chip.textContent=a.value.slice(0,20);
+        chip.onclick=()=>{ hideSug(); openPanelEntity(selfEnt.id); };
+        answersDiv.appendChild(chip);
+      });
+      opts.appendChild(answersDiv);
+    }
+    const newQ=document.createElement('button');newQ.className='sug-opt';
+    newQ.innerHTML=`<span class="sug-arr">✦</span><span>yeni soru sor</span>`;
+    newQ.onclick=()=>{ hideSug(); openComposer(selfEnt.label); };
+    opts.appendChild(newQ);
     focusEntity(selfEnt.id);
-    setTimeout(()=>openPanelEntity(selfEnt.id), 400);
     document.getElementById('sug-layer').classList.add('on');
     return;
   }
@@ -5043,7 +5102,6 @@ function showSugLayer(topic){
   }
 
   const sugs = getSuggestionPack(topic, seedType);
-
   document.getElementById('suglbl').innerHTML=
     `<span style="opacity:.6">"${topic}"</span> → nasıl bir soru?`;
   const opts=document.getElementById('sugopts'); opts.innerHTML='';
