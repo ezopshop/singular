@@ -29,7 +29,7 @@ body{font-family:'DM Mono',monospace;color:var(--text);}
 canvas#stars{position:fixed;inset:0;pointer-events:none;z-index:0;}
 
 /* BOOT */
-#boot{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg);z-index:200;transition:opacity .9s ease,transform .9s ease;}
+#boot{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg);z-index:200;transition:opacity .9s ease,transform .9s ease;opacity:0;pointer-events:none;}
 #boot.out{opacity:0;transform:scale(1.07);pointer-events:none;}
 .boot-logo{font-family:'DM Serif Display',serif;font-size:4rem;letter-spacing:.35em;opacity:.92;margin-bottom:.2rem;text-shadow:0 0 80px rgba(167,139,250,.18);}
 .boot-sub{font-size:.58rem;letter-spacing:.45em;color:var(--text-muted);text-transform:uppercase;margin-bottom:4rem;}
@@ -277,6 +277,11 @@ canvas#stars{position:fixed;inset:0;pointer-events:none;z-index:0;}
 'use strict';
 
 // ══════════════════════════════════════════
+// AUTO-RESTORE — script sonu, tüm fonksiyonlar yüklü
+// tryRestoreSession script'in altında tanımlandı, oraya taşındı
+// ══════════════════════════════════════════
+
+// ══════════════════════════════════════════
 // CONFIG
 // ══════════════════════════════════════════
 const GOOGLE_CLIENT_ID = '557723915441-q49en6uqqkqm9s5fie14ejm6cak9eo6r.apps.googleusercontent.com';
@@ -285,6 +290,8 @@ const DRIVE_SCOPE      = 'https://www.googleapis.com/auth/drive.file';
 const UNIVERSE_FILE    = 'universe.json';
 const FOLDER_NAME      = 'SINGULAR';
 const SESSION_KEY      = 'singular_session';
+const AUTH_SESSION_KEY = 'singular_auth';   // Google token session kaydı
+const MODE_SESSION_KEY = 'singular_mode';   // 'google' | 'local'
 
 // ══════════════════════════════════════════
 // TAXONOMY
@@ -1776,6 +1783,9 @@ function connectGoogle(){
     callback:async resp=>{
       if(resp.error){console.error(resp);return;}
       S.accessToken=resp.access_token;S.mode='google';
+      // Token'ı ve modu session'a kaydet (refresh sonrası restore için)
+      sessionStorage.setItem(AUTH_SESSION_KEY, resp.access_token);
+      sessionStorage.setItem(MODE_SESSION_KEY, 'google');
       await initDrive();launchUniverse('Google Drive');
     }
   }).requestAccessToken();
@@ -1806,6 +1816,7 @@ async function saveUniverse(){
 }
 function connectLocal(){
   S.mode='local';
+  sessionStorage.setItem(MODE_SESSION_KEY, 'local');
   try{S.universe=migrateUniverse(JSON.parse(localStorage.getItem(SESSION_KEY)||'null'));}
   catch{S.universe=createUniverse();}
   launchUniverse('Yerel');
@@ -1826,8 +1837,70 @@ function launchUniverse(label){
     renderExisting();
     document.getElementById('input-field').addEventListener('keydown',e=>{if(e.key==='Enter')handleInput();});
     document.getElementById('input-field').focus();
+    // Google token ~55dk sonra sona erer — 50dk'da silent refresh yap
+    if(S.mode==='google') scheduleTokenRefresh();
   },900);
 }
+
+// ── SESSION RESTORE — sayfa yenilenince otomatik bağlan ──────────────
+async function tryRestoreSession(){
+  const mode = sessionStorage.getItem(MODE_SESSION_KEY);
+  if(!mode) return false;  // ilk açılış, giriş gerekli
+
+  if(mode === 'local'){
+    connectLocal();
+    return true;
+  }
+
+  if(mode === 'google'){
+    const token = sessionStorage.getItem(AUTH_SESSION_KEY);
+    if(!token) return false;
+    // Token'ı doğrula — basit Drive isteği at
+    try{
+      const res = await fetch(
+        'https://www.googleapis.com/drive/v3/about?fields=user',
+        {headers:{'Authorization':'Bearer '+token}}
+      );
+      if(res.ok){
+        S.accessToken = token; S.mode = 'google';
+        await initDrive();
+        launchUniverse('Google Drive');
+        return true;
+      }
+    } catch(e){}
+    // Token geçersiz — sessionStorage temizle, boot ekranını göster
+    sessionStorage.removeItem(AUTH_SESSION_KEY);
+    sessionStorage.removeItem(MODE_SESSION_KEY);
+    return false;
+  }
+  return false;
+}
+
+// Silent token refresh — Google token 60dk sonra sona erer
+function scheduleTokenRefresh(){
+  setTimeout(()=>{
+    if(!window.google || S.mode!=='google') return;
+    google.accounts.oauth2.initTokenClient({
+      client_id:GOOGLE_CLIENT_ID, scope:DRIVE_SCOPE,
+      prompt:'',  // kullanıcıya gösterme — silent refresh
+      callback:resp=>{
+        if(resp.error) return;
+        S.accessToken = resp.access_token;
+        sessionStorage.setItem(AUTH_SESSION_KEY, resp.access_token);
+        scheduleTokenRefresh();  // bir sonraki refresh'i planla
+      }
+    }).requestAccessToken({prompt:''});
+  }, 50 * 60 * 1000);  // 50 dakika
+}
+// ── AUTO SESSION RESTORE — script tam yüklendikten sonra çalış ───────
+(async ()=>{
+  const restored = await tryRestoreSession();
+  if(!restored){
+    // Session yok veya token geçersiz — boot ekranını göster
+    const boot = document.getElementById('boot');
+    if(boot){ boot.style.opacity='1'; boot.style.pointerEvents='all'; }
+  }
+})();
 </script>
 </body>
 </html>
