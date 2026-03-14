@@ -1097,19 +1097,43 @@ const Q_TEMPLATES = [
   {id:'baname',  label:'bana ne',       family:'identity', suffix:'bana ne ifade ediyor?'},
 ];
 const Q_CONTEXTS = ['benim','bu','o','biz','—'];
+// Facet'ler soru tipine göre — entity/question family'ye bakılır
+// domain → soru tipi → uygun facet'ler
 const FAMILY_FACETS = {
-  identity:   ['isim','doğum tarihi','doğduğum şehir','köken','roller','değerler','hedef'],
-  family:     ['isim','ilişki türü','nerede yaşıyor','iletişim','önemli anılar'],
-  work:       ['şirket adı','pozisyon','nerede','ne iş yapıyorum','ortaklar'],
-  projects:   ['amaç','ne aşamada','sonraki adım','ekip','neden önemli'],
-  places:     ['adres / link','şehir','ülke','notlar'],
-  finance:    ['banka','iban','kart türü','notlar'],
-  health:     ['değer','ne zaman ölçüldü','doktor','notlar'],
-  media:      ['tür','sanatçı / yönetmen','neden önemli','notlar'],
-  memory:     ['ne oldu','ne zaman','kimler vardı','hissettiklerim'],
-  knowledge:  ['tanım','örnek','ilgili kavramlar','önemi'],
-  docs:       ['adres / link','şifre / anahtar','notlar'],
+  // Kişisel kimlik soruları
+  identity:     ['değer','notlar'],
+  // Kişi / aile soruları
+  family:       ['isim','ilişki türü','nerede yaşıyor','telefon / iletişim','önemli anılar'],
+  contacts:     ['isim','ilişki türü','telefon','email','nerede yaşıyor'],
+  // İş
+  work:         ['şirket / yer','pozisyon / rol','ne iş yapıyorum','ortaklar','notlar'],
+  // Projeler
+  projects:     ['amaç','şu an nerede','sonraki adım','kimlerle','neden önemli'],
+  // Yerler
+  places:       ['adres / link','şehir','nasıl ulaşırım','notlar'],
+  // Finans — numara/hesap soruları
+  finance:      ['banka adı','iban / hesap no','kart türü','notlar'],
+  credentials:  ['değer / numara','nerede saklanıyor','notlar'],
+  documents:    ['lokasyon / link','erişim notu','son güncelleme'],
+  // Sağlık
+  health:       ['ölçüm değeri','ne zaman','doktor / kaynak','notlar'],
+  // Medya / tercihler
+  media:        ['cevap','sanatçı / yönetmen / yazar','neden önemli','notlar'],
+  preferences:  ['cevap','neden seviyorum','notlar'],
+  // Anı
+  memory:       ['ne oldu','ne zaman','kimler vardı','hissettiklerim'],
+  // Bilgi / tanım
+  knowledge:    ['cevap','kaynak','ilgili kavramlar','notlar'],
 };
+
+// Sorudan doğru facet listesini çıkar
+function getFacetsForQuestion(q){
+  // Önce domain'e göre bak
+  const domFacets = FAMILY_FACETS[q.family];
+  if(domFacets) return domFacets;
+  // Fallback
+  return FAMILY_FACETS.knowledge;
+}
 
 // [RELATION_TYPES_BLOCK — moved to ONTOLOGY layer]
 // ══════════════════════════════════════════
@@ -1477,18 +1501,40 @@ function buildEntityRelations(entities, question){
 
 // ── Family detection ────────────────────────────────────────────────────
 function detectFamily(text){
-  const t=text.toLowerCase();
-  if(/\bkim\b/.test(t))     return 'identity';
-  if(/nedir/.test(t))        return 'knowledge';
-  if(/nerede/.test(t))       return 'docs';
-  if(/ne zaman/.test(t))     return 'knowledge';
-  if(/nasıl/.test(t))        return 'knowledge';
-  if(/neden/.test(t))        return 'knowledge';
-  if(/yapmal/.test(t))       return 'projects';
-  if(/kiminle/.test(t))      return 'family';
-  if(/bana ne/.test(t))      return 'identity';
-  const dom=detectDomain(text);
-  return dom!=='knowledge'?dom:'knowledge';
+  const t = text.toLowerCase();
+  // Soru kelimesi + domain keyword kombinasyonu
+  // Kişi soruları → family veya identity
+  if(/\bkim\b/.test(t)){
+    if(/annem|babam|kardeş|eşim|ailem|akraba/.test(t)) return 'family';
+    return 'identity';
+  }
+  if(/kiminle|kimlerle/.test(t)) return 'family';
+  // Yer soruları
+  if(/nerede|adresim|adresi/.test(t)){
+    if(/ev|ofis|yaşıyorum/.test(t)) return 'places';
+    return 'places';
+  }
+  // Numara / belge soruları → credentials / finance
+  if(/numaram|numara|nedir/.test(t)){
+    if(/vergi|tc kimlik|pasaport|ehliyet/.test(t)) return 'credentials';
+    if(/iban|banka|kart/.test(t)) return 'finance';
+    if(/telefon|numaram/.test(t)) return 'contacts';
+  }
+  // Tercih / sevgi soruları → preferences veya media
+  if(/en sevdiğim|favorim|seviyorum|beğeniyorum/.test(t)){
+    if(/film|dizi|müzik|şarkı|albüm|sanatçı|kitap/.test(t)) return 'media';
+    if(/yemek|renk|yer|şehir/.test(t)) return 'preferences';
+    return 'preferences';
+  }
+  // Zaman soruları
+  if(/ne zaman|hangi yıl|kaç yılında/.test(t)) return 'memory';
+  // Karar / yapılacak
+  if(/ne yapmalıyım|nasıl yapabilirim|önce ne/.test(t)) return 'projects';
+  // Neden / nedir
+  if(/neden|nasıl|ne demek|nedir/.test(t)) return 'knowledge';
+  // Domain'den çıkar
+  const dom = detectDomain(text);
+  return dom !== 'knowledge' ? dom : 'knowledge';
 }
 
 function updateCounters(){
@@ -2161,16 +2207,19 @@ function renderExisting(){
 // "annemin adı Ayşe" → {prop:'name', domain:'family', role:'anne', value:'Ayşe'}
 // ══════════════════════════════════════════
 function parseStatement(text){
-  const t = text.trim().toLowerCase();
+  const t = text.trim();
+  const tLow = t.toLowerCase();
 
+  // 1. Ontology statement_patterns — X/Y placeholder
   for(const pat of STATEMENT_PATTERNS){
-    // Pattern içindeki X'i regex'e çevir
-    const regexStr = pat.pattern
-      .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')  // escape
-      .replace('x', '(.+)')   // X → capture group (lowercase match)
-      .replace('y', '(.+)');  // Y → second capture
+    // Escape special chars, then replace X and Y (case-insensitive, any position)
+    const escaped = pat.pattern
+      .replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')
+      .replace(/\\X|X/gi, '(.+?)')
+      .replace(/\\Y|Y/gi, '(.+?)');
     try{
-      const m = t.match(new RegExp(regexStr, 'i'));
+      const re = new RegExp('^' + escaped + '$', 'i');
+      const m = t.match(re) || tLow.match(re);
       if(m){
         return {
           matched: true,
@@ -2186,17 +2235,43 @@ function parseStatement(text){
     } catch(e){}
   }
 
-  // Family role pattern — "annemin adı Ayşe", "babam Mehmet" etc.
-  // Combine with ontology family_roles
-  for(const [alias, canonical] of Object.entries(FAMILY_ROLES)){
-    if(alias.length < 3) continue;
-    // "annem X", "annemin adı X", "babam X"
-    const roleRe = new RegExp(`^${alias.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}\\s+(?:adı\\s+|ismi\\s+)?(.+)$`, 'i');
-    const m = text.trim().match(roleRe);
-    if(m){
-      return {matched:true, prop:'name', domain:'family', role:canonical,
-        self:false, value:m[1].trim(), raw:text};
-    }
+  // 2. Türkçe possessive + "adı/ismi" patterns — regex ile
+  // "annemin adı Ayşe", "babamın ismi Mehmet", "annem Ayşe"
+  const turkishFamilyRe = [
+    { re:/^annem(?:in)?\s+(?:adı|ismi|isim)?\s*(.+)$/i,   role:'anne'   },
+    { re:/^babam(?:ın)?\s+(?:adı|ismi|isim)?\s*(.+)$/i,   role:'baba'   },
+    { re:/^kardeşim(?:in)?\s+(?:adı|ismi|isim)?\s*(.+)$/i,role:'kardeş' },
+    { re:/^eşim(?:in)?\s+(?:adı|ismi|isim)?\s*(.+)$/i,    role:'eş'     },
+    { re:/^ninem(?:in)?\s+(?:adı|ismi|isim)?\s*(.+)$/i,   role:'nine'   },
+    { re:/^dedem(?:in)?\s+(?:adı|ismi|isim)?\s*(.+)$/i,   role:'dede'   },
+    { re:/^oğlum(?:un)?\s+(?:adı|ismi|isim)?\s*(.+)$/i,   role:'oğul'   },
+    { re:/^kızım(?:ın)?\s+(?:adı|ismi|isim)?\s*(.+)$/i,   role:'kız'    },
+  ];
+  for(const {re, role} of turkishFamilyRe){
+    const m = t.match(re);
+    if(m) return {matched:true,prop:'name',domain:'family',role,self:false,value:m[1].trim(),raw:text};
+  }
+
+  // 3. Self identity patterns
+  const selfPatterns = [
+    { re:/^adım\s+(.+)$/i,               prop:'name',        domain:'identity', self:true },
+    { re:/^ismim\s+(.+)$/i,              prop:'name',        domain:'identity', self:true },
+    { re:/^ben\s+(.+?)\s*'?(?:yım|im|üm|um)$/i, prop:'name',domain:'identity', self:true },
+    { re:/^doğum\s+(?:tarihim|günüm)\s+(.+)$/i, prop:'birth_date',domain:'identity',self:true },
+    { re:/^(.+?)'?(?:de|da|te|ta)\s+doğdum$/i,  prop:'birth_place',domain:'identity',self:true },
+    { re:/^mailim\s+(.+)$/i,             prop:'email',       domain:'credentials',self:true },
+    { re:/^e[-\s]?postam\s+(.+)$/i,     prop:'email',       domain:'credentials',self:true },
+    { re:/^telefonum\s+(.+)$/i,          prop:'phone',       domain:'contacts',  self:true },
+    { re:/^numaram\s+(.+)$/i,            prop:'phone',       domain:'contacts',  self:true },
+    { re:/^adresim\s+(.+)$/i,            prop:'address',     domain:'places',    self:true },
+    { re:/^(.+?)'?(?:de|da|te|ta|'de|'da)\s+yaşıyorum$/i,prop:'lives_in',domain:'places',self:true },
+    { re:/^şirketim\s+(.+)$/i,           prop:'works_at',    domain:'work',      self:true },
+    { re:/^işim\s+(.+)$/i,               prop:'works_at',    domain:'work',      self:true },
+    { re:/^mesleğim\s+(.+)$/i,           prop:'works_at',    domain:'work',      self:true },
+  ];
+  for(const {re, prop, domain, self} of selfPatterns){
+    const m = t.match(re);
+    if(m) return {matched:true,prop,domain,role:null,self,value:m[1].trim(),raw:text};
   }
 
   return {matched:false};
@@ -2444,7 +2519,7 @@ function resetComposer(){
 function openFacetPanel(q){
   S.fQ=q; S.fInputs={};
   const fam=q.family||'knowledge';
-  const facets=FAMILY_FACETS[fam]||FAMILY_FACETS.knowledge;
+  const facets=getFacetsForQuestion(q);
   const existing=S.universe.answers.filter(a=>a.question_id===q.id);
   document.getElementById('fpq').textContent=q.text;
   const list=document.getElementById('fplist');list.innerHTML='';
