@@ -2887,7 +2887,7 @@ const S = {
   // Physics nodes
   nodes:[],   // {id, x, y, vx, vy, kind, ref, pinned, dragging}
   // Viewport
-  vpX:0, vpY:0, vpS:1,
+  vpX:0, vpY:0, vpS:0.82,  // İlk açılış biraz uzak — cosmos büyüdükçe zoom in edilir
   panning:false, panSX:0, panSY:0, panOX:0, panOY:0,
   dragNode:null,
   _animFrame:null,  // active animation frame id
@@ -3568,21 +3568,21 @@ function drawOrbits(){
 function drawCore(){
   const g=svgMk('g');g.id='coreG';
   // Halos
-  [85,60,38].forEach((r,i)=>{
+  [55,38,24].forEach((r,i)=>{
     const h=svgMk('circle');h.setAttribute('cx',W/2);h.setAttribute('cy',H/2);
     h.setAttribute('r',r);h.setAttribute('fill','none');
-    h.setAttribute('stroke','rgba(167,139,250,'+(0.06-i*.015)+')');h.setAttribute('stroke-width','1');
+    h.setAttribute('stroke','rgba(167,139,250,'+(0.06-i*.015)+')');h.setAttribute('stroke-width','.7');
     g.appendChild(h);
   });
   const inn=svgMk('circle');inn.setAttribute('cx',W/2);inn.setAttribute('cy',H/2);
-  inn.setAttribute('r','45');inn.setAttribute('fill','rgba(167,139,250,.07)');g.appendChild(inn);
+  inn.setAttribute('r','30');inn.setAttribute('fill','rgba(167,139,250,.07)');g.appendChild(inn);
   const out=svgMk('circle');out.setAttribute('cx',W/2);out.setAttribute('cy',H/2);
-  out.setAttribute('r','24');out.setAttribute('fill','none');
+  out.setAttribute('r','16');out.setAttribute('fill','none');
   out.setAttribute('stroke','rgba(167,139,250,.35)');out.setAttribute('stroke-width','.5');g.appendChild(out);
   const dot=svgMk('circle');dot.setAttribute('cx',W/2);dot.setAttribute('cy',H/2);
   dot.setAttribute('r','3.2');dot.setAttribute('fill','var(--core)');g.appendChild(dot);
   const pulse=svgMk('circle');pulse.setAttribute('cx',W/2);pulse.setAttribute('cy',H/2);
-  pulse.setAttribute('r','24');pulse.setAttribute('fill','none');
+  pulse.setAttribute('r','16');pulse.setAttribute('fill','none');
   pulse.setAttribute('stroke','var(--core)');pulse.setAttribute('stroke-width','.4');
   pulse.setAttribute('opacity','0');pulse.id='pulseRing';g.appendChild(pulse);
   const lbl=svgMk('text');lbl.setAttribute('x',W/2);lbl.setAttribute('y',H/2+40);
@@ -3599,8 +3599,8 @@ function drawCore(){
 
 function animateCore(){
   const r_el=document.getElementById('pulseRing');if(!r_el)return;
-  let r=24,op=.4;
-  (function step(){r+=.2;op-=.004;if(r>70){r=24;op=.4;}
+  let r=16,op=.4;
+  (function step(){r+=.18;op-=.004;if(r>55){r=16;op=.4;}
     r_el.setAttribute('r',r);r_el.setAttribute('opacity',op);requestAnimationFrame(step);})();
 }
 
