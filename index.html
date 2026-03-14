@@ -274,7 +274,7 @@ canvas#stars{position:fixed;inset:0;pointer-events:none;z-index:0;}
 // ══════════════════════════════════════════
 // CONFIG
 // ══════════════════════════════════════════
-const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID_HERE';
+const GOOGLE_CLIENT_ID = '557723915441-q49en6uqqkqm9s5fie14ejm6cak9eo6r.apps.googleusercontent.com';
 const DRIVE_SCOPE      = 'https://www.googleapis.com/auth/drive.file';
 const UNIVERSE_FILE    = 'universe.json';
 const FOLDER_NAME      = 'SINGULAR';
@@ -790,9 +790,9 @@ function animateCore(){
 // Zoom level determines what gets rendered
 // ══════════════════════════════════════════
 function computeZoomLevel(scale){
-  if(scale < 0.6) return 1;   // domains only
-  if(scale < 1.2) return 2;   // + entities
-  if(scale < 2.2) return 3;   // + questions
+  if(scale < 0.5) return 1;   // domains only
+  if(scale < 1.3) return 2;   // + entities
+  if(scale < 2.5) return 3;   // + questions
   return 4;                    // full detail
 }
 
@@ -820,16 +820,33 @@ function updateZoomProjection(){
   document.getElementById('zoom-level-text').textContent = `zoom ${newLevel}`;
   document.getElementById('zoom-indicator').textContent = labels[newLevel]||'';
 
-  // ── DOMAIN YILDIZLARI — her zaman görünür ────────────────────────
-  svgEl.querySelectorAll('.g-domain').forEach(g=>{ g.style.display=''; });
+  // ── DOMAIN YILDIZLARI — her zaman görünür, zoom'a göre scale compensate ─
+  svgEl.querySelectorAll('.g-domain').forEach(g=>{
+    g.style.display='';
+    // Zoom 1'de domain yıldızları küçülmesin — scale inverse uygula
+    if(newLevel === 1){
+      const compensation = Math.max(1, 1/S.vpS);
+      g.setAttribute('data-comp', compensation);
+      const nid = g.getAttribute('data-nid');
+      const node = S.nodes.find(n=>n.id===nid);
+      if(node){
+        g.setAttribute('transform', `translate(${node.x},${node.y}) scale(${compensation})`);
+      }
+    } else {
+      const nid = g.getAttribute('data-nid');
+      const node = S.nodes.find(n=>n.id===nid);
+      if(node) g.setAttribute('transform', `translate(${node.x},${node.y})`);
+    }
+  });
 
   if(newLevel === 1){
     // Zoom 1: sadece domain yıldızları, hiçbir entity/soru/link görünmez
     svgEl.querySelectorAll('.g-entity,.g-question').forEach(g=>{ g.style.display='none'; });
     svgEl.querySelectorAll('.g-link').forEach(l=>{ l.style.display='none'; });
-    // Domain label'ları büyüt
+    // Domain label'ları büyüt — zoom kompansasyonu ile daha büyük görünür
     svgEl.querySelectorAll('.g-domain text').forEach(t=>{
-      t.setAttribute('font-size','11');t.setAttribute('opacity','0.9');
+      t.setAttribute('font-size','9');t.setAttribute('opacity','1');
+      t.setAttribute('y','32');
     });
 
   } else if(newLevel === 2){
@@ -926,7 +943,15 @@ function physicsLoop(){
 function updateNodePositions(){
   S.nodes.forEach(n=>{
     const g=svgEl.querySelector(`[data-nid="${n.id}"]`);
-    if(g) g.setAttribute('transform',`translate(${n.x},${n.y})`);
+    if(g){
+      // Domain nodes at zoom 1 have scale compensation — don't override
+      if(n.kind==='domain' && S.zoomLevel===1){
+        const comp = Math.max(1, 1/S.vpS);
+        g.setAttribute('transform',`translate(${n.x},${n.y}) scale(${comp})`);
+      } else {
+        g.setAttribute('transform',`translate(${n.x},${n.y})`);
+      }
+    }
     svgEl.querySelectorAll(`[data-lf="${n.id}"]`).forEach(l=>{l.setAttribute('x1',n.x);l.setAttribute('y1',n.y);});
     svgEl.querySelectorAll(`[data-lt="${n.id}"]`).forEach(l=>{l.setAttribute('x2',n.x);l.setAttribute('y2',n.y);});
   });
