@@ -1853,7 +1853,7 @@ function showWelcomeBanner(name){
       Sana birkaç temel soru soralım mı?
     </div>
     <div class="wb-actions">
-      <button class="wb-btn primary" onclick="startOnboarding('${name}')">
+      <button class="wb-btn primary" id="wb-start-btn">
         ✦ Evet, başlayalım
       </button>
       <button class="wb-btn" onclick="closeWelcomeBanner()">
@@ -1863,6 +1863,8 @@ function showWelcomeBanner(name){
     <span class="wb-skip" onclick="closeWelcomeBanner()">atla</span>
   `;
   document.body.appendChild(banner);
+  // onclick bağla (string interpolation sorununu önle)
+  document.getElementById('wb-start-btn').onclick = ()=>startOnboarding(name);
 }
 
 function closeWelcomeBanner(){
@@ -1878,17 +1880,62 @@ const ONBOARDING_QUESTIONS = [
 
 function startOnboarding(name){
   closeWelcomeBanner();
-  // İlk soruyu sor
-  const q = mkQuestion({
-    text: `${name} hakkında ne bilmek isterim?`,
-    family: 'identity',
-    topic: name,
-    context: 'benim'
-  });
+
+  // Onboarding soru sırası — adım adım, her biri anlamlı
+  const steps = [
+    {
+      text: `${name} kim?`,
+      family: 'family',
+      facets: [
+        {label:'doğum yeri',      ph:'Hangi şehir veya ülkede?',    binding:'place_link'},
+        {label:'şu an nerede',    ph:'Şu an yaşadığın yer…',         binding:'place_link'},
+        {label:'meslek',          ph:'Ne iş yapıyorsun?',             binding:'note'},
+        {label:'kısa tanıtım',    ph:'Kendini bir cümleyle anlat…',   binding:'note'},
+      ]
+    }
+  ];
+
+  const selfEnt = S.universe.entities.find(e=>e.properties?.is_self);
+  const step = steps[0];
+
+  // Soruyu oluştur — ama topic self entity olsun
+  let q = S.universe.questions.find(x=>x.text.toLowerCase()===step.text.toLowerCase());
+  if(!q){
+    q = mkQuestion({text:step.text, family:step.family, topic:name, context:'benim'});
+    if(q && selfEnt){
+      bigBang(step.text, q);
+      // asks_about → self entity
+      if(!S.universe.links.find(l=>l.from===q.id&&l.to===selfEnt.id)){
+        addLink(q.id, selfEnt.id, 'asks_about');
+      }
+      updateCounters(); saveUniverse();
+    }
+  }
+
   if(q){
-    bigBang(q.text, q);
-    updateCounters(); saveUniverse();
-    setTimeout(()=>openFacetPanel(q), 400);
+    // Facet'leri override et — onboarding özel facet'ler
+    S.fQ = q;
+    S.fInputs = {};
+    // openFacetPanel çağır ama özel facet'lerle
+    document.getElementById('fpq').textContent = step.text;
+    const list = document.getElementById('fplist'); list.innerHTML='';
+    step.facets.forEach(f=>{
+      const row=document.createElement('div');row.className='fp-row';
+      row.setAttribute('data-binding',f.binding);
+      const key=document.createElement('div');key.className='fp-key';key.textContent=f.label;
+      const inp=document.createElement('input');inp.className='fp-inp';inp.placeholder=f.ph;
+      inp.oninput=()=>{S.fInputs[f.label]=inp.value;};
+      inp.onkeydown=e=>{
+        if(e.key==='Enter'){e.preventDefault();
+          const inputs=list.querySelectorAll('input');
+          const idx=Array.from(inputs).indexOf(inp);
+          if(idx<inputs.length-1) inputs[idx+1].focus(); else saveFacets();
+        }
+      };
+      row.appendChild(key);row.appendChild(inp);list.appendChild(row);
+    });
+    document.getElementById('facet-panel').classList.add('on');
+    setTimeout(()=>{const fi=list.querySelector('input');if(fi)fi.focus();},60);
   }
 }
 
