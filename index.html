@@ -1381,6 +1381,50 @@ function editQuestion(qId, newText){
   openPanelQuestion(qId);
 }
 
+// ── QUESTION DELETE
+function deleteQuestion(qId){
+  const q = S.universe.questions.find(x=>x.id===qId);
+  if(!q) return;
+
+  // Remove related answers
+  const removedAnswers = S.universe.answers.filter(a=>a.question_id===qId);
+  S.universe.answers = S.universe.answers.filter(a=>a.question_id!==qId);
+
+  // Remove related links
+  const removedLinks = S.universe.links.filter(l=>l.from===qId||l.to===qId);
+  S.universe.links = S.universe.links.filter(l=>l.from!==qId&&l.to!==qId);
+  removedLinks.forEach(l=>svgEl?.querySelector(`[data-lid="${l.id}"]`)?.remove());
+
+  // Remove from graph visually
+  svgEl?.querySelector(`[data-nid="${qId}"]`)?.remove();
+  S.nodes = S.nodes.filter(n=>n.id!==qId);
+
+  // Remove question
+  S.universe.questions = S.universe.questions.filter(x=>x.id!==qId);
+
+  auditLog('delete_question', {questionId:qId, text:q.text, answersRemoved:removedAnswers.length});
+  closePanel();
+  saveUniverse();
+  updateCounters();
+}
+
+// ── ANSWER DELETE (individual answer from a question)
+function deleteAnswer(answerId){
+  const a = S.universe.answers.find(x=>x.id===answerId);
+  if(!a) return;
+  S.universe.answers = S.universe.answers.filter(x=>x.id!==answerId);
+  // If no answers left, reopen question
+  const hasAnswers = S.universe.answers.some(x=>x.question_id===a.question_id);
+  if(!hasAnswers){
+    const q = S.universe.questions.find(x=>x.id===a.question_id);
+    if(q) q.status='open';
+  }
+  // Remove answered_by link if exists
+  S.universe.links = S.universe.links.filter(l=>l.to!==answerId&&l.from!==answerId);
+  auditLog('delete_answer', {answerId, questionId:a.question_id, facet:a.facet});
+  saveUniverse();
+}
+
 // ── ANSWER EDIT (already handled by mkAnswer overwrite, but add audit)
 function editAnswer(answerId, newValue){
   const a = S.universe.answers.find(x=>x.id===answerId);
@@ -4499,10 +4543,22 @@ function openPanelQuestion(qId){
     const al=document.createElement('div');al.className='p-answers';
     answers.forEach(a=>{
       const item=document.createElement('div');item.className='p-ans';
-      item.innerHTML=`<strong style="color:${hexAlpha(domColor,.8)}">${a.facet}</strong>${a.value}`;
+      item.style.display='flex';item.style.alignItems='center';item.style.gap='.4rem';
+      const ansContent=document.createElement('span');
+      ansContent.style.flex='1';
+      ansContent.innerHTML=`<strong style="color:${hexAlpha(domColor,.8)}">${a.facet}</strong> ${a.value}`;
       // Cevap entity'si varsa tıklanabilir
       const ansEnt=S.universe.entities.find(e=>e.label===a.value||e.id===a.id);
-      if(ansEnt){ item.style.cursor='pointer'; item.onclick=()=>openPanelEntity(ansEnt.id); }
+      if(ansEnt){ ansContent.style.cursor='pointer'; ansContent.onclick=()=>openPanelEntity(ansEnt.id); }
+      item.appendChild(ansContent);
+      // Cevap silme butonu
+      const delABtn=document.createElement('button');
+      delABtn.style.cssText='background:transparent;border:none;color:rgba(248,113,113,.35);cursor:pointer;font-size:.65rem;padding:0 .2rem;flex-shrink:0;transition:color .15s;';
+      delABtn.textContent='✕';delABtn.title='Cevabı sil';
+      delABtn.onmouseenter=()=>delABtn.style.color='#f87171';
+      delABtn.onmouseleave=()=>delABtn.style.color='rgba(248,113,113,.35)';
+      delABtn.onclick=(e)=>{ e.stopPropagation(); deleteAnswer(a.id); openPanelQuestion(q.id); };
+      item.appendChild(delABtn);
       al.appendChild(item);
     });
     sec.appendChild(lbl);sec.appendChild(al);body.appendChild(sec);body.appendChild(pHr());
@@ -4547,6 +4603,15 @@ function openPanelQuestion(qId){
     inp.addEventListener('keydown',e=>{ if(e.key==='Enter')confirm(); if(e.key==='Escape')openPanelQuestion(q.id); });
   };
   qa.appendChild(editQBtn);
+
+  const delQBtn=document.createElement('button');delQBtn.className='p-qa-btn';
+  delQBtn.innerHTML='🗑 Soruyu sil';
+  delQBtn.style.color='#f87171';delQBtn.style.borderColor='rgba(248,113,113,.25)';
+  delQBtn.onclick=()=>{
+    if(confirm(`"${q.text}" sorusunu ve tüm cevaplarını silmek istiyor musun?`))
+      deleteQuestion(q.id);
+  };
+  qa.appendChild(delQBtn);
   body.appendChild(qa);
   document.getElementById('panel').classList.add('open');
 }
