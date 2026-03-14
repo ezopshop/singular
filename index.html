@@ -132,7 +132,7 @@ canvas#stars{position:fixed;inset:0;pointer-events:none;z-index:0;}
 .qbtn-cancel:hover{color:var(--text);}
 
 /* FACET PANEL */
-#facet-panel{display:none;}
+#facet-panel{display:none;position:fixed;bottom:0;left:0;right:0;z-index:55;}
 #facet-panel.on{display:block;animation:su .18s ease;}
 .fp-wrap{background:rgba(8,8,26,.94);border:.5px solid rgba(52,211,153,.17);border-radius:12px;padding:1.1rem 1.1rem .9rem;backdrop-filter:blur(24px);}
 .fp-q{font-family:'DM Serif Display',serif;font-size:1rem;color:var(--text);margin-bottom:.8rem;line-height:1.55;}
@@ -3543,7 +3543,12 @@ function spawnDomainNode(ent){
 
   g.addEventListener('mouseenter',()=>highlightDomain(ent.id,true));
   g.addEventListener('mouseleave',()=>highlightDomain(ent.id,false));
-  g.onclick=(e)=>{if(node._drag)return;openPanelDomain(ent);};
+  g.onclick=(e)=>{
+    if(node._drag)return;
+    document.getElementById('facet-panel')?.classList.remove('on');
+    S.fQ=null;
+    openPanelDomain(ent);
+  };
   attachDrag(g,node);
   svgEl.appendChild(g);
   requestAnimationFrame(()=>{g.style.transition='opacity .8s';g.style.opacity='1';});
@@ -3611,7 +3616,12 @@ function spawnEntityNode(ent, domainId){
 
   g.addEventListener('mouseenter',()=>{glow.setAttribute('opacity','1');});
   g.addEventListener('mouseleave',()=>{glow.setAttribute('opacity','0');});
-  g.onclick=(e)=>{if(node._drag)return;openPanelEntity(ent.id);};
+  g.onclick=(e)=>{
+    if(node._drag)return;
+    document.getElementById('facet-panel')?.classList.remove('on');
+    S.fQ=null;
+    openPanelEntity(ent.id);
+  };
   attachDrag(g,node);
   svgEl.appendChild(g);
   requestAnimationFrame(()=>{g.style.transition='opacity .7s';g.style.opacity='1';});
@@ -3647,7 +3657,13 @@ function spawnQuestionNode(q, domainId){
   lbl.textContent=raw.length>18?raw.slice(0,18)+'…':raw;
   g.appendChild(lbl);
 
-  g.onclick=(e)=>{if(node._drag)return;openPanelQuestion(q.id);};
+  g.onclick=(e)=>{
+    if(node._drag)return;
+    // Close facet panel if open, then show question panel
+    document.getElementById('facet-panel')?.classList.remove('on');
+    S.fQ=null;
+    openPanelQuestion(q.id);
+  };
   attachDrag(g,node);
   svgEl.appendChild(g);
   requestAnimationFrame(()=>{g.style.transition='opacity .6s';g.style.opacity='1';});
@@ -4820,13 +4836,16 @@ function openPanelEntity(entId){
 
 function openPanelQuestion(qId){
   const q=S.universe.questions.find(x=>x.id===qId);if(!q)return;
+  // Close facet panel if open
+  document.getElementById('facet-panel')?.classList.remove('on');
+  S.fQ=null;
   const answers=S.universe.answers.filter(a=>a.question_id===qId);
   const domCfg=DOMAINS[q.family];
   const domColor=domCfg?.color||'#60a5fa';
 
   setBadge('soru','pb-question');
   const te=document.getElementById('ptitle');
-  te.innerHTML=`<span class="qdot ${q.status==='open'?'open':'answered'}"></span>${q.text}`;
+  te.innerHTML=`<span class="qdot ${q.status==='open'?'open':'answered'}" title="${q.status==='open'?'Açık soru':'Cevaplandı'}"></span>${q.text}`;
   te.dataset.eid=q.id;
   te.style.borderLeft=`3px solid ${hexAlpha(domColor,.5)}`;
   te.style.paddingLeft='.5rem';
