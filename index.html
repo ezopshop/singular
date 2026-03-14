@@ -2614,10 +2614,16 @@ const FAMILY_FACETS = {
 
 // Sorudan doğru facet listesini çıkar
 function getFacetsForQuestion(q){
+  const t = (q.text||'').toLowerCase();
+  // "X kim?" → family facets her zaman
+  if(/\bkim\b/.test(t) && !/^ben kimim/.test(t)){
+    return FAMILY_FACETS.family;
+  }
+  // Yer soruları
+  if(/nerede/.test(t)) return FAMILY_FACETS.places;
   // Önce domain'e göre bak
   const domFacets = FAMILY_FACETS[q.family];
   if(domFacets) return domFacets;
-  // Fallback
   return FAMILY_FACETS.knowledge;
 }
 
@@ -3153,8 +3159,10 @@ function detectFamily(text){
   // Soru kelimesi + domain keyword kombinasyonu
   // Kişi soruları → family veya identity
   if(/\bkim\b/.test(t)){
-    if(/annem|babam|kardeş|eşim|ailem|akraba/.test(t)) return 'family';
-    return 'identity';
+    // "X kim?" → X bir kişidir → family domain
+    // Sadece "ben kimim?" → identity
+    if(/^ben kimim/.test(t)) return 'identity';
+    return 'family';
   }
   if(/kiminle|kimlerle/.test(t)) return 'family';
   // Yer soruları
@@ -4006,6 +4014,9 @@ function parseStatement(text){
     { re:/^numaram\s+(.+)$/i,            prop:'phone',       domain:'contacts',  self:true },
     { re:/^adresim\s+(.+)$/i,            prop:'address',     domain:'places',    self:true },
     { re:/^(.+?)'?(?:de|da|te|ta|'de|'da)\s+yaşıyorum$/i,prop:'lives_in',domain:'places',self:true },
+    { re:/^doğum\s+yerim\s+(.+)$/i,              prop:'birth_place',domain:'identity',self:true },
+    { re:/^(.+?)'?(?:de|da|te|ta)'?\s+doğdum$/i,  prop:'birth_place',domain:'identity',self:true },
+    { re:/^doğduğum\s+yer\s+(.+)$/i,             prop:'birth_place',domain:'identity',self:true },
     { re:/^şirketim\s+(.+)$/i,           prop:'works_at',    domain:'work',      self:true },
     { re:/^işim\s+(.+)$/i,               prop:'works_at',    domain:'work',      self:true },
     { re:/^mesleğim\s+(.+)$/i,           prop:'works_at',    domain:'work',      self:true },
@@ -4028,6 +4039,11 @@ function classifyInput(text){
   // 2. Statement — ontology pattern eşleşmesi
   const parsed = parseStatement(t);
   if(parsed.matched) return 'statement';
+
+  // 2.5 Temporal statement — "X'nin doğum günü Y", "X'in toplantısı Y"
+  if(/doğum günü|yıldönümü|son tarihi|bitiş tarihi|başlangıç tarihi/.test(t.toLowerCase())){
+    return 'temporal_statement';
+  }
 
   // 3. Karar
   if(/(karar verdim|yapacağım|planım|hedefim|kesinleştirdim)/i.test(t)) return 'decision';
@@ -4055,6 +4071,13 @@ function handleInput(){
   if(inputType === 'statement'){
     field.value=''; hideSug();
     processStatement(raw);
+    return;
+  }
+
+  // ── TEMPORAL STATEMENT — "Memo'nun doğum günü 15 Mayıs"
+  if(inputType === 'temporal_statement'){
+    field.value=''; hideSug();
+    processTemporalStatement(raw);
     return;
   }
 
@@ -4147,6 +4170,65 @@ function processStatement(text){
   // Generic statement — keyword bulundu ama role/self değil
   bigBang(text, null);
   saveUniverse(); updateCounters();
+}
+
+// Temporal statement parser — "Memo'nun doğum günü 15 Mayıs"
+function processTemporalStatement(text){
+  rawEntry(text,'temporal_statement',null,null);
+  const t = text.trim();
+
+  // Pattern: "X'in/X'nin doğum günü Y" veya "X doğum günü Y"
+  const patterns = [
+    { re:/^(.+?)'?(?:nin|nın|nun|nün|in|ın|un|ün)?\s+doğum\s+günü\s+(.+)$/i, rel:'anniversary_of', label:'doğum günü' },
+    { re:/^(.+?)'?(?:nin|nın|nun|nün|in|ın|un|ün)?\s+yıldönümü\s+(.+)$/i,     rel:'anniversary_of', label:'yıldönümü' },
+    { re:/^(.+?)'?(?:nin|nın|nun|nün|in|ın|un|ün)?\s+son\s+tarihi\s+(.+)$/i, rel:'due_on',          label:'son tarih' },
+    { re:/^(.+?)'?(?:nin|nın|nun|nün|in|ın|un|ün)?\s+toplantısı\s+(.+)$/i,    rel:'happens_on',      label:'toplantı' },
+  ];
+
+  for(const {re,rel,label} of patterns){
+    const m = t.match(re);
+    if(m){
+      const entityLabel = m[1].trim();
+      const dateStr     = m[2].trim();
+
+      // Temporal entity
+      const temporal = parseTemporalInput(dateStr);
+      if(!temporal){
+        // Unknown date format — save as note
+        setInputModeHint(`✓ ${entityLabel} → ${dateStr}`, 'mp-a');
+        saveUniverse(); updateCounters();
+        setTimeout(()=>setInputModeHint('ne sormak ya da hatırlamak istiyorsun?','mp-idle'),2000);
+        return;
+      }
+
+      // Find or create the subject entity
+      const domainId = detectDomain(entityLabel);
+      ensureDomain(domainId);
+      let subjectEnt = S.universe.entities.find(e=>e.label.toLowerCase()===entityLabel.toLowerCase()&&e.type!=='domain');
+      if(!subjectEnt){
+        subjectEnt = mkEntity('person', entityLabel, 'family', {});
+        if(subjectEnt) spawnEntityNode(subjectEnt,'family');
+      }
+      if(!subjectEnt) return;
+
+      // Create time node and link
+      const timeEnt = ensureTimeNode(temporal);
+      addLink(subjectEnt.id, timeEnt.id, rel);
+
+      // Feedback
+      setInputModeHint(`✓ ${entityLabel} ${label}: ${temporal.display}`, 'mp-a');
+      setTimeout(()=>setInputModeHint('ne sormak ya da hatırlamak istiyorsun?','mp-idle'),2000);
+      saveUniverse(); updateCounters();
+
+      // Trigger guidance refresh — upcoming date may now appear
+      if(GUIDANCE) GUIDANCE.lastComputed=null;
+      updateTodayPanel();
+      return;
+    }
+  }
+
+  // Pattern eşleşmedi — seed olarak işle
+  showSugLayer(text);
 }
 
 function setInputModeHint(text, pillClass){
