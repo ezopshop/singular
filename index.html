@@ -5164,6 +5164,24 @@ function openFacetPanel(q){
   S.fQ=q; S.fInputs={}; S.fFacetMeta={};
   const facets=getFacetsForQuestion(q);
   const existing=S.universe.answers.filter(a=>a.question_id===q.id);
+
+  // Sorunun konusu olan entity'yi bul — mevcut değerleri oradan da çek
+  const primaryLink = S.universe.links.find(l=>l.from===q.id&&l.relation==='asks_about'&&l.to!==('domain_'+q.family));
+  const primaryEnt  = primaryLink ? S.universe.entities.find(e=>e.id===primaryLink.to) : null;
+
+  // Entity property'lerinden facet değeri çek
+  // "isim" → entity.label, "telefon" → entity.properties.phone, vb.
+  function getEntityValue(facetLabel){
+    if(!primaryEnt) return null;
+    const fl = facetLabel.toLowerCase();
+    if(fl === 'isim') return primaryEnt.label !== primaryEnt.slug?.replace(/_/g,' ') ? primaryEnt.label : null;
+    if(fl === 'telefon') return primaryEnt.properties?.phone || null;
+    if(fl === 'doğum yeri') return primaryEnt.properties?.birth_place || null;
+    if(fl === 'nerede yaşıyor' || fl === 'şu an nerede') return primaryEnt.properties?.lives_in || null;
+    if(fl === 'ilişki türü') return primaryEnt.properties?.relation_label || null;
+    return null;
+  }
+
   document.getElementById('fpq').textContent=q.text;
   const list=document.getElementById('fplist');list.innerHTML='';
 
@@ -5171,18 +5189,23 @@ function openFacetPanel(q){
     const label = getFacetLabel(f);
     const ph    = getFacetPlaceholder(f);
     S.fFacetMeta[label] = { binding: getFacetBinding(f), relation: getFacetRelation(f) };
-    const ex=existing.find(a=>a.facet===label);
+
+    // Değer: önce answers tablosu, sonra entity property
+    const exAnswer = existing.find(a=>a.facet===label);
+    const entVal   = !exAnswer ? getEntityValue(label) : null;
+    const hasFill  = !!(exAnswer || entVal);
+
     const row=document.createElement('div');
-    row.className='fp-row'+(ex?' filled':'');
+    row.className='fp-row'+(hasFill?' filled':'');
     row.setAttribute('data-binding', getFacetBinding(f));
 
     const key=document.createElement('div');key.className='fp-key';key.textContent=label;
     row.appendChild(key);
 
-    if(ex){
+    if(exAnswer){
+      // Kaydedilmiş cevap — editlenebilir
       const v=document.createElement('div');v.className='fp-val';
-      v.textContent=ex.value;
-      // Edit butonu
+      v.textContent=exAnswer.value;
       const editBtn=document.createElement('span');
       editBtn.style.cssText='font-size:.55rem;color:var(--text-dim);cursor:pointer;margin-left:.4rem;opacity:.5;';
       editBtn.textContent='✎';
@@ -5190,12 +5213,34 @@ function openFacetPanel(q){
         v.contentEditable='true';v.focus();v.style.color='var(--text)';
         v.onblur=()=>{
           const newVal=v.textContent.trim();
-          if(newVal&&newVal!==ex.value){ S.fInputs[label]=newVal; ex.value=newVal; saveUniverse(); }
+          if(newVal&&newVal!==exAnswer.value){ S.fInputs[label]=newVal; exAnswer.value=newVal; saveUniverse(); }
           v.contentEditable='false';v.style.color='';
         };
       };
       row.appendChild(v);row.appendChild(editBtn);
+    } else if(entVal){
+      // Entity property'den gelen değer — input olarak göster, düzenlenebilir
+      const inp=document.createElement('input');inp.className='fp-inp';
+      inp.value=entVal;
+      inp.style.color='rgba(52,211,153,.8)'; // yeşil = mevcut değer
+      inp.oninput=()=>{S.fInputs[label]=inp.value;};
+      inp.onkeydown=e=>{
+        if(e.key==='Enter'){ e.preventDefault(); saveFacets(); }
+        if(e.key==='Tab'){
+          e.preventDefault();
+          const inputs=list.querySelectorAll('input');
+          const idx=Array.from(inputs).indexOf(inp);
+          if(idx<inputs.length-1) inputs[idx+1].focus(); else saveFacets();
+        }
+      };
+      // Değiştirilmezse fInputs'a eklenmesin — sadece değiştirilirse kaydet
+      inp.oninput=()=>{
+        if(inp.value !== entVal) S.fInputs[label]=inp.value;
+        else delete S.fInputs[label];
+      };
+      row.appendChild(inp);
     } else {
+      // Boş — yeni giriş
       const inp=document.createElement('input');inp.className='fp-inp';
       inp.placeholder=ph;
       inp.oninput=()=>{S.fInputs[label]=inp.value;};
@@ -5205,8 +5250,7 @@ function openFacetPanel(q){
           e.preventDefault();
           const inputs=list.querySelectorAll('input');
           const idx=Array.from(inputs).indexOf(inp);
-          if(idx<inputs.length-1) inputs[idx+1].focus();
-          else saveFacets();
+          if(idx<inputs.length-1) inputs[idx+1].focus(); else saveFacets();
         }
       };
       row.appendChild(inp);
@@ -5215,7 +5259,12 @@ function openFacetPanel(q){
   });
 
   document.getElementById('facet-panel').classList.add('on');
-  setTimeout(()=>{const fi=list.querySelector('input');if(fi)fi.focus();},60);
+  setTimeout(()=>{
+    // İlk boş input'a focus — dolu olanları atla
+    const firstEmpty=list.querySelector('input:not([style*="color"])');
+    const firstAny=list.querySelector('input');
+    (firstEmpty||firstAny)?.focus();
+  },60);
 }
 function saveFacets(){
   const q = S.fQ; if(!q) return;
