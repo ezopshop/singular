@@ -2660,15 +2660,28 @@ const MODE_SESSION_KEY = 'singular_mode';   // 'google' | 'local'
 // ══════════════════════════════════════════
 // [DOMAINS_BLOCK — moved to ONTOLOGY layer]
 const Q_TEMPLATES = [
-  {id:'kim',     label:'kim',           family:'identity', suffix:'kim?'},
-  {id:'nedir',   label:'nedir',         family:'knowledge',suffix:'nedir?'},
-  {id:'nerede',  label:'nerede',        family:'places',   suffix:'nerede?'},
-  {id:'nezaman', label:'ne zaman',      family:'knowledge',suffix:'ne zaman?'},
-  {id:'nasil',   label:'nasıl',         family:'knowledge',suffix:'nasıl?'},
-  {id:'neden',   label:'neden',         family:'knowledge',suffix:'neden önemli?'},
-  {id:'yapmalı', label:'ne yapmalıyım', family:'projects', suffix:'ne yapmalıyım?'},
-  {id:'kiminle', label:'kiminle',       family:'family',   suffix:'kiminle?'},
-  {id:'baname',  label:'bana ne',       family:'identity', suffix:'bana ne ifade ediyor?'},
+  // ── Kişi soruları
+  {id:'kim',        label:'kim',              family:'family',      suffix:'kim?',                  icon:'@',   hint:'bir kişiyi tanımlar'},
+  {id:'kiminle',    label:'kiminle',          family:'family',      suffix:'kiminle?',              icon:'↔',   hint:'ilişki sorusu'},
+  // ── Yer soruları
+  {id:'nerede_yer', label:'nerede (kişi/yer)',family:'places',      suffix:'nerede?',               icon:'◉',   hint:'kişi veya yer konumu'},
+  {id:'nerede_dok', label:'nerede (belge)',   family:'documents',   suffix:'nerede saklanıyor?',    icon:'□',   hint:'dosya, belge, şifre konumu'},
+  // ── Anlam / tanım
+  {id:'nedir',      label:'nedir',            family:'knowledge',   suffix:'nedir?',                icon:'○',   hint:'tanım ve açıklama'},
+  {id:'ne_anlama',  label:'ne anlama gelir',  family:'knowledge',   suffix:'bana ne anlama geliyor?',icon:'✦', hint:'kişisel önemi'},
+  // ── Zaman
+  {id:'nezaman',    label:'ne zaman',         family:'memory',      suffix:'ne zaman?',             icon:'◷',   hint:'tarih ve zaman'},
+  // ── Süreç
+  {id:'nasil',      label:'nasıl',            family:'knowledge',   suffix:'nasıl?',                icon:'→',   hint:'süreç ve yöntem'},
+  {id:'yapmalı',    label:'ne yapmalıyım',    family:'projects',    suffix:'ne yapmalıyım?',        icon:'▷',   hint:'eylem ve görev'},
+  {id:'ne_asamada', label:'ne aşamada',       family:'projects',    suffix:'ne aşamada?',           icon:'▸',   hint:'durum ve ilerleme'},
+  // ── Neden
+  {id:'neden',      label:'neden önemli',     family:'knowledge',   suffix:'neden önemli?',         icon:'!',   hint:'gerekçe ve değer'},
+  // ── Değer / sayı
+  {id:'kac',        label:'değeri / kaç',     family:'knowledge',   suffix:'değeri / sayısı nedir?',icon:'#',   hint:'sayısal değer, fiyat, miktar'},
+  // ── Tercih
+  {id:'en_sevdigi', label:'en sevdiğim',      family:'preferences', suffix:'en sevdiğim nedir?',   icon:'★',   hint:'tercih ve beğeni'},
+  {id:'baname',     label:'bana ne ifade',    family:'identity',    suffix:'bana ne ifade ediyor?', icon:'♦',   hint:'kişisel anlam'},
 ];
 const Q_CONTEXTS = ['benim','bu','o','biz','—'];
 // Facet'ler soru tipine göre — entity/question family'ye bakılır
@@ -2752,35 +2765,86 @@ const QUESTION_FACETS = {
     {label:'engel',           ph:'Neler zorlaştırıyor?',    binding:'note'},
   ],
   // ── Domain bazlı fallback'ler ─────────────────────────
-  family:     [{label:'isim',ph:'Ad...',binding:'materialize_role'},{label:'ilişki türü',ph:'Nasıl tanıyorum?',binding:'relation_type'},{label:'nerede yaşıyor',ph:'Şehir…',binding:'place_link'},{label:'telefon',ph:'Numara…',binding:'contact_info'},{label:'önemli anılar',ph:'Not…',binding:'note'}],
+  family:     [{label:'isim',ph:'Ad...',binding:'materialize_role'},{label:'ilişki türü',ph:'Nasıl tanıyorum?',binding:'relation_type'},{label:'doğum yeri',ph:'Hangi şehir?',binding:'place_link',relation:'born_in'},{label:'nerede yaşıyor',ph:'Şehir…',binding:'place_link',relation:'lives_in'},{label:'telefon',ph:'Numara…',binding:'contact_info'},{label:'önemli anılar',ph:'Not…',binding:'note'}],
   work:       [{label:'şirket / yer',ph:'Nerede?',binding:'place_link'},{label:'pozisyon',ph:'Rolü…',binding:'note'},{label:'notlar',ph:'Ek bilgi…',binding:'note'}],
   projects:   [{label:'amaç',ph:'Ne için?',binding:'note'},{label:'durum',ph:'Hangi aşamada?',binding:'answer_value'},{label:'sonraki adım',ph:'Sıradaki…',binding:'create_task'},{label:'notlar',ph:'Not…',binding:'note'}],
-  finance:    [{label:'değer / numara',ph:'Numara veya değer…',binding:'credential_value'},{label:'nerede saklanıyor',ph:'Lokasyon…',binding:'note'},{label:'notlar',ph:'Not…',binding:'note'}],
+  finance:    [{label:'değer / numara',ph:'Numara veya değer…',binding:'credential_value'},{label:'nerede saklanıyor',ph:'Banka, uygulama…',binding:'note'},{label:'notlar',ph:'Not…',binding:'note'}],
   health:     [{label:'değer',ph:'Ölçüm değeri…',binding:'answer_value'},{label:'ne zaman',ph:'Tarih…',binding:'temporal'},{label:'kaynak',ph:'Doktor / link…',binding:'note'}],
   media:      [{label:'cevap',ph:'İsim veya açıklama…',binding:'answer_value'},{label:'neden önemli',ph:'Neden seviyorum?',binding:'note'},{label:'notlar',ph:'Not…',binding:'note'}],
   memory:     [{label:'ne oldu',ph:'Kısaca anlat…',binding:'note'},{label:'ne zaman',ph:'Tarih…',binding:'temporal'},{label:'kimler vardı',ph:'Kişiler…',binding:'note'},{label:'hissettiklerim',ph:'Duygu notu…',binding:'note'}],
   knowledge:  [{label:'cevap',ph:'Yanıt…',binding:'answer_value'},{label:'kaynak',ph:'Nereden öğrendim?',binding:'note'},{label:'notlar',ph:'Ek not…',binding:'note'}],
   places:     [{label:'cevap',ph:'Adres veya açıklama…',binding:'place_answer'},{label:'şehir',ph:'Şehir…',binding:'place_link'},{label:'notlar',ph:'Not…',binding:'note'}],
+  documents:  [{label:'nerede',ph:'Dosya yolu, uygulama, çekmece…',binding:'note'},{label:'link',ph:'URL veya referans…',binding:'note'},{label:'notlar',ph:'Not…',binding:'note'}],
+  credentials:[{label:'değer / numara',ph:'Şifre, kod, numara…',binding:'credential_value'},{label:'nerede saklanıyor',ph:'Uygulama, not defteri…',binding:'note'},{label:'notlar',ph:'Not…',binding:'note'}],
+  preferences:[{label:'cevap',ph:'Ne seviyorum?',binding:'answer_value'},{label:'neden',ph:'Neden?',binding:'note'},{label:'alternatif',ph:'Diğer seçenekler…',binding:'note'}],
+  // ── Yeni soru tipleri ─────────────────────────────────
+  nerede_dok: [
+    {label:'nerede',         ph:'Çekmece, klasör, uygulama…',  binding:'note'},
+    {label:'link / yol',     ph:'URL veya dosya yolu…',         binding:'note'},
+    {label:'son görüldü',    ph:'En son ne zaman kontrol ettim?',binding:'temporal'},
+    {label:'notlar',         ph:'Ek not…',                      binding:'note'},
+  ],
+  ne_anlama: [
+    {label:'kişisel anlam',  ph:'Benim için ne ifade ediyor?',  binding:'note'},
+    {label:'ne zaman önemli',ph:'Hangi durumda işe yarıyor?',   binding:'note'},
+    {label:'örnek',          ph:'Somut bir örnek…',             binding:'note'},
+  ],
+  kac: [
+    {label:'değer',          ph:'Sayı, tutar, miktar…',         binding:'answer_value'},
+    {label:'birim',          ph:'TL, kg, yıl, adet…',           binding:'note'},
+    {label:'tarih',          ph:'Ne zaman geçerli?',            binding:'temporal'},
+  ],
+  ne_asamada: [
+    {label:'durum',          ph:'Devam ediyor / bekliyor…',     binding:'answer_value'},
+    {label:'sonraki adım',   ph:'Sıradaki iş…',                 binding:'create_task'},
+    {label:'tamamlanma %',   ph:'0-100',                        binding:'note'},
+    {label:'engel',          ph:'Neler zorlaştırıyor?',         binding:'note'},
+  ],
+  en_sevdigi_ext: [
+    {label:'cevap',          ph:'En sevdiğin…',                 binding:'answer_value'},
+    {label:'neden',          ph:'Neden bu?',                    binding:'note'},
+    {label:'ne zaman',       ph:'Ne zaman keşfettim?',          binding:'temporal'},
+    {label:'alternatif',     ph:'Diğer seçenekler…',            binding:'note'},
+  ],
 };
 
 // Soru metninden facet paketi seç
 function getFacetsForQuestion(q){
   const t = (q.text||'').toLowerCase();
+  const fam = q.family || 'knowledge';
 
-  // Soru ailesi tespiti — metin tabanlı
-  if(/\bkim\b/.test(t) && !/^ben kimim/.test(t))            return QUESTION_FACETS.kim;
+  // Soru template id'si varsa önce ona bak
+  if(q.template === 'nerede_dok')  return QUESTION_FACETS.nerede_dok;
+  if(q.template === 'ne_asamada') return QUESTION_FACETS.ne_asamada;
+  if(q.template === 'kac')         return QUESTION_FACETS.kac;
+  if(q.template === 'ne_anlama')   return QUESTION_FACETS.ne_anlama;
+  if(q.template === 'en_sevdigi')  return QUESTION_FACETS.en_sevdigi_ext;
+  if(q.template === 'nezaman')     return QUESTION_FACETS.nezaman;
+  if(q.template === 'nasil')       return QUESTION_FACETS.nasil;
+  if(q.template === 'neden')       return QUESTION_FACETS.neden;
+  if(q.template === 'yapmalı')     return QUESTION_FACETS.yapmaliyim;
+  if(q.template === 'kim')         return QUESTION_FACETS.kim;
+  if(q.template === 'kiminle')     return QUESTION_FACETS.iliskin_ne;
+  if(q.template === 'nerede_yer')  return QUESTION_FACETS.nerede;
+  if(q.template === 'baname')      return QUESTION_FACETS.ne_anlama;
+
+  // Metin tabanlı tespit (template yoksa)
+  if(/\bkim\b/.test(t) && !/^ben kimim/.test(t))              return QUESTION_FACETS.kim;
   if(/neden önemli|neden değerli|neden sev/.test(t))           return QUESTION_FACETS.neden;
   if(/ne yapmalı|nasıl yapmal|ne yapabili/.test(t))            return QUESTION_FACETS.yapmaliyim;
   if(/ne zaman|hangi tarih|kaç yılında/.test(t))               return QUESTION_FACETS.nezaman;
+  if(/saklanıyor|nerede saklı|nerede durur|hangi dosya/.test(t)) return QUESTION_FACETS.nerede_dok;
   if(/nerede|nereye|hangi şehir|hangi ülke/.test(t))           return QUESTION_FACETS.nerede;
   if(/nasıl çalışır|nasıl yapılır|nasıl öğren/.test(t))        return QUESTION_FACETS.nasil;
-  if(/nedir|ne demek|ne anlama/.test(t))                       return QUESTION_FACETS.nedir;
-  if(/en sevdiğim|favorim|en iyi|en güzel/.test(t))            return QUESTION_FACETS.en_sevdigi;
+  if(/ne anlama|bana ne ifade/.test(t))                        return QUESTION_FACETS.ne_anlama;
+  if(/nedir|ne demek/.test(t))                                 return QUESTION_FACETS.nedir;
+  if(/en sevdiğim|favorim|en iyi|en güzel/.test(t))            return QUESTION_FACETS.en_sevdigi_ext;
   if(/ilişkim|bağlantım|tanışıklığım/.test(t))                 return QUESTION_FACETS.iliskin_ne;
   if(/ne aşamada|ne durumda|hangi aşamada/.test(t))            return QUESTION_FACETS.ne_asamada;
+  if(/kaç|değeri|fiyat|tutar|miktar|numara/.test(t))           return QUESTION_FACETS.kac;
 
-  // Domain fallback
-  const domFacets = QUESTION_FACETS[q.family];
+  // Domain + family fallback
+  const domFacets = QUESTION_FACETS[fam];
   if(domFacets) return domFacets;
   return QUESTION_FACETS.knowledge;
 }
@@ -4730,34 +4794,39 @@ const TYPE_FALLBACK_FAMILY = {
   concept:    'nedir',
 };
 
-// Suggestion packs per entity type
 const SUGGESTION_PACKS = {
   person: (topic) => [
-    {text:`${topic} kim?`,           tid:'kim',     ctx:'bu'},
-    {text:`${topic} ile ilişkim ne?`,tid:'kiminle', ctx:'benim'},
-    {text:`${topic} neden önemli?`,  tid:'neden',   ctx:'benim'},
+    {text:`${topic} kim?`,              tid:'kim',        ctx:'bu'},
+    {text:`${topic} ile ilişkim ne?`,   tid:'kiminle',    ctx:'benim'},
+    {text:`${topic} neden önemli?`,     tid:'neden',      ctx:'benim'},
   ],
   place: (topic) => [
-    {text:`${topic} nerede?`,                 tid:'nerede',  ctx:'—'},
-    {text:`${topic} ile bağlantım ne?`,       tid:'kiminle', ctx:'benim'},
-    {text:`${topic} neden önemli benim için?`,tid:'neden',   ctx:'benim'},
-    {text:`${topic} orada kim var?`,          tid:'kim',     ctx:'—'},
+    {text:`${topic} nerede?`,                   tid:'nerede_yer', ctx:'—'},
+    {text:`${topic} ile bağlantım ne?`,         tid:'kiminle',    ctx:'benim'},
+    {text:`${topic} neden önemli benim için?`,  tid:'neden',      ctx:'benim'},
   ],
   project: (topic) => [
-    {text:`${topic} nedir?`,                 tid:'nedir',   ctx:'—'},
-    {text:`${topic} şu an ne aşamada?`,      tid:'nedir',   ctx:'—'},
-    {text:`${topic} neden önemli?`,          tid:'neden',   ctx:'benim'},
-    {text:`${topic} için sonraki adım ne?`,  tid:'yapmalı', ctx:'—'},
+    {text:`${topic} nedir?`,                    tid:'nedir',      ctx:'—'},
+    {text:`${topic} şu an ne aşamada?`,         tid:'ne_asamada', ctx:'—'},
+    {text:`${topic} için sonraki adım ne?`,     tid:'yapmalı',    ctx:'—'},
   ],
   credential: (topic) => [
-    {text:`${topic} hesabım nerede?`,        tid:'nerede',  ctx:'benim'},
-    {text:`${topic} şifremi nerede saklarım?`,tid:'nerede', ctx:'benim'},
-    {text:`${topic} benim için ne ifade ediyor?`,tid:'baname',ctx:'benim'},
+    {text:`${topic} nerede saklanıyor?`,        tid:'nerede_dok', ctx:'benim'},
+    {text:`${topic} değeri nedir?`,             tid:'kac',        ctx:'benim'},
+  ],
+  document: (topic) => [
+    {text:`${topic} nerede saklanıyor?`,        tid:'nerede_dok', ctx:'benim'},
+    {text:`${topic} nedir?`,                    tid:'nedir',      ctx:'—'},
   ],
   concept: (topic) => [
-    {text:`${topic} nedir?`,                 tid:'nedir',   ctx:'—'},
-    {text:`${topic} hakkında ne yapmalıyım?`,tid:'yapmalı', ctx:'—'},
-    {text:`${topic} neden önemli?`,          tid:'neden',   ctx:'benim'},
+    {text:`${topic} nedir?`,                    tid:'nedir',      ctx:'—'},
+    {text:`${topic} bana ne anlama geliyor?`,   tid:'ne_anlama',  ctx:'benim'},
+    {text:`${topic} neden önemli?`,             tid:'neden',      ctx:'benim'},
+  ],
+  media_item: (topic) => [
+    {text:`${topic} bana ne anlama geliyor?`,   tid:'ne_anlama',  ctx:'benim'},
+    {text:`${topic} neden önemli?`,             tid:'neden',      ctx:'benim'},
+    {text:`${topic} en sevdiğim nedir?`,        tid:'en_sevdigi', ctx:'benim'},
   ],
 };
 
@@ -5010,19 +5079,51 @@ function openComposer(topic){
   document.getElementById('q-composer').classList.add('on');
   updateComposerPreview();
 }
+
 function buildComposerUI(){
   const slots=document.getElementById('qcslots'); slots.innerHTML='';
-  slots.appendChild(mkChipSlot('Bağlam','ctx-c',Q_CONTEXTS,S.cCtx,v=>{S.cCtx=v;updateComposerPreview();}));
+
+  // Konu input
   const tw=document.createElement('div');
   const tl=document.createElement('div');tl.className='slot-lbl';tl.textContent='Konu';
   const ti=document.createElement('input');ti.className='topic-inp';
-  ti.value=S.cTopic;ti.placeholder='aile, arşiv, proje…';
+  ti.value=S.cTopic;ti.placeholder='kişi, yer, proje, belge…';
   ti.oninput=()=>{S.cTopic=ti.value;updateComposerPreview();};
   tw.appendChild(tl);tw.appendChild(ti);slots.appendChild(tw);
-  slots.appendChild(mkChipSlot('Soru Tipi','tmpl-c',Q_TEMPLATES.map(t=>t.label),
-    Q_TEMPLATES.find(t=>t.id===S.cTmpl)?.label||'nedir',
-    v=>{const f=Q_TEMPLATES.find(t=>t.label===v);if(f){S.cTmpl=f.id;updateComposerPreview();}}
-  ));
+
+  // Soru tipi — ikonlu chip'ler
+  const ql=document.createElement('div');ql.className='slot-lbl';ql.textContent='Soru Tipi';
+  slots.appendChild(ql);
+  const qrow=document.createElement('div');qrow.className='chip-row';qrow.style.flexWrap='wrap';qrow.style.gap='.22rem';
+
+  Q_TEMPLATES.forEach(tmpl=>{
+    const c=document.createElement('span');
+    c.className='chip tmpl-c'+(tmpl.id===S.cTmpl?' sel':'');
+    c.innerHTML=`<span style="opacity:.5;margin-right:.2rem">${tmpl.icon}</span>${tmpl.label}`;
+    c.title = tmpl.hint || '';
+    c.onclick=()=>{
+      qrow.querySelectorAll('.chip').forEach(x=>x.classList.remove('sel'));
+      c.classList.add('sel');
+      S.cTmpl=tmpl.id;
+      updateComposerPreview();
+      // Hint güncelle
+      const hintEl=document.getElementById('composer-hint');
+      if(hintEl) hintEl.textContent=tmpl.hint||'';
+    };
+    qrow.appendChild(c);
+  });
+  slots.appendChild(qrow);
+
+  // Seçili hint
+  const hintDiv=document.createElement('div');
+  hintDiv.id='composer-hint';
+  hintDiv.style.cssText='font-size:.52rem;color:var(--text-dim);margin-top:.2rem;letter-spacing:.05em;min-height:.8rem;';
+  const selTmpl=Q_TEMPLATES.find(t=>t.id===S.cTmpl);
+  hintDiv.textContent=selTmpl?.hint||'';
+  slots.appendChild(hintDiv);
+
+  // Bağlam
+  slots.appendChild(mkChipSlot('Bağlam','ctx-c',Q_CONTEXTS,S.cCtx,v=>{S.cCtx=v;updateComposerPreview();}));
 }
 function mkChipSlot(label,cls,opts,sel,cb){
   const w=document.createElement('div');
@@ -5042,7 +5143,7 @@ function updateComposerPreview(){
   document.getElementById('qcprev').textContent=(ctx+(S.cTopic||'…')+' '+tmpl.suffix).trim();
 }
 function confirmComposer(){
-  const tmpl=Q_TEMPLATES.find(t=>t.id===S.cTmpl)||Q_TEMPLATES[1];
+  const tmpl=Q_TEMPLATES.find(t=>t.id===S.cTmpl)||Q_TEMPLATES.find(t=>t.id==='nedir');
   const ctx=(!S.cCtx||S.cCtx==='—')?'':S.cCtx+' ';
   const text=(ctx+(S.cTopic||'konu')+' '+tmpl.suffix).trim();
   document.getElementById('q-composer').classList.remove('on');
@@ -5213,22 +5314,34 @@ function saveFacets(){
 
       case 'place_link': {
         // Yer cevabı → place entity + doğru semantik relation
-        // facetRelation: 'born_in' | 'lives_in' | null(→ lives_in varsayılan)
-        const placeRel = facetRelation || (facet.includes('doğum') ? 'born_in' : 'lives_in');
+        // facetRelation: 'born_in' | 'lives_in' | null → facet adından çıkar
+        const placeRel = facetRelation
+          || (facet.includes('doğum') ? 'born_in'
+            : facet.includes('yaşıyor') || facet.includes('nerede') ? 'lives_in'
+            : 'lives_in');
+
         const placeEnt = mkEntity('place', v.slice(0,40), 'places', {is_place:true});
         if(placeEnt && !S.nodes.find(n=>n.id===placeEnt.id)){
           ensureDomain('places');
           spawnEntityNode(placeEnt,'places');
           addLink(placeEnt.id,'domain_places','belongs_to_domain');
         }
-        // Hem primaryEnt hem selfEnt için bağ kur (hangisi uygunsaysa)
-        const subjectEnt = primaryEnt || selfEnt;
+
+        // ÖNEMLI: subject = sorunun konu olduğu entity
+        // primaryEnt varsa (Dila kim? sorusunda Dila) → Dila'ya bağla
+        // primaryEnt yoksa → selfEnt'e bağla (kendi yerleşim sorusu)
+        // Onboarding'de de selfEnt olmalı (soru "Cemo kim?" ve Cemo = selfEnt)
+        const isSelfQuestion = primaryEnt?.properties?.is_self || !primaryEnt;
+        const subjectEnt = isSelfQuestion ? selfEnt : primaryEnt;
+
         if(placeEnt && subjectEnt && !S.universe.links.find(l=>l.from===subjectEnt.id&&l.to===placeEnt.id&&l.relation===placeRel)){
           addLink(subjectEnt.id, placeEnt.id, placeRel);
         }
-        // born_in → places domain + identity bağlantısı
         if(placeRel === 'born_in' && subjectEnt){
           subjectEnt.properties.birth_place = v;
+        }
+        if(placeRel === 'lives_in' && subjectEnt){
+          subjectEnt.properties.lives_in = v;
         }
         break;
       }
@@ -5539,19 +5652,39 @@ function openPanelEntity(entId){
     const sec=document.createElement('div');sec.className='psec';
     const lbl=document.createElement('div');lbl.className='plbl';lbl.textContent='İlişkiler';
     const rl=document.createElement('div');rl.className='p-rels';
-    relLinks.slice(0,6).forEach(lnk=>{
+
+    // Relation renk haritası
+    const relColors={
+      child_of:'#f472b6',parent_of:'#f472b6',spouse_of:'#f472b6',sibling_of:'#f472b6',fills_role:'#f472b6',
+      works_at:'#fb923c',works_on:'#fb923c',
+      lives_in:'#34d399',born_in:'#34d399',located_at:'#34d399',
+      owns:'#22d3ee',stored_in:'#60a5fa',
+      related_to:'#94a3b8',likes:'#e879f9',
+      answered_by:'#34d399',has_property:'#a78bfa',is_a:'#a3e635',
+    };
+
+    relLinks.slice(0,8).forEach(lnk=>{
       const otherId=lnk.from===entId?lnk.to:lnk.from;
       const other=S.universe.entities.find(e=>e.id===otherId)||S.universe.questions.find(e=>e.id===otherId);
       if(!other)return;
       const label=other.label||other.text||'';
       const item=document.createElement('div');item.className='p-rel';
       const relLabel=RELATION_TYPES[lnk.relation]||lnk.relation;
-      const dir=lnk.from===entId?'→':'←';
-      item.innerHTML=`<span class="rel-type">${relLabel}</span><span class="rel-arrow">${dir}</span><span>${label.slice(0,28)}</span>`;
+      const color=relColors[lnk.relation]||'var(--text-muted)';
+
+      // Yönlü açıklama: "Dila burada yaşıyor" veya "Cemo'nun doğum yeri"
+      let sentence;
+      if(lnk.from===entId){
+        // entId → other (yer): "bu kişi orda yaşıyor/doğdu"
+        sentence=`<span style="color:${color};font-size:.48rem;letter-spacing:.1em;text-transform:uppercase">${relLabel}</span> <span style="opacity:.7">→</span> <b>${label.slice(0,22)}</b>`;
+      } else {
+        // other → entId (yer): "bu kişi burayla ilgili"
+        sentence=`<b>${label.slice(0,18)}</b> <span style="opacity:.5">·</span> <span style="color:${color};font-size:.48rem;letter-spacing:.1em;text-transform:uppercase">${relLabel}</span>`;
+      }
+      item.innerHTML=sentence;
       item.onclick=()=>{
-        const targetId=otherId;
-        if(S.universe.questions.find(q=>q.id===targetId)) openPanelQuestion(targetId);
-        else openPanelEntity(targetId);
+        if(S.universe.questions.find(q=>q.id===otherId)) openPanelQuestion(otherId);
+        else openPanelEntity(otherId);
       };
       rl.appendChild(item);
     });
