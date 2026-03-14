@@ -112,7 +112,7 @@ canvas#stars{position:fixed;inset:0;pointer-events:none;z-index:0;}
 #q-composer.on{display:block;animation:su .18s ease;}
 .qc-wrap{background:rgba(8,8,26,.94);border:.5px solid var(--border-hi);border-radius:12px;padding:1.1rem 1.1rem .9rem;backdrop-filter:blur(24px);}
 .qc-lbl{font-size:.48rem;letter-spacing:.25em;text-transform:uppercase;color:var(--text-dim);margin-bottom:.6rem;}
-.qc-prev{font-family:'DM Serif Display',serif;font-size:1.15rem;color:var(--text);margin-bottom:.85rem;min-height:1.5rem;}
+.qc-prev{font-family:'DM Serif Display',serif;font-size:1.05rem;color:var(--text);min-height:1.4rem;line-height:1.5;}
 .qc-slots{display:flex;flex-direction:column;gap:.45rem;margin-bottom:.8rem;}
 .slot-lbl{font-size:.47rem;letter-spacing:.2em;text-transform:uppercase;color:var(--text-dim);margin-bottom:.27rem;}
 .chip-row{display:flex;flex-wrap:wrap;gap:.27rem;padding:.37rem .48rem;background:rgba(255,255,255,.015);border:.5px solid var(--border);border-radius:7px;}
@@ -124,13 +124,19 @@ canvas#stars{position:fixed;inset:0;pointer-events:none;z-index:0;}
 .chip.tmpl-c.sel{border-color:rgba(52,211,153,.32);color:#34d399;background:rgba(52,211,153,.05);}
 .topic-inp{background:transparent;border:none;border-bottom:.5px solid var(--border-hi);outline:none;color:#60a5fa;font-family:'DM Mono',monospace;font-size:.75rem;padding:.15rem .3rem;width:160px;letter-spacing:.04em;}
 .topic-inp::placeholder{color:var(--text-dim);}
-.qc-foot{display:flex;gap:.4rem;justify-content:flex-end;}
+.qc-foot{display:flex;gap:.4rem;justify-content:flex-end;margin-top:.75rem;}
 .qbtn{padding:.38rem .85rem;border-radius:7px;font-size:.6rem;font-family:'DM Mono',monospace;cursor:pointer;transition:all .15s;letter-spacing:.07em;}
 .qbtn-ok{background:rgba(52,211,153,.09);border:.5px solid rgba(52,211,153,.24);color:#34d399;}
 .qbtn-ok:hover{background:rgba(52,211,153,.15);}
 .qbtn-cancel{background:transparent;border:.5px solid var(--border);color:var(--text-muted);}
 .qbtn-cancel:hover{color:var(--text);}
-
+/* Natural language composer */
+.qc-natural-inp{width:100%;background:transparent;border:none;border-bottom:.5px solid var(--border-hi);outline:none;color:var(--text);font-family:'DM Mono',monospace;font-size:.82rem;padding:.4rem .2rem;resize:none;letter-spacing:.02em;line-height:1.6;}
+.qc-natural-inp::placeholder{color:var(--text-dim);font-size:.72rem;}
+.qc-transform-row{margin:.65rem 0 .4rem;display:flex;flex-direction:column;gap:.3rem;}
+.qc-transform-arrow{font-size:.65rem;color:var(--text-dim);letter-spacing:.1em;opacity:.5;}
+.qc-transform-tags{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.3rem;}
+.qc-tag{font-size:.55rem;padding:.18rem .55rem;border-radius:10px;letter-spacing:.08em;}
 /* FACET PANEL */
 #facet-panel{display:none;position:fixed;bottom:0;left:0;right:0;z-index:55;}
 #facet-panel.on{display:block;animation:su .18s ease;}
@@ -463,12 +469,19 @@ canvas#stars{position:fixed;inset:0;pointer-events:none;z-index:0;}
     </div>
     <div id="q-composer">
       <div class="qc-wrap">
-        <div class="qc-lbl">Soruyu Kur</div>
-        <div class="qc-prev" id="qcprev">—</div>
-        <div class="qc-slots" id="qcslots"></div>
+        <div class="qc-lbl" id="qc-lbl-top">Soruyu nasıl oluşturalım?</div>
+        <!-- Doğal dil modu — varsayılan -->
+        <div id="qc-natural">
+          <textarea id="qc-natural-inp" class="qc-natural-inp" placeholder="istediğin gibi yaz… 'benim en sevdiğim renk', 'dilانın okulu', 'saz ilerleme'" rows="2"></textarea>
+          <div class="qc-transform-row" id="qc-transform-row" style="display:none">
+            <div class="qc-transform-arrow">↓</div>
+            <div class="qc-prev" id="qcprev">—</div>
+            <div class="qc-transform-tags" id="qc-transform-tags"></div>
+          </div>
+        </div>
         <div class="qc-foot">
           <button class="qbtn qbtn-cancel" onclick="resetComposer()">iptal</button>
-          <button class="qbtn qbtn-ok" onclick="confirmComposer()">kaydet →</button>
+          <button class="qbtn qbtn-ok" id="qc-save-btn" onclick="confirmComposer()" style="opacity:.4;pointer-events:none">kaydet →</button>
         </div>
       </div>
     </div>
@@ -5202,57 +5215,28 @@ function hideSug(){document.getElementById('sug-layer').classList.remove('on');}
 // COMPOSER
 // ══════════════════════════════════════════
 function openComposer(topic){
-  S.cTopic=topic||''; S.cCtx='—'; S.cTmpl='nedir';
+  S.cTopic = topic||'';
+  S._composerResult = null;
   buildComposerUI();
   document.getElementById('q-composer').classList.add('on');
-  updateComposerPreview();
+  const ta = document.getElementById('qc-natural-inp');
+  if(ta){
+    ta.value = topic||'';
+    if(topic) _analyzeNaturalInput(topic);
+    setTimeout(()=>{ ta.focus(); ta.setSelectionRange(ta.value.length,ta.value.length); },60);
+  }
 }
 
 function buildComposerUI(){
-  const slots=document.getElementById('qcslots'); slots.innerHTML='';
-
-  // Konu input
-  const tw=document.createElement('div');
-  const tl=document.createElement('div');tl.className='slot-lbl';tl.textContent='Konu';
-  const ti=document.createElement('input');ti.className='topic-inp';
-  ti.value=S.cTopic;ti.placeholder='kişi, yer, proje, belge…';
-  ti.oninput=()=>{S.cTopic=ti.value;updateComposerPreview();};
-  tw.appendChild(tl);tw.appendChild(ti);slots.appendChild(tw);
-
-  // Soru tipi — ikonlu chip'ler
-  const ql=document.createElement('div');ql.className='slot-lbl';ql.textContent='Soru Tipi';
-  slots.appendChild(ql);
-  const qrow=document.createElement('div');qrow.className='chip-row';qrow.style.flexWrap='wrap';qrow.style.gap='.22rem';
-
-  Q_TEMPLATES.forEach(tmpl=>{
-    const c=document.createElement('span');
-    c.className='chip tmpl-c'+(tmpl.id===S.cTmpl?' sel':'');
-    c.innerHTML=`<span style="opacity:.5;margin-right:.2rem">${tmpl.icon}</span>${tmpl.label}`;
-    c.title = tmpl.hint || '';
-    c.onclick=()=>{
-      qrow.querySelectorAll('.chip').forEach(x=>x.classList.remove('sel'));
-      c.classList.add('sel');
-      S.cTmpl=tmpl.id;
-      updateComposerPreview();
-      // Hint güncelle
-      const hintEl=document.getElementById('composer-hint');
-      if(hintEl) hintEl.textContent=tmpl.hint||'';
-    };
-    qrow.appendChild(c);
-  });
-  slots.appendChild(qrow);
-
-  // Seçili hint
-  const hintDiv=document.createElement('div');
-  hintDiv.id='composer-hint';
-  hintDiv.style.cssText='font-size:.52rem;color:var(--text-dim);margin-top:.2rem;letter-spacing:.05em;min-height:.8rem;';
-  const selTmpl=Q_TEMPLATES.find(t=>t.id===S.cTmpl);
-  hintDiv.textContent=selTmpl?.hint||'';
-  slots.appendChild(hintDiv);
-
-  // Bağlam
-  slots.appendChild(mkChipSlot('Bağlam','ctx-c',Q_CONTEXTS,S.cCtx,v=>{S.cCtx=v;updateComposerPreview();}));
+  const ta = document.getElementById('qc-natural-inp');
+  if(!ta) return;
+  ta.oninput = ()=> _analyzeNaturalInput(ta.value);
+  ta.onkeydown = e=>{
+    if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){ e.preventDefault(); confirmComposer(); }
+    if(e.key==='Escape'){ e.preventDefault(); resetComposer(); }
+  };
 }
+
 function mkChipSlot(label,cls,opts,sel,cb){
   const w=document.createElement('div');
   const l=document.createElement('div');l.className='slot-lbl';l.textContent=label;w.appendChild(l);
@@ -5265,19 +5249,102 @@ function mkChipSlot(label,cls,opts,sel,cb){
   });
   w.appendChild(row);return w;
 }
-function updateComposerPreview(){
-  const tmpl=Q_TEMPLATES.find(t=>t.id===S.cTmpl)||Q_TEMPLATES[1];
-  const ctx=(!S.cCtx||S.cCtx==='—')?'':S.cCtx+' ';
-  document.getElementById('qcprev').textContent=(ctx+(S.cTopic||'…')+' '+tmpl.suffix).trim();
+
+// ── DOĞAL DİL → SORU DÖNÜŞTÜRÜCÜ ───────────────────────────────────────
+function _analyzeNaturalInput(raw){
+  const v = raw.trim();
+  if(!v){ document.getElementById('qc-transform-row').style.display='none'; _setComposerReady(false); return; }
+  const result = _naturalToQuestion(v);
+  S._composerResult = result;
+  document.getElementById('qcprev').textContent = result.text;
+  document.getElementById('qc-transform-row').style.display = 'flex';
+  const tagsEl = document.getElementById('qc-transform-tags'); tagsEl.innerHTML='';
+  [
+    {label:result.template_label, color:'rgba(52,211,153,.2)', border:'rgba(52,211,153,.35)', text:'#34d399'},
+    {label:result.family,         color:'rgba(167,139,250,.1)', border:'rgba(167,139,250,.3)', text:'#a78bfa'},
+    ...(result.topic&&result.topic!==v ? [{label:'→ '+result.topic, color:'rgba(96,165,250,.1)', border:'rgba(96,165,250,.3)', text:'#60a5fa'}] : []),
+  ].forEach(t=>{
+    const chip=document.createElement('span'); chip.className='qc-tag';
+    chip.style.cssText=`background:${t.color};border:.5px solid ${t.border};color:${t.text}`;
+    chip.textContent=t.label; tagsEl.appendChild(chip);
+  });
+  _setComposerReady(true);
 }
+
+function _setComposerReady(ready){
+  const btn=document.getElementById('qc-save-btn'); if(!btn)return;
+  btn.style.opacity=ready?'1':'.4'; btn.style.pointerEvents=ready?'all':'none';
+}
+
+function _naturalToQuestion(raw){
+  const t = raw.toLowerCase().trim();
+  if(t.endsWith('?')){
+    const fam=detectFamily(raw); const tmpl=_guessTemplate(t);
+    return {text:raw.charAt(0).toUpperCase()+raw.slice(1), template:tmpl.id, template_label:tmpl.label, family:fam, topic:_extractTopic(t)};
+  }
+  const patterns = [
+    {re:/^(.+?)(?:'[a-züğışöçğüşıöç]*n?ın|'nin|'nın|'nün|'nun|'in|'ın)\s+doğum\s+günü/, tmpl:'nezaman', fam:'memory', text:(m)=>`${_cap(m[1])}'in doğum günü ne zaman?`, topic:(m)=>_cap(m[1])},
+    {re:/^(.+?)\s+okul/, tmpl:'nerede_yer', fam:'places', text:(m)=>`${_cap(m[1])} nerede okuyor?`, topic:(m)=>_cap(m[1])},
+    {re:/^(.+?)(?:'[a-züğışöçğüşıöç]*n?ın|'nin|'ın|'nın)\s+(?:teli|telefonu|numarası|tel\b|no\b)/, tmpl:'kac', fam:'contacts', text:(m)=>`${_cap(m[1])}'in telefonu nedir?`, topic:(m)=>_cap(m[1])},
+    {re:/^(?:benim\s+)?en\s+sevdiğim\s+(.+)/, tmpl:'en_sevdigi', fam:'preferences', text:(m)=>`Benim en sevdiğim ${m[1]} hangisi?`, topic:(m)=>m[1]},
+    {re:/^(.+?)\s+(?:ilerleme|ne aşamada|durum|aşama|süreç)/, tmpl:'ne_asamada', fam:'projects', text:(m)=>`${_cap(m[1])} ne aşamada?`, topic:(m)=>_cap(m[1])},
+    {re:/^(.+?)\s+ne\s+zaman/, tmpl:'nezaman', fam:'memory', text:(m)=>`${_cap(m[1])} ne zaman?`, topic:(m)=>_cap(m[1])},
+    {re:/^(.+?)\s+nasıl/, tmpl:'nasil', fam:'knowledge', text:(m)=>`${_cap(m[1])} nasıl?`, topic:(m)=>_cap(m[1])},
+    {re:/^(.+?)\s+nerede/, tmpl:'nerede_yer', fam:'places', text:(m)=>`${_cap(m[1])} nerede?`, topic:(m)=>_cap(m[1])},
+    {re:/^(.+?)\s+neden/, tmpl:'neden', fam:'knowledge', text:(m)=>`${_cap(m[1])} neden önemli?`, topic:(m)=>_cap(m[1])},
+    {re:/^(.+?)\s+kim\b/, tmpl:'kim', fam:'family', text:(m)=>`${_cap(m[1])} kim?`, topic:(m)=>_cap(m[1])},
+    {re:/^(.+?)\s+nedir/, tmpl:'nedir', fam:'knowledge', text:(m)=>`${_cap(m[1])} nedir?`, topic:(m)=>_cap(m[1])},
+    {re:/^(.+?)\s+(?:ne anlama|ne ifade|bana ne)/, tmpl:'ne_anlama', fam:'identity', text:(m)=>`${_cap(m[1])} bana ne anlama geliyor?`, topic:(m)=>_cap(m[1])},
+    {re:/^(.+?)\s+(?:ne yapmalı|nasıl yapmalı|ne yapabili)/, tmpl:'yapmalı', fam:'projects', text:(m)=>`${_cap(m[1])} için ne yapmalıyım?`, topic:(m)=>_cap(m[1])},
+    {re:/^(.+?)\s+(?:fiyat|değer|kaç|miktar|tutar|ücret)/, tmpl:'kac', fam:'finance', text:(m)=>`${_cap(m[1])} değeri nedir?`, topic:(m)=>_cap(m[1])},
+  ];
+  for(const p of patterns){
+    const m=t.match(p.re);
+    if(m){
+      const tmplObj=Q_TEMPLATES.find(qt=>qt.id===p.tmpl)||{id:p.tmpl,label:p.tmpl};
+      return {text:p.text(m), template:p.tmpl, template_label:tmplObj.label||p.tmpl, family:p.fam, topic:p.topic(m)};
+    }
+  }
+  // Possessive — "X'in Y"
+  const possM=t.match(/^(.+?)(?:'[a-züğışöçğüşıöç]*n?ın|'nin|'ın|'nın|'nün|'nun)\s+(.+)/);
+  if(possM){
+    const owner=_cap(possM[1]),thing=possM[2];
+    const fam=detectFamily(thing); const tmpl=_guessTemplate(thing);
+    return {text:`${owner}'in ${thing} nedir?`, template:tmpl.id, template_label:tmpl.label, family:fam, topic:owner};
+  }
+  const fam=detectFamily(t); const tmpl=_guessTemplate(t);
+  return {text:`${_cap(raw)} nedir?`, template:tmpl.id, template_label:tmpl.label, family:fam, topic:_cap(raw)};
+}
+
+function _cap(s){ return s?s.charAt(0).toUpperCase()+s.slice(1):s; }
+function _guessTemplate(t){
+  if(/kim\b/.test(t)) return Q_TEMPLATES.find(x=>x.id==='kim')||Q_TEMPLATES[0];
+  if(/nerede/.test(t)) return Q_TEMPLATES.find(x=>x.id==='nerede_yer')||Q_TEMPLATES[0];
+  if(/ne zaman|nezaman/.test(t)) return Q_TEMPLATES.find(x=>x.id==='nezaman')||Q_TEMPLATES[0];
+  if(/nasıl/.test(t)) return Q_TEMPLATES.find(x=>x.id==='nasil')||Q_TEMPLATES[0];
+  if(/neden/.test(t)) return Q_TEMPLATES.find(x=>x.id==='neden')||Q_TEMPLATES[0];
+  if(/ne yapmalı|yapmalıyım/.test(t)) return Q_TEMPLATES.find(x=>x.id==='yapmalı')||Q_TEMPLATES[0];
+  if(/en sevdiğim|favorim/.test(t)) return Q_TEMPLATES.find(x=>x.id==='en_sevdigi')||Q_TEMPLATES[0];
+  if(/ne aşamada|ilerleme|durum/.test(t)) return Q_TEMPLATES.find(x=>x.id==='ne_asamada')||Q_TEMPLATES[0];
+  if(/değer|kaç|fiyat|tutar/.test(t)) return Q_TEMPLATES.find(x=>x.id==='kac')||Q_TEMPLATES[0];
+  if(/ne anlama|bana ne/.test(t)) return Q_TEMPLATES.find(x=>x.id==='ne_anlama')||Q_TEMPLATES[0];
+  return Q_TEMPLATES.find(x=>x.id==='nedir')||Q_TEMPLATES[0];
+}
+function _extractTopic(t){
+  return _cap(t.replace(/\?$/,'').replace(/\b(kim|nedir|nerede|nasıl|neden|ne zaman|ne yapmalıyım|kiminle|bana ne|ne anlama|ne aşamada|değeri|kaç)\b/gi,'').replace(/\b(bir|bu|o|benim|onun|şu)\b/gi,'').trim());
+}
+
+function updateComposerPreview(){
+  const ta=document.getElementById('qc-natural-inp');
+  if(ta?.value) _analyzeNaturalInput(ta.value);
+}
+
 function confirmComposer(){
-  const tmpl=Q_TEMPLATES.find(t=>t.id===S.cTmpl)||Q_TEMPLATES.find(t=>t.id==='nedir');
-  const ctx=(!S.cCtx||S.cCtx==='—')?'':S.cCtx+' ';
-  const text=(ctx+(S.cTopic||'konu')+' '+tmpl.suffix).trim();
+  const result=S._composerResult; if(!result)return;
   document.getElementById('q-composer').classList.remove('on');
   document.getElementById('input-field').value='';
-  const q=mkQuestion({text,template:S.cTmpl,topic:S.cTopic,context:S.cCtx,family:tmpl.family});
-  bigBang(text,q); updateCounters(); saveUniverse(); openFacetPanel(q);
+  const q=mkQuestion({text:result.text, template:result.template, topic:result.topic, family:result.family});
+  bigBang(result.text,q); updateCounters(); saveUniverse(); openFacetPanel(q);
 }
 function resetComposer(){
   document.getElementById('q-composer').classList.remove('on');
