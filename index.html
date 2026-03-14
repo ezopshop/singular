@@ -2959,14 +2959,19 @@ function mkEntity(type, label, domainId, props){
   if(!label?.trim()) return null;  // Guard: empty label rejected
 
   // Resolve canonical form — Hollanda / Nederland → Hollanda
-  const resolvedLabel = resolveCanonical(label) || label;
+  const resolvedRaw = resolveCanonical(label);
+  // Eğer alias map'ten geldiyse canonical'ı al, yoksa orijinal label'ı koru
+  // ÖNEMLI: label büyük/küçük harf orijinalini koru — sadece slug küçük
+  const resolvedLabel = (resolvedRaw && resolvedRaw !== label)
+    ? resolvedRaw   // alias'tan canonical geldi
+    : label;        // orijinal label — büyük/küçük harf korunur
 
-  // Normalize slug — Türkçe karakterleri koru, boşluk → _
+  // Normalize slug — sadece slug küçük harf
   const slug = resolvedLabel.toLowerCase()
     .replace(/\s+/g,'_')
     .replace(/@/g,'')
     .trim();
-  const label_final = resolvedLabel;
+  const label_final = resolvedLabel;  // orijinal büyük/küçük harf
 
   const existing = S.universe.entities.find(e => e.slug===slug);
   if(existing){
@@ -4274,21 +4279,25 @@ function processStatement(text){
     // İsim geldiyse — label güncelle + alias ekle + SLUG güncelleme
     if(parsed.prop === 'name'){
       const oldLabel = selfEnt.label;
-      selfEnt.label = parsed.value;
-      S.universe.profile.name = parsed.value;
-      // ALIAS_INDEX güncelle — eski isim alias olarak ekle
-      if(oldLabel && oldLabel !== 'ben' && oldLabel !== parsed.value){
-        if(!selfEnt.properties.aliases) selfEnt.properties.aliases=[];
+      const newName = parsed.value; // Büyük/küçük harf orijinalini koru
+      selfEnt.label = newName;
+      selfEnt.type = 'person'; // Her zaman person
+      S.universe.profile.name = newName;
+      // Slug güncelle — artık 'ben' değil 'cemo' olacak
+      selfEnt.slug = newName.toLowerCase().replace(/\s+/g,'_').replace(/@/g,'');
+      // ALIAS_INDEX güncelle — eski isimler alias
+      if(!selfEnt.properties.aliases) selfEnt.properties.aliases=[];
+      if(oldLabel && oldLabel !== 'ben' && oldLabel !== newName && !selfEnt.properties.aliases.includes(oldLabel)){
         selfEnt.properties.aliases.push(oldLabel);
-        ALIAS_INDEX[oldLabel.toLowerCase()] = parsed.value;
+        ALIAS_INDEX[oldLabel.toLowerCase()] = newName;
       }
-      // ALIAS_INDEX — yeni isim → self'e işaret etsin
-      ALIAS_INDEX[parsed.value.toLowerCase()] = parsed.value;
-      ENTITY_TYPE_MEMORY[parsed.value.toLowerCase()] = 'person';
+      ALIAS_INDEX['ben'] = newName;
+      ALIAS_INDEX[newName.toLowerCase()] = newName;
+      ENTITY_TYPE_MEMORY[newName.toLowerCase()] = 'person';
       // Cosmos node label güncelle
       const gLbl = svgEl?.querySelector(`[data-nid="${selfEnt.id}"] text`);
-      if(gLbl) gLbl.textContent = parsed.value.slice(0,16);
-      // Profile panel güncelle
+      if(gLbl) gLbl.textContent = newName.slice(0,16);
+      // Type badge güncelle varsa
       updateTodayPanel();
     }
     // Credential entity — şifre, mail, telefon
