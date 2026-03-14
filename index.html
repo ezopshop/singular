@@ -226,6 +226,20 @@ canvas#stars{position:fixed;inset:0;pointer-events:none;z-index:0;}
 .gp-dot.ok{background:#34d399;}
 .gp-dot.dim{background:var(--text-dim);}
 
+
+/* ══ ACTION PANEL ══ */
+#action-panel-overlay{
+  position:fixed;top:0;left:0;bottom:0;width:320px;
+  background:rgba(8,8,16,.97);border-right:.5px solid var(--border-hi);
+  transform:translateX(-100%);transition:transform .35s cubic-bezier(.16,1,.3,1);
+  z-index:60;display:flex;flex-direction:column;
+}
+#action-panel-overlay.open{transform:translateX(0);}
+.ap-header{display:flex;align-items:center;justify-content:space-between;
+  padding:1.1rem 1.2rem .8rem;border-bottom:.5px solid var(--border);}
+.ap-title{font-family:'DM Serif Display',serif;font-size:1rem;color:var(--text);}
+.ap-close{background:transparent;border:none;color:var(--text-muted);cursor:pointer;font-size:.9rem;}
+#ap-body{flex:1;overflow-y:auto;padding:1rem 1.2rem;}
 /* ══ EDIT CONTROLS ══ */
 .p-edit-input{
   width:100%;background:rgba(255,255,255,.03);border:.5px solid var(--border-hi);
@@ -372,7 +386,7 @@ canvas#stars{position:fixed;inset:0;pointer-events:none;z-index:0;}
 <div id="universe">
   <svg id="cosmos"></svg>
 
-  <div id="status"><div class="sdot" id="sdot"></div><span id="stext">bağlanıyor…</span><button onclick="openSearch()" style="background:transparent;border:.5px solid var(--border);border-radius:5px;color:var(--text-dim);font-family:'DM Mono',monospace;font-size:.52rem;letter-spacing:.12em;padding:.18rem .5rem;cursor:pointer;transition:all .2s;margin-left:.3rem;" title="Ara (⌘K)">⌕ ara</button><button id="logout-btn" onclick="logout()" title="Çıkış yap">✕ çıkış</button></div>
+  <div id="status"><div class="sdot" id="sdot"></div><span id="stext">bağlanıyor…</span><button onclick="openActionPanel()" style="background:transparent;border:.5px solid var(--border);border-radius:5px;color:var(--text-dim);font-family:'DM Mono',monospace;font-size:.52rem;letter-spacing:.12em;padding:.18rem .5rem;cursor:pointer;transition:all .2s;margin-left:.3rem;" title="Eylemler">⚡ eylem</button><button onclick="openSearch()" style="background:transparent;border:.5px solid var(--border);border-radius:5px;color:var(--text-dim);font-family:'DM Mono',monospace;font-size:.52rem;letter-spacing:.12em;padding:.18rem .5rem;cursor:pointer;transition:all .2s;margin-left:.3rem;" title="Ara (⌘K)">⌕ ara</button><button id="logout-btn" onclick="logout()" title="Çıkış yap">✕ çıkış</button></div>
   <div id="topright"><div id="nc">0 varlık</div><div id="qc">0 soru</div></div>
 
   <!-- TODAY PANEL -->
@@ -1175,6 +1189,10 @@ function computeGuidance(){
     });
   }
 
+  // Merge action items (tasks, routines) into guidance
+  const actionItems = computeActionItems();
+  items.push(...actionItems);
+
   // Sort by priority desc, cap at 4
   items.sort((a,b)=>b.priority-a.priority);
   GUIDANCE.items = items.slice(0,4);
@@ -1445,6 +1463,308 @@ function mergeAndClean(sourceId, targetId){
   auditLog('merge_entity', {source:sourceId, target:targetId});
   saveUniverse();
   updateCounters();
+}
+
+
+
+// ══════════════════════════════════════════
+// ACTION & ROUTINE LAYER v1
+// task, routine, preference_list, people care loop
+// ══════════════════════════════════════════
+
+// ── TASK CRUD ────────────────────────────
+function mkTask(text, opts={}){
+  if(!text?.trim()) return null;
+  const t={
+    id:uid('task'), text:text.trim(),
+    status:'open',         // open | done | cancelled
+    priority:opts.priority||'normal',  // low | normal | high | urgent
+    due_date:opts.due_date||null,
+    related_entity_id:opts.related_entity_id||null,
+    created_at:new Date().toISOString(),
+    completed_at:null
+  };
+  S.universe.tasks.push(t);
+  auditLog('create_task',{taskId:t.id,text:t.text});
+  saveUniverse(); updateCounters();
+  return t;
+}
+
+function completeTask(taskId){
+  const t=S.universe.tasks.find(x=>x.id===taskId); if(!t) return;
+  t.status='done'; t.completed_at=new Date().toISOString();
+  auditLog('complete_task',{taskId,text:t.text});
+  saveUniverse(); refreshActionPanel();
+}
+
+function deleteTask(taskId){
+  const t=S.universe.tasks.find(x=>x.id===taskId); if(!t) return;
+  S.universe.tasks=S.universe.tasks.filter(x=>x.id!==taskId);
+  auditLog('delete_task',{taskId,text:t.text});
+  saveUniverse(); refreshActionPanel();
+}
+
+// ── ROUTINE CRUD ─────────────────────────
+const FREQ_LABELS = {daily:'Günlük',weekly:'Haftalık',monthly:'Aylık',custom:'Özel'};
+
+function mkRoutine(label, opts={}){
+  if(!label?.trim()) return null;
+  const r={
+    id:uid('rtn'), label:label.trim(),
+    frequency:opts.frequency||'daily',      // daily|weekly|monthly|custom
+    preferred_time:opts.preferred_time||null,
+    importance:opts.importance||'normal',
+    last_completed:null,
+    related_entity_id:opts.related_entity_id||null,
+    created_at:new Date().toISOString()
+  };
+  S.universe.routines.push(r);
+  auditLog('create_routine',{routineId:r.id,label:r.label});
+  saveUniverse(); updateCounters();
+  return r;
+}
+
+function completeRoutine(routineId){
+  const r=S.universe.routines.find(x=>x.id===routineId); if(!r) return;
+  r.last_completed=new Date().toISOString();
+  auditLog('complete_routine',{routineId,label:r.label});
+  saveUniverse(); refreshActionPanel();
+}
+
+function deleteRoutine(routineId){
+  S.universe.routines=S.universe.routines.filter(x=>x.id!==routineId);
+  saveUniverse(); refreshActionPanel();
+}
+
+// ── PREFERENCE LIST CRUD ──────────────────
+function mkPreferenceList(category, label){
+  if(!label?.trim()) return null;
+  const p={id:uid('pref'),category,label:label.trim(),items:[],created_at:new Date().toISOString()};
+  S.universe.preferences.push(p);
+  saveUniverse();
+  return p;
+}
+
+function addPreferenceItem(prefId, item){
+  const p=S.universe.preferences.find(x=>x.id===prefId); if(!p||!item?.trim()) return;
+  if(!p.items.includes(item.trim())) p.items.push(item.trim());
+  saveUniverse();
+}
+
+// ── ROUTINE DUE CHECK ────────────────────
+function isRoutineDue(routine){
+  if(!routine.last_completed) return true; // never done
+  const now=TC.now||new Date();
+  const last=new Date(routine.last_completed);
+  const diffH=(now-last)/(1000*60*60);
+  if(routine.frequency==='daily')   return diffH>=22;  // ~24h with buffer
+  if(routine.frequency==='weekly')  return diffH>=158; // ~7 days
+  if(routine.frequency==='monthly') return diffH>=696; // ~29 days
+  return false;
+}
+
+// ── PEOPLE CARE DETECTION ─────────────────
+// Person entity'si important ise bakım takibi
+function getPeopleCareItems(){
+  const care = [];
+  const importantPersons = S.universe.entities.filter(e=>
+    e.type==='person' && !e.properties?.deleted &&
+    ['family','child_of','parent_of','spouse_of','sibling_of'].some(rel=>
+      S.universe.links.some(l=>(l.from===e.id||l.to===e.id)&&l.relation===rel)
+    )
+  );
+  importantPersons.forEach(person=>{
+    // Check routine for this person
+    const personRoutines = S.universe.routines.filter(r=>r.related_entity_id===person.id);
+    personRoutines.forEach(r=>{
+      if(isRoutineDue(r)){
+        care.push({
+          type:'routine_due', priority:7,
+          dot:'urgent',
+          text:`${person.label} ile "${r.label}" bugün yapılmadı`,
+          action:()=>{ focusEntity(person.id); openPanelEntity(person.id); }
+        });
+      }
+    });
+  });
+  return care;
+}
+
+// ── ACTION PANEL ENGINE ──────────────────
+function computeActionItems(){
+  const items=[];
+  const now=TC.now||new Date();
+  const todayStr=now.toISOString().slice(0,10);
+
+  // 1. People care
+  items.push(...getPeopleCareItems());
+
+  // 2. Tasks due today or overdue
+  const dueTasks=S.universe.tasks.filter(t=>{
+    if(t.status!=='open') return false;
+    if(!t.due_date) return false;
+    return t.due_date<=todayStr;
+  });
+  if(dueTasks.length){
+    const overdue=dueTasks.filter(t=>t.due_date<todayStr);
+    const today=dueTasks.filter(t=>t.due_date===todayStr);
+    if(overdue.length) items.push({type:'overdue_task',priority:9,dot:'urgent',
+      text:`${overdue.length} gecikmiş görev var`,
+      action:()=>openActionPanel()});
+    if(today.length) items.push({type:'due_task',priority:8,dot:'info',
+      text:`Bugün ${today.length} görev tamamlanmalı`,
+      action:()=>openActionPanel()});
+  }
+
+  // 3. Due routines (non-person)
+  const dueRoutines=S.universe.routines.filter(r=>!r.related_entity_id&&isRoutineDue(r));
+  if(dueRoutines.length){
+    items.push({type:'routine_due',priority:6,dot:'info',
+      text:`${dueRoutines.length} bekleyen rutin`,
+      action:()=>openActionPanel()});
+  }
+
+  // 4. Open tasks without due date (as reminder)
+  const openNoDue=S.universe.tasks.filter(t=>t.status==='open'&&!t.due_date);
+  if(openNoDue.length>2){
+    items.push({type:'open_tasks',priority:2,dot:'dim',
+      text:`${openNoDue.length} açık görev bekliyor`,
+      action:()=>openActionPanel()});
+  }
+
+  return items.sort((a,b)=>b.priority-a.priority).slice(0,3);
+}
+
+// ── ACTION PANEL UI ────────────────────────
+function openActionPanel(){
+  const panel=document.getElementById('action-panel-overlay');
+  if(panel) panel.classList.add('open');
+  renderActionPanel();
+}
+function closeActionPanel(){
+  document.getElementById('action-panel-overlay')?.classList.remove('open');
+}
+function refreshActionPanel(){
+  if(document.getElementById('action-panel-overlay')?.classList.contains('open'))
+    renderActionPanel();
+  // Also refresh guidance
+  if(GUIDANCE) GUIDANCE.lastComputed=null;
+  updateTodayPanel();
+}
+
+function renderActionPanel(){
+  const body=document.getElementById('ap-body'); if(!body) return;
+  const now=TC.now||new Date();
+  const todayStr=now.toISOString().slice(0,10);
+  body.innerHTML='';
+
+  // ── TASKS SECTION
+  const openTasks=S.universe.tasks.filter(t=>t.status==='open');
+  const doneTodayTasks=S.universe.tasks.filter(t=>t.status==='done'&&t.completed_at?.startsWith(todayStr));
+  const sec1=apSection('Görevler');
+  // Add task input
+  const taskRow=document.createElement('div');taskRow.style.cssText='display:flex;gap:.4rem;margin-bottom:.5rem;';
+  const taskInp=document.createElement('input');taskInp.className='p-edit-input';taskInp.style.margin='0';
+  taskInp.placeholder='Yeni görev ekle…';
+  const prioSel=document.createElement('select');
+  prioSel.style.cssText='background:var(--bg2);color:var(--text-muted);border:.5px solid var(--border);border-radius:5px;font-family:"DM Mono",monospace;font-size:.58rem;padding:.2rem .3rem;cursor:pointer;';
+  ['normal','high','urgent'].forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent={normal:'·',high:'!','urgent':'!!'}[p];prioSel.appendChild(o);});
+  const addBtn=document.createElement('button');addBtn.className='p-qa-btn primary';addBtn.style.cssText='flex-shrink:0;padding:.3rem .6rem;';addBtn.textContent='+';
+  addBtn.onclick=()=>{if(taskInp.value.trim()){mkTask(taskInp.value,{priority:prioSel.value});taskInp.value='';renderActionPanel();}};
+  taskInp.addEventListener('keydown',e=>{if(e.key==='Enter')addBtn.click();});
+  taskRow.appendChild(taskInp);taskRow.appendChild(prioSel);taskRow.appendChild(addBtn);
+  sec1.appendChild(taskRow);
+
+  if(!openTasks.length){
+    const empty=document.createElement('div');empty.style.cssText='font-size:.6rem;color:var(--text-dim);padding:.3rem 0;';
+    empty.textContent='Açık görev yok ✓'; sec1.appendChild(empty);
+  }
+  openTasks.forEach(t=>{
+    const item=apTaskItem(t);
+    sec1.appendChild(item);
+  });
+  if(doneTodayTasks.length){
+    const doneHdr=document.createElement('div');doneHdr.style.cssText='font-size:.48rem;letter-spacing:.15em;text-transform:uppercase;color:var(--text-dim);margin:.5rem 0 .25rem;';
+    doneHdr.textContent='Bugün tamamlananlar';sec1.appendChild(doneHdr);
+    doneTodayTasks.forEach(t=>{const item=apTaskItem(t,true);sec1.appendChild(item);});
+  }
+  body.appendChild(sec1);
+
+  // ── ROUTINES SECTION
+  const sec2=apSection('Rutinler');
+  const routineRow=document.createElement('div');routineRow.style.cssText='display:flex;gap:.4rem;margin-bottom:.5rem;';
+  const routineInp=document.createElement('input');routineInp.className='p-edit-input';routineInp.style.margin='0';routineInp.placeholder='Yeni rutin ekle…';
+  const freqSel=document.createElement('select');
+  freqSel.style.cssText=prioSel.style.cssText;
+  ['daily','weekly','monthly'].forEach(f=>{const o=document.createElement('option');o.value=f;o.textContent=FREQ_LABELS[f];freqSel.appendChild(o);});
+  const addRtn=document.createElement('button');addRtn.className='p-qa-btn primary';addRtn.style.cssText='flex-shrink:0;padding:.3rem .6rem;';addRtn.textContent='+';
+  addRtn.onclick=()=>{if(routineInp.value.trim()){mkRoutine(routineInp.value,{frequency:freqSel.value});routineInp.value='';renderActionPanel();}};
+  routineInp.addEventListener('keydown',e=>{if(e.key==='Enter')addRtn.click();});
+  routineRow.appendChild(routineInp);routineRow.appendChild(freqSel);routineRow.appendChild(addRtn);
+  sec2.appendChild(routineRow);
+
+  if(!S.universe.routines.length){
+    const empty=document.createElement('div');empty.style.cssText='font-size:.6rem;color:var(--text-dim);padding:.3rem 0;';
+    empty.textContent='Henüz rutin eklenmedi';sec2.appendChild(empty);
+  }
+  S.universe.routines.forEach(r=>{
+    const due=isRoutineDue(r);
+    const item=document.createElement('div');
+    item.style.cssText='display:flex;align-items:center;gap:.5rem;padding:.35rem .4rem;border-radius:6px;margin-bottom:.2rem;background:'+(due?'rgba(245,158,11,.04)':'transparent')+';';
+    const dot=document.createElement('div');dot.style.cssText='width:5px;height:5px;border-radius:50%;flex-shrink:0;background:'+(due?'#f59e0b':'#34d399')+';';
+    const lbl=document.createElement('span');lbl.style.cssText='flex:1;font-size:.65rem;color:'+(due?'var(--text)':'var(--text-muted)')+';';
+    lbl.textContent=r.label+' ('+FREQ_LABELS[r.frequency]+')';
+    const doneBtn=document.createElement('button');doneBtn.style.cssText='background:transparent;border:.5px solid rgba(52,211,153,.3);border-radius:4px;color:#34d399;font-size:.55rem;padding:.12rem .4rem;cursor:pointer;font-family:"DM Mono",monospace;';
+    doneBtn.textContent='✓ yaptım';doneBtn.onclick=()=>completeRoutine(r.id);
+    const delBtn=document.createElement('button');delBtn.style.cssText='background:transparent;border:none;color:rgba(248,113,113,.3);font-size:.65rem;cursor:pointer;padding:0 .2rem;';
+    delBtn.textContent='✕';delBtn.onclick=()=>deleteRoutine(r.id);
+    item.appendChild(dot);item.appendChild(lbl);item.appendChild(doneBtn);item.appendChild(delBtn);
+    sec2.appendChild(item);
+  });
+  body.appendChild(sec2);
+
+  // ── PREFERENCES SECTION
+  const sec3=apSection('Tercihler');
+  const prefRow=document.createElement('div');prefRow.style.cssText='display:flex;gap:.4rem;margin-bottom:.5rem;';
+  const prefInp=document.createElement('input');prefInp.className='p-edit-input';prefInp.style.margin='0';prefInp.placeholder='Liste adı (ör: favori yemekler)…';
+  const addPref=document.createElement('button');addPref.className='p-qa-btn';addPref.style.cssText='flex-shrink:0;padding:.3rem .6rem;';addPref.textContent='+';
+  addPref.onclick=()=>{if(prefInp.value.trim()){mkPreferenceList('general',prefInp.value);prefInp.value='';renderActionPanel();}};
+  prefInp.addEventListener('keydown',e=>{if(e.key==='Enter')addPref.click();});
+  prefRow.appendChild(prefInp);prefRow.appendChild(addPref);sec3.appendChild(prefRow);
+
+  S.universe.preferences.slice(0,5).forEach(p=>{
+    const item=document.createElement('div');item.style.cssText='display:flex;align-items:center;gap:.4rem;margin-bottom:.25rem;cursor:pointer;';
+    const lbl=document.createElement('span');lbl.style.cssText='font-size:.65rem;color:var(--text-muted);flex:1;';
+    lbl.textContent=`★ ${p.label} (${p.items.length})`;
+    const delBtn=document.createElement('button');delBtn.style.cssText='background:transparent;border:none;color:rgba(248,113,113,.3);font-size:.65rem;cursor:pointer;';
+    delBtn.textContent='✕';delBtn.onclick=()=>{S.universe.preferences=S.universe.preferences.filter(x=>x.id!==p.id);saveUniverse();renderActionPanel();};
+    item.appendChild(lbl);item.appendChild(delBtn);sec3.appendChild(item);
+  });
+  body.appendChild(sec3);
+}
+
+function apSection(title){
+  const sec=document.createElement('div');sec.style.cssText='margin-bottom:1rem;';
+  const hdr=document.createElement('div');hdr.style.cssText='font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--text-dim);margin-bottom:.5rem;padding-bottom:.3rem;border-bottom:.5px solid var(--border);';
+  hdr.textContent=title;sec.appendChild(hdr);return sec;
+}
+
+function apTaskItem(t, done=false){
+  const item=document.createElement('div');
+  item.style.cssText='display:flex;align-items:center;gap:.4rem;padding:.3rem .2rem;border-radius:5px;margin-bottom:.18rem;opacity:'+(done?'.5':'1')+';';
+  const prioColor={normal:'var(--text-dim)',high:'#f59e0b',urgent:'#f87171'}[t.priority]||'var(--text-dim)';
+  const dot=document.createElement('div');dot.style.cssText=`width:5px;height:5px;border-radius:50%;flex-shrink:0;background:${done?'#34d399':prioColor};`;
+  const lbl=document.createElement('span');lbl.style.cssText='flex:1;font-size:.65rem;color:'+(done?'var(--text-dim)':'var(--text)')+';'+(done?'text-decoration:line-through;':'');
+  lbl.textContent=t.text+(t.due_date?' ('+t.due_date+')':'');
+  item.appendChild(dot);item.appendChild(lbl);
+  if(!done){
+    const doneBtn=document.createElement('button');doneBtn.style.cssText='background:transparent;border:.5px solid rgba(52,211,153,.3);border-radius:4px;color:#34d399;font-size:.55rem;padding:.1rem .35rem;cursor:pointer;font-family:"DM Mono",monospace;';
+    doneBtn.textContent='✓';doneBtn.onclick=()=>completeTask(t.id);
+    const delBtn=document.createElement('button');delBtn.style.cssText='background:transparent;border:none;color:rgba(248,113,113,.3);font-size:.65rem;cursor:pointer;padding:0 .15rem;';
+    delBtn.textContent='✕';delBtn.onclick=()=>deleteTask(t.id);
+    item.appendChild(doneBtn);item.appendChild(delBtn);
+  }
+  return item;
 }
 
 
@@ -2327,18 +2647,19 @@ const S = {
 function createUniverse(){
   const now=new Date().toISOString();
   return {
-    meta:{version:'4.0',created_at:now,updated_at:now},
+    meta:{version:'5.0',created_at:now,updated_at:now},
     profile:{name:null,gender:null},
     entries:[],questions:[],answers:[],
-    entities:[],  // {id,type,label,slug,domain,created_at,properties:{}}
-    links:[],     // {id,from,to,relation,created_at}
-    domains:{}    // active domain ids
+    entities:[],links:[],domains:{},
+    tasks:[],      // {id,text,status,priority,due_date,related_entity_id,created_at,completed_at}
+    routines:[],   // {id,label,frequency,preferred_time,importance,last_completed,related_entity_id,created_at}
+    preferences:[] // {id,category,label,items:[],created_at}
   };
 }
 
 function migrateUniverse(u){
   if(!u) return createUniverse();
-  ['questions','answers','entities','links','entries'].forEach(k=>{if(!u[k])u[k]=[];});
+  ['questions','answers','entities','links','entries','tasks','routines','preferences'].forEach(k=>{if(!u[k])u[k]=[];});
   if(!u.profile) u.profile={name:null,gender:null};
   if(!u.domains) u.domains={};
   if(!u.meta) u.meta={version:'4.1',created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
@@ -2863,7 +3184,7 @@ function detectFamily(text){
 }
 
 function updateCounters(){
-  document.getElementById('nc').textContent=S.universe.entities.length+' varlık';
+  document.getElementById('nc').textContent=S.universe.entities.filter(e=>!e.properties?.deleted).length+' varlık';
   document.getElementById('qc').textContent=S.universe.questions.length+' soru';
   // Guidance recompute on graph change
   if(GUIDANCE?.lastComputed) GUIDANCE.lastComputed=null;
