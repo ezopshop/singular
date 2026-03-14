@@ -739,6 +739,237 @@ document.getElementById('search-input')?.addEventListener('keydown', e=>{
 });
 
 
+
+// ══════════════════════════════════════════
+// CANONICALIZATION ENGINE
+// Aynı varlığın farklı yazımlarını birleştirir
+// Hollanda / Nederland / Netherlands → tek entity
+// ══════════════════════════════════════════
+
+// Known alias groups — seed list (kullanıcı büyütebilir)
+const ALIAS_SEEDS = [
+  // Ülkeler
+  {canonical:'Hollanda', aliases:['nederland','netherlands','the netherlands','hollanda']},
+  {canonical:'Almanya',  aliases:['deutschland','germany','almanya']},
+  {canonical:'İngiltere',aliases:['uk','united kingdom','england','britain','ingiltere']},
+  {canonical:'Türkiye',  aliases:['turkey','turkiye','türkiye']},
+  {canonical:'Amerika',  aliases:['usa','united states','us','america','abd','amerika']},
+  {canonical:'Fransa',   aliases:['france','fransa']},
+  // Şehirler
+  {canonical:'İstanbul', aliases:['istanbul','stanbul','ist']},
+  {canonical:'Ankara',   aliases:['ankara','ank']},
+  {canonical:'Maraş',    aliases:['kahramanmaraş','k.maraş','maraş']},
+  // Servisler
+  {canonical:'Google',   aliases:['google','gmail','google drive','google docs']},
+];
+
+// Runtime alias index: 'nederland' → {canonical:'Hollanda', entityId?}
+const ALIAS_INDEX = {};
+
+function buildAliasIndex(){
+  ALIAS_SEEDS.forEach(({canonical, aliases})=>{
+    aliases.forEach(alias=>{
+      ALIAS_INDEX[alias.toLowerCase()] = canonical;
+    });
+  });
+  // Also index from entity aliases stored in properties
+  S.universe?.entities?.forEach(e=>{
+    (e.properties?.aliases||[]).forEach(alias=>{
+      ALIAS_INDEX[alias.toLowerCase()] = e.label;
+    });
+  });
+}
+
+// Resolve input label to canonical form
+function resolveCanonical(label){
+  const t = label.toLowerCase().trim();
+  if(ALIAS_INDEX[t]) return ALIAS_INDEX[t];
+  return label; // no alias found, return as-is
+}
+
+// Normalize label for slug comparison (strip accents etc.)
+function normalizeForSlug(label){
+  return label.toLowerCase()
+    .replace(/[ğ]/g,'g').replace(/[ü]/g,'u').replace(/[ş]/g,'s')
+    .replace(/[ı]/g,'i').replace(/[ö]/g,'o').replace(/[ç]/g,'c')
+    .replace(/[^a-z0-9]/g,'_').replace(/_+/g,'_').trim('_');
+}
+
+// Levenshtein distance for fuzzy matching
+function levenshtein(a, b){
+  const m=a.length, n=b.length;
+  const dp=Array.from({length:m+1},(_,i)=>[i,...Array(n).fill(0)]);
+  for(let j=0;j<=n;j++) dp[0][j]=j;
+  for(let i=1;i<=m;i++) for(let j=1;j<=n;j++)
+    dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]:1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);
+  return dp[m][n];
+}
+
+// Find similar entities (potential duplicates)
+function findSimilarEntities(label, threshold=2){
+  const t = label.toLowerCase();
+  const tNorm = normalizeForSlug(label);
+  return S.universe.entities
+    .filter(e=>e.type!=='domain')
+    .map(e=>{
+      const eNorm = normalizeForSlug(e.label);
+      const dist = levenshtein(t, e.label.toLowerCase());
+      const normDist = levenshtein(tNorm, eNorm);
+      return {entity:e, distance:Math.min(dist,normDist)};
+    })
+    .filter(x=>x.distance>0 && x.distance<=threshold)
+    .sort((a,b)=>a.distance-b.distance);
+}
+
+// Merge two entities: keep target, absorb source
+function mergeEntities(sourceId, targetId){
+  const source = S.universe.entities.find(e=>e.id===sourceId);
+  const target = S.universe.entities.find(e=>e.id===targetId);
+  if(!source||!target||sourceId===targetId) return;
+
+  // Add source label as alias on target
+  if(!target.properties.aliases) target.properties.aliases = [];
+  if(!target.properties.aliases.includes(source.label)){
+    target.properties.aliases.push(source.label);
+    ALIAS_INDEX[source.label.toLowerCase()] = target.label;
+  }
+
+  // Rewire all links: source → target
+  S.universe.links.forEach(l=>{
+    if(l.from===sourceId) l.from=targetId;
+    if(l.to===sourceId)   l.to=targetId;
+  });
+
+  // Remove duplicate links after rewire
+  const seen=new Set();
+  S.universe.links=S.universe.links.filter(l=>{
+    const key=l.from+'→'+l.to+'::'+l.relation;
+    if(seen.has(key)) return false;
+    seen.add(key); return true;
+  });
+
+  // Remove self-links
+  S.universe.links=S.universe.links.filter(l=>l.from!==l.to);
+
+  // Merge properties
+  Object.entries(source.properties||{}).forEach(([k,v])=>{
+    if(!target.properties[k]) target.properties[k]=v;
+  });
+
+  // Remove source entity
+  S.universe.entities=S.universe.entities.filter(e=>e.id!==sourceId);
+
+  // Remove source node from graph
+  svgEl?.querySelector(`[data-nid="${sourceId}"]`)?.remove();
+
+  // Update questions referencing source topic
+  S.universe.questions.forEach(q=>{
+    if(q.topic?.toLowerCase()===source.label.toLowerCase()) q.topic=target.label;
+  });
+
+  learnEntityType(target.label, target.type);
+  saveUniverse();
+  updateCounters();
+  console.log(`[SINGULAR] Merged "${source.label}" → "${target.label}"`);
+}
+
+// Add alias to entity manually
+function addEntityAlias(entId, alias){
+  const ent=S.universe.entities.find(e=>e.id===entId);
+  if(!ent) return;
+  if(!ent.properties.aliases) ent.properties.aliases=[];
+  const cleanAlias=alias.trim();
+  if(!ent.properties.aliases.includes(cleanAlias)){
+    ent.properties.aliases.push(cleanAlias);
+    ALIAS_INDEX[cleanAlias.toLowerCase()] = ent.label;
+  }
+  saveUniverse();
+}
+
+// Check for merge suggestions after creating/updating entity
+function checkMergeSuggestions(label, entId){
+  const similar = findSimilarEntities(label, 2).filter(x=>x.entity.id!==entId);
+  if(!similar.length) return;
+
+  // Show subtle notification (non-blocking)
+  const top=similar[0];
+  showMergeSuggestion(entId, top.entity.id, label, top.entity.label);
+}
+
+function showMergeSuggestion(sourceId, targetId, sourceLabel, targetLabel){
+  // Check if notification already exists
+  if(document.getElementById('merge-notif')) return;
+
+  const notif=document.createElement('div');
+  notif.id='merge-notif';
+  notif.style.cssText=`
+    position:fixed;bottom:7rem;left:50%;transform:translateX(-50%);
+    background:rgba(14,14,26,.97);border:.5px solid rgba(245,158,11,.3);
+    border-radius:10px;padding:.7rem 1rem;z-index:90;
+    display:flex;align-items:center;gap:.75rem;
+    font-family:'DM Mono',monospace;font-size:.62rem;
+    box-shadow:0 8px 32px rgba(0,0,0,.5);
+    animation:fadeIn .3s ease;max-width:420px;
+  `;
+  notif.innerHTML=`
+    <span style="color:#f59e0b;font-size:.8rem;">⟳</span>
+    <span style="color:rgba(226,224,240,.6);">
+      <strong style="color:#f59e0b">"${sourceLabel}"</strong>
+      ve
+      <strong style="color:#f59e0b">"${targetLabel}"</strong>
+      aynı varlık mı?
+    </span>
+    <button onclick="mergeEntities('${sourceId}','${targetId}');this.closest('#merge-notif').remove();"
+      style="background:rgba(245,158,11,.12);border:.5px solid rgba(245,158,11,.3);border-radius:5px;
+      color:#f59e0b;font-family:'DM Mono',monospace;font-size:.58rem;padding:.2rem .5rem;cursor:pointer;">
+      Birleştir
+    </button>
+    <button onclick="this.closest('#merge-notif').remove();"
+      style="background:transparent;border:none;color:rgba(226,224,240,.3);cursor:pointer;font-size:.7rem;">✕</button>
+  `;
+  document.body.appendChild(notif);
+  setTimeout(()=>notif?.remove(), 8000); // auto-dismiss
+}
+
+// Inspector panel — show aliases + add alias button
+function renderEntityAliases(ent, body){
+  const aliases = ent.properties?.aliases||[];
+  if(!aliases.length && ent.entityClass==='concept') return; // skip for concepts
+
+  const sec=document.createElement('div');sec.className='psec';
+  const lbl=document.createElement('div');lbl.className='plbl';lbl.textContent='Diğer adlar';
+  const row=document.createElement('div');
+  row.style.cssText='display:flex;flex-wrap:wrap;gap:.3rem;margin-bottom:.4rem;';
+
+  aliases.forEach(a=>{
+    const tag=document.createElement('span');
+    tag.style.cssText='font-size:.55rem;padding:.15rem .45rem;border:.5px solid var(--border);border-radius:4px;color:var(--text-muted);';
+    tag.textContent=a;
+    row.appendChild(tag);
+  });
+
+  // Add alias input
+  const addRow=document.createElement('div');addRow.style.display='flex';addRow.style.gap='.3rem';addRow.style.marginTop='.3rem';
+  const inp=document.createElement('input');
+  inp.placeholder='yeni ad ekle…';
+  inp.style.cssText='flex:1;background:transparent;border:.5px solid var(--border);border-radius:5px;color:var(--text);font-family:"DM Mono",monospace;font-size:.6rem;padding:.25rem .5rem;outline:none;';
+  const addBtn=document.createElement('button');
+  addBtn.className='p-qa-btn';addBtn.textContent='+';addBtn.style.padding='.2rem .5rem';
+  addBtn.onclick=()=>{
+    if(inp.value.trim()){
+      addEntityAlias(ent.id,inp.value.trim());
+      inp.value='';
+      openPanelEntity(ent.id); // refresh
+    }
+  };
+  inp.addEventListener('keydown',e=>{ if(e.key==='Enter') addBtn.click(); });
+  addRow.appendChild(inp);addRow.appendChild(addBtn);
+
+  sec.appendChild(lbl);sec.appendChild(row);sec.appendChild(addRow);
+  body.appendChild(sec);
+}
+
+
 // ══════════════════════════════════════════
 // AUTO-RESTORE — script sonu, tüm fonksiyonlar yüklü
 // tryRestoreSession script'in altında tanımlandı, oraya taşındı
@@ -1789,11 +2020,15 @@ const WORK_ROLES = {
 function mkEntity(type, label, domainId, props){
   if(!label?.trim()) return null;  // Guard: empty label rejected
 
+  // Resolve canonical form — Hollanda / Nederland → Hollanda
+  const resolvedLabel = resolveCanonical(label) || label;
+
   // Normalize slug — Türkçe karakterleri koru, boşluk → _
-  const slug = label.toLowerCase()
+  const slug = resolvedLabel.toLowerCase()
     .replace(/\s+/g,'_')
     .replace(/@/g,'')
     .trim();
+  const label_final = resolvedLabel;
 
   const existing = S.universe.entities.find(e => e.slug===slug);
   if(existing){
@@ -1820,12 +2055,14 @@ function mkEntity(type, label, domainId, props){
   }
 
   const ent = {
-    id: uid('ent'), type, label, slug,
+    id: uid('ent'), type, label: label_final||label, slug,
     domain: domainId||'knowledge',
     created_at: new Date().toISOString(),
     properties: props||{},
     entityClass: props?.is_role ? 'role' : (props?.is_real ? 'real' : 'concept')
   };
+  // Check for near-duplicates after creation
+  setTimeout(()=>checkMergeSuggestions(ent.label, ent.id), 500);
   S.universe.entities.push(ent);
   return ent;
 }
@@ -3707,6 +3944,9 @@ function openPanelEntity(entId){
     sec.appendChild(lbl);sec.appendChild(rl);body.appendChild(sec);body.appendChild(pHr());
   }
 
+  // ── ALIASES (canonicalization)
+  renderEntityAliases(ent, body);
+
   // ── QUICK ACTIONS
   const qa=document.createElement('div');qa.className='p-quick-actions';
   const askBtn=document.createElement('button');askBtn.className='p-qa-btn primary';
@@ -3828,6 +4068,9 @@ function openPanelQuestion(qId){
     sec.appendChild(lbl);sec.appendChild(rl);body.appendChild(sec);body.appendChild(pHr());
   }
 
+  // ── ALIASES (canonicalization)
+  renderEntityAliases(ent, body);
+
   // ── QUICK ACTIONS
   const qa=document.createElement('div');qa.className='p-quick-actions';
   const addBtn=document.createElement('button');addBtn.className='p-qa-btn primary';
@@ -3917,6 +4160,7 @@ function launchUniverse(label){
     initStars();
     initCosmos();
     renderExisting();
+    buildAliasIndex();  // canonicalization engine
     document.getElementById('input-field').addEventListener('keydown',e=>{if(e.key==='Enter')handleInput();});
     document.getElementById('input-field').focus();
     // Google token ~55dk sonra sona erer — 50dk'da silent refresh yap
