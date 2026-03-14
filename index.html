@@ -722,47 +722,124 @@ function animateCore(){
     r_el.setAttribute('r',r);r_el.setAttribute('opacity',op);requestAnimationFrame(step);})();
 }
 
-// ── PHYSICS ─────────────────────────────────────────────────────────
-const PHY={repel:3200,damp:.80,attract:.022,maxSpd:4,domRepel:5000};
+// ══════════════════════════════════════════
+// SEMANTIC PHYSICS ENGINE
+// İlişki tipi = kuvvet. Anlam = hareket.
+// ══════════════════════════════════════════
+
+// Relation weights: ne kadar güçlü çekim üretir
+const REL_SPRING = {
+  belongs_to_domain : { k: 0.055, restLen: 130 },  // entity → domain yıldızına güçlü çekim
+  child_of          : { k: 0.045, restLen: 90  },  // ben → anne güçlü bağ
+  parent_of         : { k: 0.045, restLen: 90  },  // anne → ben
+  part_of           : { k: 0.038, restLen: 100 },  // parça → bütün
+  is_a              : { k: 0.032, restLen: 80  },  // tür ilişkisi
+  related_to        : { k: 0.018, restLen: 160 },  // orta çekim
+  mentions          : { k: 0.008, restLen: 200 },  // zayıf bağ
+  asks_about        : { k: 0.010, restLen: 120 },  // soru → entity
+  answered_by       : { k: 0.040, restLen: 60  },  // cevap → soruya yapışık
+  created_by_user   : { k: 0.005, restLen: 250 },
+};
+
+// Node kütlesi: domain yıldızları ağır, savrulmaz
+const NODE_MASS = {
+  domain   : 12,
+  entity   : 3,
+  question : 2,
+  answer   : 1.5,
+  credential: 2.5,
+};
+
+// Global repulsion: tüm node'lar birbirini iter
+const REPEL_STRENGTH = 2800;
+const REPEL_MIN      = 30;   // bu mesafenin altında maximum iter
+const DAMP           = 0.78;
+const MAX_SPEED      = 3.5;
+// Domain'ler merkez çekiminden muaf — kendi anlam ağırlıklarıyla durur
+const CENTER_PULL    = 0.004;
+// Domain anchor: domain yıldızları ekrana bağlı kalır (merkezden fazla kaçmaz)
+const DOMAIN_ANCHOR  = 0.012;
 
 function physicsLoop(){
-  if(!svgEl||!S.nodes.length){requestAnimationFrame(physicsLoop);return;}
-  const cx=W/2,cy=H/2;
+  if(!svgEl||!S.nodes.length){ requestAnimationFrame(physicsLoop); return; }
 
-  S.nodes.forEach(n=>{
-    if(n.pinned||n.dragging) return;
-    const orb=targetOrbit(n.kind);
-    const dx=n.x-cx,dy=n.y-cy;
-    const dist=Math.sqrt(dx*dx+dy*dy)||1;
-    const diff=dist-orb;
-    n.vx-=(dx/dist)*diff*PHY.attract;
-    n.vy-=(dy/dist)*diff*PHY.attract;
+  const cx = W/2, cy = H/2;
 
-    // Domain nodes repel each other more strongly
-    S.nodes.forEach(m=>{
-      if(m===n)return;
-      const ex=n.x-m.x,ey=n.y-m.y;
-      const ed=Math.sqrt(ex*ex+ey*ey)||1;
-      const minDist=n.kind==='domain'||m.kind==='domain'?140:80;
-      if(ed<minDist){
-        const str=n.kind==='domain'?PHY.domRepel:PHY.repel;
-        const f=str/(ed*ed);
-        n.vx+=ex/ed*f;n.vy+=ey/ed*f;
+  S.nodes.forEach(n => {
+    if(n.pinned || n.dragging) return;
+    const mass = NODE_MASS[n.kind] || 2;
+
+    // 1. SEMANTIC SPRING FORCES — ilişkilerden doğan kuvvetler
+    const links = S.universe.links.filter(l => l.from === n.id || l.to === n.id);
+    links.forEach(link => {
+      const otherId = link.from === n.id ? link.to : link.from;
+      const other = S.nodes.find(x => x.id === otherId);
+      if(!other) return;
+
+      const spring = REL_SPRING[link.relation];
+      if(!spring) return;
+
+      const dx = other.x - n.x, dy = other.y - n.y;
+      const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+      const stretch = dist - spring.restLen;  // ne kadar gerildi
+
+      // Spring force: F = k * stretch (Hooke yasası)
+      const fx = (dx/dist) * spring.k * stretch / mass;
+      const fy = (dy/dist) * spring.k * stretch / mass;
+      n.vx += fx;
+      n.vy += fy;
+    });
+
+    // 2. GLOBAL REPULSION — tüm node çiftleri birbirini iter
+    S.nodes.forEach(m => {
+      if(m === n) return;
+      const ex = n.x - m.x, ey = n.y - m.y;
+      const ed = Math.sqrt(ex*ex + ey*ey) || 1;
+      const minD = REPEL_MIN;
+      if(ed < 240){
+        const f = REPEL_STRENGTH / (ed * ed * mass);
+        n.vx += (ex/ed) * f;
+        n.vy += (ey/ed) * f;
       }
     });
 
-    n.vx*=PHY.damp;n.vy*=PHY.damp;
-    const spd=Math.sqrt(n.vx*n.vx+n.vy*n.vy);
-    if(spd>PHY.maxSpd){n.vx=n.vx/spd*PHY.maxSpd;n.vy=n.vy/spd*PHY.maxSpd;}
-    n.x+=n.vx;n.y+=n.vy;
+    // 3. CENTER PULL — domain'siz node'lar merkeze hafifçe çekilir
+    //    (bağlantısız node'ların uçmasını engeller)
+    if(n.kind !== 'domain' && links.length === 0){
+      n.vx += (cx - n.x) * CENTER_PULL;
+      n.vy += (cy - n.y) * CENTER_PULL;
+    }
+
+    // 4. DOMAIN ANCHOR — domain yıldızları çok fazla kaymasın
+    if(n.kind === 'domain'){
+      n.vx += (cx - n.x) * DOMAIN_ANCHOR;
+      n.vy += (cy - n.y) * DOMAIN_ANCHOR;
+    }
+
+    // 5. Damping + speed cap
+    n.vx *= DAMP; n.vy *= DAMP;
+    const spd = Math.sqrt(n.vx*n.vx + n.vy*n.vy);
+    if(spd > MAX_SPEED){ n.vx = n.vx/spd * MAX_SPEED; n.vy = n.vy/spd * MAX_SPEED; }
+
+    n.x += n.vx; n.y += n.vy;
   });
 
+  // Update link visual opacity based on relation strength (visual feedback)
+  updateLinkOpacity();
   updateNodePositions();
   requestAnimationFrame(physicsLoop);
 }
 
-function targetOrbit(kind){
-  return {domain:170, question:260, entity:310, credential:280}[kind]||260;
+// Link görsel güncelleme — güçlü ilişkiler daha parlak
+function updateLinkOpacity(){
+  svgEl.querySelectorAll('.g-link').forEach(line => {
+    const rel = line.getAttribute('data-rel');
+    const spring = REL_SPRING[rel];
+    if(!spring) return;
+    // k değerine göre opacity: güçlü bağ daha görünür
+    const opacity = Math.min(0.6, spring.k * 10 + 0.05);
+    line.setAttribute('opacity', opacity);
+  });
 }
 
 function updateNodePositions(){
@@ -784,13 +861,22 @@ function getNodeColor(kind,domainOrId){
   return '#e2e0f0';
 }
 
+// Domain index → evenly spaced angles so stars spread out
+const DOMAIN_ORDER = ['identity','family','knowledge','docs','projects','finance','health','edu','music','film','preferences','places','media'];
+
 function spawnDomainNode(ent){
   if(S.nodes.find(n=>n.id===ent.id))return;
   const cfg=DOMAINS[ent.slug]||DOMAINS.knowledge;
-  const angle=Math.random()*Math.PI*2;
-  const r=120+Math.random()*60;
-  const x=W/2+r*Math.cos(angle), y=H/2+r*Math.sin(angle);
-  const node={id:ent.id,x,y,vx:(Math.random()-.5)*1.5,vy:(Math.random()-.5)*1.5,kind:'domain',ref:ent,pinned:false,dragging:false};
+  // Deterministic angle: each domain gets its own sector
+  const domainIdx = DOMAIN_ORDER.indexOf(ent.slug);
+  const totalDomains = DOMAIN_ORDER.length;
+  const baseAngle = domainIdx >= 0
+    ? (domainIdx / totalDomains) * Math.PI * 2 - Math.PI/2
+    : Math.random() * Math.PI * 2;
+  const r = 160 + (domainIdx % 3) * 30; // vary orbit slightly
+  const x = W/2 + r*Math.cos(baseAngle);
+  const y = H/2 + r*Math.sin(baseAngle);
+  const node={id:ent.id,x,y,vx:0,vy:0,kind:'domain',ref:ent,pinned:false,dragging:false};
   S.nodes.push(node);
 
   const g=svgMk('g');g.setAttribute('class','g-domain');g.setAttribute('data-nid',ent.id);
@@ -830,15 +916,25 @@ function spawnDomainNode(ent){
 
 function spawnEntityNode(ent, domainId){
   if(S.nodes.find(n=>n.id===ent.id))return;
-  // Spawn near domain if known
-  const domNode=domainId?S.nodes.find(n=>n.id==='domain_'+domainId):null;
-  const spawnAngle=Math.random()*Math.PI*2;
-  const spawnR=60+Math.random()*50;
-  const bx=domNode?(domNode.x+spawnR*Math.cos(spawnAngle)):W/2+140*Math.cos(spawnAngle);
-  const by=domNode?(domNode.y+spawnR*Math.sin(spawnAngle)):H/2+140*Math.sin(spawnAngle);
+  // 'ben/self' entity: merkeze yakın, hafifçe sabitlenmiş
+  const isSelf = ent.properties?.is_self || ent.slug==='ben' || ent.slug==='self';
+  let bx, by;
+  if(isSelf){
+    bx = W/2 + 40; by = H/2 + 40; // merkez yakını
+  } else {
+    // Spawn near domain star — semantic fizik oraya çekecek
+    const domNode = domainId ? S.nodes.find(n=>n.id==='domain_'+domainId) : null;
+    const spawnAngle = Math.random()*Math.PI*2;
+    const spawnR = 50 + Math.random()*40;
+    bx = domNode ? domNode.x + spawnR*Math.cos(spawnAngle) : W/2 + 150*Math.cos(spawnAngle);
+    by = domNode ? domNode.y + spawnR*Math.sin(spawnAngle) : H/2 + 150*Math.sin(spawnAngle);
+  }
 
-  const node={id:ent.id,x:bx,y:by,vx:(Math.random()-.5)*2,vy:(Math.random()-.5)*2,
-    kind:ent.type==='credential'?'credential':'entity',ref:ent,pinned:false,dragging:false};
+  const node={id:ent.id,x:bx,y:by,
+    vx:isSelf?0:(Math.random()-.5)*1.5,
+    vy:isSelf?0:(Math.random()-.5)*1.5,
+    kind:ent.type==='credential'?'credential':'entity',
+    ref:ent, pinned:isSelf, dragging:false};  // self is pinned at center
   S.nodes.push(node);
 
   const isCredential=ent.type==='credential';
@@ -920,33 +1016,36 @@ function spawnQuestionNode(q, domainId){
   requestAnimationFrame(()=>{g.style.transition='opacity .6s';g.style.opacity='1';});
 }
 
-// ── DRAW LINK ────────────────────────────────────────────────────────
-function drawLink(fromId,toId,relation){
-  const fn=S.nodes.find(n=>n.id===fromId);
-  const tn=S.nodes.find(n=>n.id===toId);
-  if(!fn||!tn) return;
+// ── DRAW LINK — relation-aware visual language
+const LINK_STYLE = {
+  belongs_to_domain : { stroke:'rgba(167,139,250,.18)', width:'.6',  dash:null },
+  child_of          : { stroke:'rgba(244,114,182,.38)', width:'1',   dash:null },
+  parent_of         : { stroke:'rgba(244,114,182,.38)', width:'1',   dash:null },
+  part_of           : { stroke:'rgba(251,146,60,.25)',  width:'.7',  dash:'3 3' },
+  is_a              : { stroke:'rgba(163,230,53,.2)',   width:'.5',  dash:'2 4' },
+  related_to        : { stroke:'rgba(148,163,184,.15)', width:'.5',  dash:'1 5' },
+  mentions          : { stroke:'rgba(148,163,184,.08)', width:'.4',  dash:'1 6' },
+  asks_about        : { stroke:'rgba(96,165,250,.18)',  width:'.5',  dash:'3 4' },
+  answered_by       : { stroke:'rgba(52,211,153,.3)',   width:'.7',  dash:null },
+  created_by_user   : { stroke:'rgba(167,139,250,.06)', width:'.3',  dash:'1 8' },
+};
 
-  const line=svgMk('line');
-  line.setAttribute('x1',fn.x);line.setAttribute('y1',fn.y);
-  line.setAttribute('x2',tn.x);line.setAttribute('y2',tn.y);
-  line.setAttribute('data-lf',fromId);line.setAttribute('data-lt',toId);
-
-  const isDomain=relation==='belongs_to_domain';
-  const isQuestion=relation==='asks_about';
-  const isFamily=relation==='child_of'||relation==='parent_of';
-
-  line.setAttribute('stroke',
-    isDomain?'rgba(167,139,250,.08)':
-    isQuestion?'rgba(96,165,250,.12)':
-    isFamily?'rgba(244,114,182,.2)':
-    'rgba(167,139,250,.07)');
-  line.setAttribute('stroke-width',isFamily?'.7':'.5');
-  if(isQuestion) line.setAttribute('stroke-dasharray','2 4');
-  line.setAttribute('class','g-link');
-
-  // Insert before first node
-  const firstNode=svgEl.querySelector('.g-domain,.g-entity,.g-question');
-  firstNode?svgEl.insertBefore(line,firstNode):svgEl.appendChild(line);
+function drawLink(fromId, toId, relation){
+  const fn = S.nodes.find(n => n.id === fromId);
+  const tn = S.nodes.find(n => n.id === toId);
+  if(!fn || !tn) return;
+  const style = LINK_STYLE[relation] || { stroke:'rgba(167,139,250,.07)', width:'.4', dash:null };
+  const line = svgMk('line');
+  line.setAttribute('x1', fn.x); line.setAttribute('y1', fn.y);
+  line.setAttribute('x2', tn.x); line.setAttribute('y2', tn.y);
+  line.setAttribute('data-lf', fromId); line.setAttribute('data-lt', toId);
+  line.setAttribute('data-rel', relation);
+  line.setAttribute('stroke', style.stroke);
+  line.setAttribute('stroke-width', style.width);
+  if(style.dash) line.setAttribute('stroke-dasharray', style.dash);
+  line.setAttribute('class', 'g-link');
+  const firstNode = svgEl.querySelector('.g-domain,.g-entity,.g-question');
+  firstNode ? svgEl.insertBefore(line, firstNode) : svgEl.appendChild(line);
 }
 
 function highlightDomain(domId,on){
