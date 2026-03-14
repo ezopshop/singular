@@ -1798,16 +1798,22 @@ function mkEntity(type, label, domainId, props){
   const existing = S.universe.entities.find(e => e.slug===slug);
   if(existing){
     // TYPE UPGRADE: concept → more specific type (place, person, etc.)
-    const typeRank = {concept:0,fact:1,property:2,event:3,media_item:4,
-      preference:5,document:6,credential:7,organization:8,contact:9,
-      place:10,project:11,person:12};
-    const existRank = typeRank[existing.type]||0;
-    const newRank   = typeRank[type]||0;
-    if(newRank > existRank){
-      existing.type = type;
-      if(domainId && domainId !== 'knowledge') existing.domain = domainId;
-      learnEntityType(label, type);
-    }
+    // Safe upgrade rules — not all upgrades allowed automatically
+  const SAFE_UPGRADES = {
+    concept:    ['place','credential','project','organization','event','media_item','document'],
+    fact:       ['place','credential','project'],
+    property:   ['credential'],
+    // person → nothing automatic (too risky — names are ambiguous)
+    // place → nothing (already specific)
+  };
+  const canUpgrade = SAFE_UPGRADES[existing.type]?.includes(type);
+  // Manual correction (props.manual_correction) always allowed
+  const isManual = props?.manual_correction;
+  if((canUpgrade || isManual) && existing.type !== type){
+    existing.type = type;
+    if(domainId && domainId !== 'knowledge') existing.domain = domainId;
+    learnEntityType(label, type);
+  }
     // Merge props
     if(props) Object.assign(existing.properties, props);
     return existing;
@@ -3734,6 +3740,7 @@ function openPanelEntity(entId){
       const newType=sel.value;
       const newDomain={person:'family',place:'places',project:'projects',credential:'credentials',concept:'knowledge',event:'memory',document:'documents',organization:'work'}[newType]||ent.domain;
       ent.type=newType; ent.domain=newDomain;
+      ent.properties.manual_correction = true;  // manual = always trusted
       learnEntityType(ent.label, newType);
       ensureDomain(newDomain);
       if(!S.universe.links.find(l=>l.from===ent.id&&l.to==='domain_'+newDomain)){
