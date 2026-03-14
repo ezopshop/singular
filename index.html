@@ -274,7 +274,7 @@ canvas#stars{position:fixed;inset:0;pointer-events:none;z-index:0;}
 // ══════════════════════════════════════════
 // CONFIG
 // ══════════════════════════════════════════
-const GOOGLE_CLIENT_ID = '557723915441-q49en6uqqkqm9s5fie14ejm6cak9eo6r.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID_HERE';
 const DRIVE_SCOPE      = 'https://www.googleapis.com/auth/drive.file';
 const UNIVERSE_FILE    = 'universe.json';
 const FOLDER_NAME      = 'SINGULAR';
@@ -796,30 +796,79 @@ function computeZoomLevel(scale){
   return 4;                    // full detail
 }
 
+// ── Focused domain — which domain is currently centered on screen ────
+function getViewCenter() {
+  // World coords of screen center
+  return { x: -S.vpX + (W/2)/S.vpS, y: -S.vpY + (H/2)/S.vpS };
+}
+
+function getNearestDomain() {
+  const c = getViewCenter();
+  let nearest = null, minD = Infinity;
+  S.nodes.filter(n=>n.kind==='domain').forEach(n=>{
+    const d = Math.hypot(n.x-c.x, n.y-c.y);
+    if(d < minD){ minD=d; nearest=n; }
+  });
+  return nearest;
+}
+
 function updateZoomProjection(){
   const newLevel = computeZoomLevel(S.vpS);
-  if(newLevel === S.zoomLevel) return;
   S.zoomLevel = newLevel;
 
-  const labels = ['','domainler','varlıklar','sorular','detay'];
+  const labels = {1:'galaksi',2:'sistem',3:'detay',4:'detay'};
   document.getElementById('zoom-level-text').textContent = `zoom ${newLevel}`;
-  document.getElementById('zoom-indicator').textContent = labels[newLevel];
+  document.getElementById('zoom-indicator').textContent = labels[newLevel]||'';
 
-  // Show/hide nodes based on zoom level
+  // ── DOMAIN YILDIZLARI — her zaman görünür ────────────────────────
   svgEl.querySelectorAll('.g-domain').forEach(g=>{ g.style.display=''; });
-  svgEl.querySelectorAll('.g-entity').forEach(g=>{ g.style.display = newLevel >= 2 ? '' : 'none'; });
-  svgEl.querySelectorAll('.g-question').forEach(g=>{ g.style.display = newLevel >= 3 ? '' : 'none'; });
-  svgEl.querySelectorAll('.g-link').forEach(l=>{
-    const rel = l.getAttribute('data-rel');
-    if(rel === 'belongs_to_domain') l.style.display = newLevel >= 2 ? '' : 'none';
-    else if(rel === 'asks_about' || rel === 'answered_by') l.style.display = newLevel >= 3 ? '' : 'none';
-    else l.style.display = newLevel >= 2 ? '' : 'none';
-  });
 
-  // Labels — only at appropriate zoom
-  svgEl.querySelectorAll('.g-entity text').forEach(t=>{ t.style.display = newLevel >= 2 ? '' : 'none'; });
-  svgEl.querySelectorAll('.g-question text').forEach(t=>{ t.style.display = newLevel >= 3 ? '' : 'none'; });
-  svgEl.querySelectorAll('.g-domain text').forEach(t=>{ t.style.display = newLevel >= 1 ? '' : 'none'; });
+  if(newLevel === 1){
+    // Zoom 1: sadece domain yıldızları, hiçbir entity/soru/link görünmez
+    svgEl.querySelectorAll('.g-entity,.g-question').forEach(g=>{ g.style.display='none'; });
+    svgEl.querySelectorAll('.g-link').forEach(l=>{ l.style.display='none'; });
+    // Domain label'ları büyüt
+    svgEl.querySelectorAll('.g-domain text').forEach(t=>{
+      t.setAttribute('font-size','11');t.setAttribute('opacity','0.9');
+    });
+
+  } else if(newLevel === 2){
+    // Zoom 2: aktif domain'in entity'leri görünür, diğerleri gizli
+    const focusDomain = getNearestDomain();
+    const focusDomainId = focusDomain?.ref?.slug;
+
+    svgEl.querySelectorAll('.g-entity').forEach(g=>{
+      const nid = g.getAttribute('data-nid');
+      const ent = S.universe.entities.find(e=>e.id===nid);
+      const show = !focusDomainId || ent?.domain===focusDomainId || ent?.properties?.is_self;
+      g.style.display = show ? '' : 'none';
+    });
+    svgEl.querySelectorAll('.g-question').forEach(g=>{ g.style.display='none'; });
+    svgEl.querySelectorAll('.g-link').forEach(l=>{
+      const rel=l.getAttribute('data-rel');
+      l.style.display = rel==='belongs_to_domain' ? '' : 'none';
+    });
+    // Domain labels normale döner
+    svgEl.querySelectorAll('.g-domain text').forEach(t=>{
+      t.setAttribute('font-size','8.5');t.setAttribute('opacity','0.7');
+    });
+
+  } else {
+    // Zoom 3-4: her şey görünür
+    svgEl.querySelectorAll('.g-entity,.g-question').forEach(g=>{ g.style.display=''; });
+    svgEl.querySelectorAll('.g-link').forEach(l=>{ l.style.display=''; });
+    svgEl.querySelectorAll('.g-domain text').forEach(t=>{
+      t.setAttribute('font-size','8.5');t.setAttribute('opacity','0.7');
+    });
+  }
+
+  // Entity label'ları zoom 2+ göster
+  svgEl.querySelectorAll('.g-entity text').forEach(t=>{
+    t.style.display = newLevel >= 2 ? '' : 'none';
+  });
+  svgEl.querySelectorAll('.g-question text').forEach(t=>{
+    t.style.display = newLevel >= 3 ? '' : 'none';
+  });
 }
 
 // ══════════════════════════════════════════
@@ -870,7 +919,7 @@ function physicsLoop(){
     n.x+=n.vx;n.y+=n.vy;
   });
   updateNodePositions();
-  updateZoomProjection();
+  // Zoom projection only when panning (not every physics tick)
   requestAnimationFrame(physicsLoop);
 }
 
@@ -906,7 +955,21 @@ function spawnDomainNode(ent){
   for(let i=0;i<6;i++){const a=i*(Math.PI/3);const l=svgMk('line');l.setAttribute('x1',Math.cos(a)*10);l.setAttribute('y1',Math.sin(a)*10);l.setAttribute('x2',Math.cos(a)*18);l.setAttribute('y2',Math.sin(a)*18);l.setAttribute('stroke',hexA(cfg.color,.18));l.setAttribute('stroke-width','.5');g.appendChild(l);}
   const dot=svgMk('circle');dot.setAttribute('r','5');dot.setAttribute('fill',cfg.color);dot.setAttribute('filter','url(#fglow)');g.appendChild(dot);
   const lbl=svgMk('text');lbl.setAttribute('y','28');lbl.setAttribute('text-anchor','middle');lbl.setAttribute('fill',hexA(cfg.color,.7));lbl.setAttribute('font-size','8.5');lbl.setAttribute('font-family','DM Mono,monospace');lbl.textContent=cfg.label;g.appendChild(lbl);
-  g.onclick=(e)=>{if(node._drag)return;openPanelDomain(ent);};
+  g.onclick=(e)=>{
+    if(node._drag)return;
+    // Zoom into this domain
+    const targetScale = 1.4;
+    if(S.vpS < 0.8){
+      // Animate zoom to domain
+      const dx = W/2 - node.x * targetScale;
+      const dy = H/2 - node.y * targetScale;
+      S.vpX = dx / targetScale;
+      S.vpY = dy / targetScale;
+      S.vpS = targetScale;
+      applyVP(); updateZoomProjection();
+    }
+    openPanelDomain(ent);
+  };
   attachDrag(g,node);svgEl.appendChild(g);
   requestAnimationFrame(()=>{g.style.transition='opacity .8s';g.style.opacity='1';});
   if(S.nodes.length===1) document.getElementById('hint').style.opacity='0';
@@ -1031,7 +1094,8 @@ function initInteraction(){
     const pt=toSVGPoint(e);
     S.vpX=(S.vpX-pt.x)*f+pt.x;S.vpY=(S.vpY-pt.y)*f+pt.y;
     S.vpS=Math.max(.15,Math.min(5,S.vpS*f));
-    applyVP();updateZoomProjection();
+    applyVP();
+    requestAnimationFrame(updateZoomProjection);
   },{passive:false});
   let ltx=0,lty=0;
   svgEl.addEventListener('touchstart',e=>{if(e.touches.length===1){ltx=e.touches[0].clientX;lty=e.touches[0].clientY;}});
@@ -1040,8 +1104,8 @@ function initInteraction(){
 
 function toSVGPoint(e){const rect=svgEl.getBoundingClientRect();return{x:(e.clientX-rect.left)/S.vpS-S.vpX,y:(e.clientY-rect.top)/S.vpS-S.vpY};}
 function applyVP(){svgEl.setAttribute('viewBox',`${-S.vpX} ${-S.vpY} ${W/S.vpS} ${H/S.vpS}`);}
-function zoomBy(f){S.vpX=(S.vpX-W/2/S.vpS)*f+W/2/S.vpS;S.vpY=(S.vpY-H/2/S.vpS)*f+H/2/S.vpS;S.vpS=Math.max(.15,Math.min(5,S.vpS*f));applyVP();updateZoomProjection();}
-function resetView(){S.vpX=0;S.vpY=0;S.vpS=1;svgEl.removeAttribute('viewBox');S.zoomLevel=1;updateZoomProjection();}
+function zoomBy(f){S.vpX=(S.vpX-W/2/S.vpS)*f+W/2/S.vpS;S.vpY=(S.vpY-H/2/S.vpS)*f+H/2/S.vpS;S.vpS=Math.max(.15,Math.min(5,S.vpS*f));applyVP();requestAnimationFrame(updateZoomProjection);}
+function resetView(){S.vpX=0;S.vpY=0;S.vpS=1;svgEl.removeAttribute('viewBox');S.zoomLevel=1;requestAnimationFrame(updateZoomProjection);}
 
 function rerenderAll(){
   S.nodes=[];
@@ -1463,6 +1527,7 @@ function launchUniverse(label){
     document.getElementById('sdot').classList.add('on');
     document.getElementById('stext').textContent=label;
     initStars();initCosmos();renderExisting();
+    setTimeout(updateZoomProjection,200);
     document.getElementById('input-field').addEventListener('keydown',e=>{if(e.key==='Enter')handleInput();});
     document.getElementById('input-field').focus();
     if(S.mode==='google') scheduleTokenRefresh();
