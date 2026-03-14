@@ -830,13 +830,22 @@ function buildDefs(){
 }
 
 function drawOrbits(){
-  [80,150,240,350,480].forEach((r,i)=>{
-    const c=svgMk('circle');
-    c.setAttribute('cx',W/2);c.setAttribute('cy',H/2);c.setAttribute('r',r);
-    c.setAttribute('fill','none');c.setAttribute('stroke','rgba(167,139,250,'+(0.025-i*.004)+')');
-    c.setAttribute('stroke-width','.5');
-    svgEl.appendChild(c);
-  });
+  // Orbit halkaları kaldırıldı — domain'ler sabit konumda olduğu için
+  // Bunun yerine ince bir background grid çiz
+  const gridSpacing = 120;
+  const gridAlpha = '0.012';
+  for(let x=0; x<W; x+=gridSpacing){
+    const line=svgMk('line');line.setAttribute('x1',x);line.setAttribute('y1',0);
+    line.setAttribute('x2',x);line.setAttribute('y2',H);
+    line.setAttribute('stroke',`rgba(167,139,250,${gridAlpha})`);line.setAttribute('stroke-width','.3');
+    svgEl.appendChild(line);
+  }
+  for(let y=0; y<H; y+=gridSpacing){
+    const line=svgMk('line');line.setAttribute('x1',0);line.setAttribute('y1',y);
+    line.setAttribute('x2',W);line.setAttribute('y2',y);
+    line.setAttribute('stroke',`rgba(167,139,250,${gridAlpha})`);line.setAttribute('stroke-width','.3');
+    svgEl.appendChild(line);
+  }
 }
 
 function drawCore(){
@@ -1273,7 +1282,9 @@ function hexAlpha(hex,alpha){
 function attachDrag(g,node){
   g.addEventListener('mousedown',e=>{
     e.stopPropagation();
-    node.dragging=true;node._drag=false;
+    node.dragging=true; node._drag=false;
+    node._wasPinned = node.pinned;
+    node.pinned = false;  // drag sırasında hareket etsin
     const pt=toSVGPoint(e);
     S.dragNode={node,ox:pt.x-node.x,oy:pt.y-node.y};
   });
@@ -1299,8 +1310,18 @@ function initInteraction(){
     }
   });
   window.addEventListener('mouseup',()=>{
-    if(S.dragNode){S.dragNode.node.dragging=false;S.dragNode=null;}
-    S.panning=false;svgEl.classList.remove('panning');
+    if(S.dragNode){
+      const n = S.dragNode.node;
+      n.dragging = false;
+      // Domain node: yeni drag pozisyonunu kaydet
+      if(n.kind === 'domain' && n._wasPinned){
+        // Yeni pozisyona pin'le
+        n.pinned = true;
+        n.vx = 0; n.vy = 0;
+      }
+      S.dragNode = null;
+    }
+    S.panning=false; svgEl.classList.remove('panning');
   });
   svgEl.addEventListener('wheel',e=>{
     e.preventDefault();
