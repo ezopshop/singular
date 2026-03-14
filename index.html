@@ -58,6 +58,9 @@ canvas#stars{position:fixed;inset:0;pointer-events:none;z-index:0;}
 
 /* STATUS */
 #status{position:fixed;top:1.5rem;left:1.5rem;display:flex;align-items:center;gap:.5rem;font-size:.58rem;letter-spacing:.18em;color:var(--text-muted);text-transform:uppercase;z-index:10;}
+#logout-btn{background:transparent;border:.5px solid var(--text-dim);border-radius:5px;color:var(--text-dim);font-family:'DM Mono',monospace;font-size:.52rem;letter-spacing:.12em;padding:.18rem .5rem;cursor:pointer;transition:all .2s;opacity:0;pointer-events:none;}
+#logout-btn:hover{color:#f87171;border-color:#f87171;}
+#universe.active #logout-btn{opacity:1;pointer-events:all;}
 .sdot{width:5px;height:5px;border-radius:50%;background:var(--text-dim);transition:all .4s;}
 .sdot.on{background:#34d399;box-shadow:0 0 8px rgba(52,211,153,.55);}
 #topright{position:fixed;top:1.5rem;right:1.5rem;text-align:right;font-size:.58rem;letter-spacing:.1em;color:var(--text-muted);text-transform:uppercase;line-height:2.2;z-index:10;}
@@ -206,7 +209,7 @@ canvas#stars{position:fixed;inset:0;pointer-events:none;z-index:0;}
 <div id="universe">
   <svg id="cosmos"></svg>
 
-  <div id="status"><div class="sdot" id="sdot"></div><span id="stext">bağlanıyor…</span></div>
+  <div id="status"><div class="sdot" id="sdot"></div><span id="stext">bağlanıyor…</span><button id="logout-btn" onclick="logout()" title="Çıkış yap">✕ çıkış</button></div>
   <div id="topright"><div id="nc">0 varlık</div><div id="qc">0 soru</div></div>
 
   <div id="legend">
@@ -1892,6 +1895,23 @@ function scheduleTokenRefresh(){
     }).requestAccessToken({prompt:''});
   }, 50 * 60 * 1000);  // 50 dakika
 }
+// ── LOGOUT ───────────────────────────────────────────────────────────
+function logout(){
+  if(!confirm('Çıkış yapmak istediğine emin misin? Veriler kaydedilmiş durumda.')) return;
+  // Session temizle
+  sessionStorage.removeItem(AUTH_SESSION_KEY);
+  sessionStorage.removeItem(MODE_SESSION_KEY);
+  // Google token iptal et
+  if(S.accessToken && window.google){
+    google.accounts.oauth2.revoke(S.accessToken, ()=>{});
+  }
+  // State sıfırla
+  S.accessToken = null; S.mode = null; S.universe = null;
+  S.nodes = []; S.driveFileId = null; S.driveFolderId = null;
+  // Sayfayı yenile — temiz boot ekranı
+  window.location.reload();
+}
+
 // ── AUTO SESSION RESTORE — script tam yüklendikten sonra çalış ───────
 (async ()=>{
   const restored = await tryRestoreSession();
