@@ -1,0 +1,162 @@
+{
+  "_meta": {
+    "version": "1.0",
+    "description": "SINGULAR başlangıç ontoloji sözlüğü — parser bu dosyayı kullanarak entity, relation ve domain tespiti yapar",
+    "updated_at": "2026-03-14"
+  },
+
+  "domains": {
+    "identity":    { "label": "kimlik",    "color": "#a78bfa", "description": "kişisel kimlik, özgeçmiş, kişisel bilgiler" },
+    "family":      { "label": "aile",      "color": "#f472b6", "description": "aile ilişkileri, akrabalar" },
+    "knowledge":   { "label": "bilgi",     "color": "#94a3b8", "description": "kavramlar, tanımlar, öğrenilen bilgiler" },
+    "work":        { "label": "iş",        "color": "#fb923c", "description": "kariyer, şirket, mesleki bilgiler" },
+    "finance":     { "label": "finans",    "color": "#22d3ee", "description": "banka, hesap, para yönetimi" },
+    "health":      { "label": "sağlık",    "color": "#a3e635", "description": "sağlık durumu, ilaçlar, doktorlar" },
+    "places":      { "label": "yerler",    "color": "#34d399", "description": "adresler, konumlar, şehirler" },
+    "contacts":    { "label": "kişiler",   "color": "#f0abfc", "description": "kişi rehberi, iletişim bilgileri" },
+    "projects":    { "label": "projeler",  "color": "#f59e0b", "description": "projeler, görevler, hedefler" },
+    "documents":   { "label": "belgeler",  "color": "#60a5fa", "description": "belgeler, dosyalar, linkler" },
+    "credentials": { "label": "hesaplar",  "color": "#38bdf8", "description": "şifreler, kullanıcı adları, hesap bilgileri" },
+    "media":       { "label": "medya",     "color": "#e879f9", "description": "filmler, müzik, kitaplar, diziler" },
+    "preferences": { "label": "tercihler", "color": "#fbbf24", "description": "sevdiklerim, zevklerim, alışkanlıklar" },
+    "memory":      { "label": "anı",       "color": "#f97316", "description": "önemli anlar, hatıralar, geçmiş olaylar" }
+  },
+
+  "entity_types": {
+    "person":       { "label": "kişi",         "default_domain": "family",      "icon": "@" },
+    "organization": { "label": "kurum",         "default_domain": "work",        "icon": "◆" },
+    "place":        { "label": "yer",           "default_domain": "places",      "icon": "◉" },
+    "document":     { "label": "belge",         "default_domain": "documents",   "icon": "□" },
+    "account":      { "label": "hesap",         "default_domain": "credentials", "icon": "⬡" },
+    "credential":   { "label": "kimlik bilgisi","default_domain": "credentials", "icon": "🔑" },
+    "contact":      { "label": "kişi",          "default_domain": "contacts",    "icon": "@" },
+    "event":        { "label": "olay",          "default_domain": "memory",      "icon": "◈" },
+    "project":      { "label": "proje",         "default_domain": "projects",    "icon": "▷" },
+    "media_item":   { "label": "medya",         "default_domain": "media",       "icon": "♪" },
+    "fact":         { "label": "gerçek",        "default_domain": "knowledge",   "icon": "·" },
+    "concept":      { "label": "kavram",        "default_domain": "knowledge",   "icon": "○" },
+    "preference":   { "label": "tercih",        "default_domain": "preferences", "icon": "★" },
+    "property":     { "label": "özellik",       "default_domain": "identity",    "icon": "—" }
+  },
+
+  "relation_types": {
+    "child_of":           { "label": "çocuğu",           "spring_k": 0.050, "rest_len": 85,  "visual": "rgba(244,114,182,.45)" },
+    "parent_of":          { "label": "ebeveyni",         "spring_k": 0.050, "rest_len": 85,  "visual": "rgba(244,114,182,.45)" },
+    "spouse_of":          { "label": "eşi",              "spring_k": 0.060, "rest_len": 70,  "visual": "rgba(244,114,182,.6)" },
+    "sibling_of":         { "label": "kardeşi",          "spring_k": 0.040, "rest_len": 90,  "visual": "rgba(244,114,182,.35)" },
+    "relative_of":        { "label": "akrabası",         "spring_k": 0.025, "rest_len": 120, "visual": "rgba(244,114,182,.2)" },
+    "fills_role":         { "label": "rolünü doldurur",  "spring_k": 0.055, "rest_len": 70,  "visual": "rgba(244,114,182,.6)" },
+    "works_at":           { "label": "çalışır",          "spring_k": 0.030, "rest_len": 110, "visual": "rgba(251,146,60,.3)" },
+    "works_on":           { "label": "çalışıyor",        "spring_k": 0.030, "rest_len": 115, "visual": "rgba(251,146,60,.25)" },
+    "owns":               { "label": "sahibi",           "spring_k": 0.025, "rest_len": 130, "visual": "rgba(34,211,238,.2)" },
+    "stored_in":          { "label": "saklandığı yer",   "spring_k": 0.035, "rest_len": 100, "visual": "rgba(96,165,250,.2)" },
+    "located_at":         { "label": "konumu",           "spring_k": 0.025, "rest_len": 120, "visual": "rgba(52,211,153,.25)" },
+    "lives_in":           { "label": "yaşıyor",          "spring_k": 0.025, "rest_len": 120, "visual": "rgba(52,211,153,.25)" },
+    "belongs_to_domain":  { "label": "alanı",            "spring_k": 0.080, "rest_len": 90,  "visual": "rgba(167,139,250,.2)" },
+    "related_to":         { "label": "ilgili",           "spring_k": 0.015, "rest_len": 165, "visual": "rgba(148,163,184,.14)" },
+    "mentions":           { "label": "bahseder",         "spring_k": 0.007, "rest_len": 210, "visual": "rgba(148,163,184,.07)" },
+    "asks_about":         { "label": "sorusu",           "spring_k": 0.010, "rest_len": 115, "visual": "rgba(96,165,250,.18)" },
+    "answered_by":        { "label": "cevabı",           "spring_k": 0.045, "rest_len": 55,  "visual": "rgba(52,211,153,.35)" },
+    "has_property":       { "label": "değeri",           "spring_k": 0.040, "rest_len": 80,  "visual": "rgba(167,139,250,.25)" },
+    "likes":              { "label": "seviyor",          "spring_k": 0.020, "rest_len": 140, "visual": "rgba(233,121,249,.2)" },
+    "is_a":               { "label": "türü",             "spring_k": 0.040, "rest_len": 75,  "visual": "rgba(163,230,53,.25)" }
+  },
+
+  "property_types": {
+    "name":         { "label": "isim",           "domain": "identity",    "type": "text" },
+    "birth_date":   { "label": "doğum tarihi",   "domain": "identity",    "type": "date" },
+    "birth_place":  { "label": "doğum yeri",     "domain": "identity",    "type": "text" },
+    "email":        { "label": "e-posta",         "domain": "credentials", "type": "email" },
+    "phone":        { "label": "telefon",         "domain": "contacts",    "type": "phone" },
+    "address":      { "label": "adres",           "domain": "places",      "type": "text" },
+    "username":     { "label": "kullanıcı adı",  "domain": "credentials", "type": "text" },
+    "password":     { "label": "şifre",          "domain": "credentials", "type": "secret" },
+    "url":          { "label": "link",            "domain": "documents",   "type": "url" },
+    "note":         { "label": "not",             "domain": "knowledge",   "type": "text" },
+    "source":       { "label": "kaynak",          "domain": "knowledge",   "type": "text" },
+    "created_at":   { "label": "oluşturulma",     "domain": "identity",    "type": "datetime" },
+    "updated_at":   { "label": "güncelleme",      "domain": "identity",    "type": "datetime" }
+  },
+
+  "synonyms": {
+    "domains": {
+      "identity":    ["ben", "kimlik", "kişisel", "özgeçmiş", "profil"],
+      "family":      ["aile", "annem", "babam", "kardeşim", "eşim", "çocuğum", "nine", "dede", "amca", "hala", "dayı", "teyze"],
+      "knowledge":   ["nedir", "nasıl", "tanım", "kavram", "öğrendim", "bilgi"],
+      "work":        ["iş", "şirket", "kariyer", "meslek", "çalışıyorum", "ofis", "patron", "müşteri"],
+      "finance":     ["para", "banka", "iban", "kredi kartı", "borç", "vergi", "gelir", "hesap numarası"],
+      "health":      ["sağlık", "ilaç", "doktor", "hastane", "hastalık", "kilo", "boy", "spor"],
+      "places":      ["adres", "nerede", "şehir", "mahalle", "ev", "ofis adresi", "yaşıyorum"],
+      "contacts":    ["telefon numarası", "mail adresi", "iletişim", "rehber"],
+      "projects":    ["proje", "geliştiriyorum", "yapıyorum", "başladım", "bitirdim", "hedef"],
+      "documents":   ["belge", "dosya", "sözleşme", "sertifika", "diploma", "pasaport", "ehliyet"],
+      "credentials": ["şifre", "parola", "kullanıcı adı", "hesap", "giriş", "login", "2fa"],
+      "media":       ["film", "dizi", "müzik", "şarkı", "albüm", "kitap", "podcast", "oyun"],
+      "preferences": ["seviyorum", "sevdiğim", "tercihim", "favorim", "en iyi", "beğeniyorum"],
+      "memory":      ["hatırlıyorum", "bir zamanlar", "geçmişte", "o zaman", "ilk kez", "anım"]
+    },
+
+    "family_roles": {
+      "anne":       ["annem", "annemin", "annem adı", "annem ismi", "annesi", "mother", "mom"],
+      "baba":       ["babam", "babamın", "babam adı", "babamın ismi", "babası", "father", "dad"],
+      "kardeş":     ["kardeşim", "kardeşimin", "ablam", "ağabeyim", "erkek kardeşim", "kız kardeşim"],
+      "eş":         ["eşim", "eşimin", "karım", "kocam", "partnerim", "sevgilim"],
+      "çocuk":      ["çocuğum", "oğlum", "kızım", "evladım"],
+      "nine":       ["ninem", "büyükannem", "babaannem", "anneeannem"],
+      "dede":       ["dedem", "büyükbabam", "babaannem"],
+      "amca":       ["amcam", "babanın kardeşi"],
+      "hala":       ["halam", "babanın kız kardeşi"],
+      "dayı":       ["dayım", "annemin erkek kardeşi"],
+      "teyze":      ["teyzem", "annemin kız kardeşi"]
+    },
+
+    "statement_patterns": [
+      { "pattern": "adım X",              "prop": "name",        "domain": "identity", "self": true },
+      { "pattern": "ismim X",             "prop": "name",        "domain": "identity", "self": true },
+      { "pattern": "ben X'im",            "prop": "name",        "domain": "identity", "self": true },
+      { "pattern": "doğum tarihim X",     "prop": "birth_date",  "domain": "identity", "self": true },
+      { "pattern": "X'de doğdum",         "prop": "birth_place", "domain": "identity", "self": true },
+      { "pattern": "doğum yerim X",       "prop": "birth_place", "domain": "identity", "self": true },
+      { "pattern": "mailim X",            "prop": "email",       "domain": "credentials", "self": true },
+      { "pattern": "e-postam X",          "prop": "email",       "domain": "credentials", "self": true },
+      { "pattern": "telefonum X",         "prop": "phone",       "domain": "contacts", "self": true },
+      { "pattern": "numaramX",            "prop": "phone",       "domain": "contacts", "self": true },
+      { "pattern": "adresim X",           "prop": "address",     "domain": "places", "self": true },
+      { "pattern": "X'de yaşıyorum",      "prop": "lives_in",    "domain": "places", "self": true },
+      { "pattern": "şirketim X",          "prop": "works_at",    "domain": "work", "self": true },
+      { "pattern": "işim X",              "prop": "works_at",    "domain": "work", "self": true },
+      { "pattern": "annemin adı X",       "prop": "name",        "domain": "family", "role": "anne" },
+      { "pattern": "annem X",             "prop": "name",        "domain": "family", "role": "anne" },
+      { "pattern": "babamın adı X",       "prop": "name",        "domain": "family", "role": "baba" },
+      { "pattern": "babam X",             "prop": "name",        "domain": "family", "role": "baba" },
+      { "pattern": "X şifresi Y",         "prop": "password",    "domain": "credentials", "credential": true },
+      { "pattern": "X parolası Y",        "prop": "password",    "domain": "credentials", "credential": true },
+      { "pattern": "en sevdiğim X Y",     "prop": "likes",       "domain": "preferences", "like": true },
+      { "pattern": "favorim X",           "prop": "likes",       "domain": "preferences", "like": true }
+    ]
+  },
+
+  "knowledge_clusters": {
+    "self_profile": {
+      "label": "Kişisel Profil",
+      "required_props": ["name", "birth_date", "birth_place"],
+      "optional_props": ["email", "phone", "address"],
+      "relations": ["child_of", "spouse_of", "works_at"]
+    },
+    "family_tree": {
+      "label": "Aile Ağacı",
+      "entity_types": ["person"],
+      "relations": ["child_of", "parent_of", "sibling_of", "spouse_of"]
+    },
+    "work_profile": {
+      "label": "İş Profili",
+      "entity_types": ["organization", "project"],
+      "relations": ["works_at", "works_on"]
+    },
+    "credentials_vault": {
+      "label": "Hesaplar",
+      "entity_types": ["credential", "account"],
+      "relations": ["owns", "stored_in"]
+    }
+  }
+}
