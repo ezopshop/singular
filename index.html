@@ -310,7 +310,7 @@ canvas#stars{position:fixed;inset:0;pointer-events:none;z-index:0;}
 <div id="universe">
   <svg id="cosmos"></svg>
 
-  <div id="status"><div class="sdot" id="sdot"></div><span id="stext">bağlanıyor…</span><button id="logout-btn" onclick="logout()" title="Çıkış yap">✕ çıkış</button></div>
+  <div id="status"><div class="sdot" id="sdot"></div><span id="stext">bağlanıyor…</span><button onclick="openSearch()" style="background:transparent;border:.5px solid var(--border);border-radius:5px;color:var(--text-dim);font-family:'DM Mono',monospace;font-size:.52rem;letter-spacing:.12em;padding:.18rem .5rem;cursor:pointer;transition:all .2s;margin-left:.3rem;" title="Ara (⌘K)">⌕ ara</button><button id="logout-btn" onclick="logout()" title="Çıkış yap">✕ çıkış</button></div>
   <div id="topright"><div id="nc">0 varlık</div><div id="qc">0 soru</div></div>
 
   <div id="legend">
@@ -407,6 +407,243 @@ canvas#stars{position:fixed;inset:0;pointer-events:none;z-index:0;}
 
 <script>
 'use strict';
+
+
+// ══════════════════════════════════════════
+// SEARCH ENGINE
+// Local graph search — entity, question, answer, domain
+// ══════════════════════════════════════════
+const SEARCH = {
+  open:       false,
+  query:      '',
+  filter:     'all',
+  results:    [],
+  focusedIdx: -1,
+};
+
+function openSearch(){
+  SEARCH.open = true;
+  document.getElementById('search-overlay').classList.add('open');
+  const inp = document.getElementById('search-input');
+  inp.value = SEARCH.query;
+  inp.focus(); inp.select();
+  renderSearchResults();
+}
+
+function closeSearch(e){
+  // Overlay'e tıklandıysa (box dışına) kapat
+  if(e && e.target !== document.getElementById('search-overlay')) return;
+  _closeSearch();
+}
+
+function _closeSearch(){
+  SEARCH.open = false;
+  document.getElementById('search-overlay').classList.remove('open');
+  SEARCH.focusedIdx = -1;
+}
+
+function setSearchFilter(f){
+  SEARCH.filter = f;
+  document.querySelectorAll('.sb-filter').forEach(b=>{
+    b.classList.toggle('active', b.dataset.filter===f);
+  });
+  SEARCH.focusedIdx = -1;
+  renderSearchResults();
+}
+
+// ── Search algorithm — exact + contains, ranked by relevance
+function runSearch(query){
+  const q = query.trim().toLowerCase();
+  if(!q || !S.universe) return [];
+  const results = [];
+  const MAX = 28;
+
+  function score(text){
+    const t = text.toLowerCase();
+    if(t === q) return 3;
+    if(t.startsWith(q)) return 2;
+    if(t.includes(q)) return 1;
+    return 0;
+  }
+
+  function highlight(text, q){
+    if(!q) return text;
+    const idx = text.toLowerCase().indexOf(q.toLowerCase());
+    if(idx < 0) return text;
+    return text.slice(0,idx)+'<mark>'+text.slice(idx,idx+q.length)+'</mark>'+text.slice(idx+q.length);
+  }
+
+  // Domains
+  if(SEARCH.filter==='all'||SEARCH.filter==='domain'){
+    Object.keys(S.universe.domains).forEach(dId=>{
+      const cfg = DOMAINS[dId]; if(!cfg) return;
+      const s = score(cfg.label)+score(dId);
+      if(s>0) results.push({
+        type:'domain', id:'domain_'+dId, domainId:dId,
+        label: highlight(cfg.label, query.trim()),
+        sub: dId,
+        color: cfg.color, score:s+10
+      });
+    });
+  }
+
+  // Entities
+  if(SEARCH.filter==='all'||SEARCH.filter==='entity'){
+    S.universe.entities.filter(e=>e.type!=='domain').forEach(e=>{
+      const s = score(e.label);
+      if(s>0) results.push({
+        type:'entity', id:e.id,
+        label: highlight(e.label, query.trim()),
+        sub: DOMAINS[e.domain]?.label||e.domain,
+        entType: e.type, score:s+5
+      });
+    });
+  }
+
+  // Questions
+  if(SEARCH.filter==='all'||SEARCH.filter==='question'){
+    S.universe.questions.forEach(q_=>{
+      const s = score(q_.text);
+      if(s>0) results.push({
+        type:'question', id:q_.id,
+        label: highlight(q_.text, query.trim()),
+        sub: q_.status==='answered'?'cevaplandı':'açık',
+        score:s+3
+      });
+    });
+  }
+
+  // Answers
+  if(SEARCH.filter==='all'||SEARCH.filter==='answer'){
+    S.universe.answers.forEach(a=>{
+      const s = score(a.value);
+      if(s>0){
+        const parentQ = S.universe.questions.find(q_=>q_.id===a.question_id);
+        results.push({
+          type:'answer', id:a.id, questionId:a.question_id,
+          label: highlight(a.value, query.trim()),
+          sub: parentQ ? parentQ.text.slice(0,35)+'…' : a.facet,
+          score:s
+        });
+      }
+    });
+  }
+
+  // Sort by score desc, then alphabetically
+  results.sort((a,b)=>b.score-a.score||(a.label.replace(/<[^>]+>/g,'')<b.label.replace(/<[^>]+>/g,'')?-1:1));
+  return results.slice(0, MAX);
+}
+
+// ── Render results
+function renderSearchResults(){
+  const query = document.getElementById('search-input').value;
+  SEARCH.query = query;
+  const results = query.trim() ? runSearch(query) : [];
+  SEARCH.results = results;
+
+  const container = document.getElementById('search-results');
+  if(!query.trim()){
+    container.innerHTML = '<div class="sr-empty">yazmaya başla…</div>';
+    return;
+  }
+  if(!results.length){
+    container.innerHTML = '<div class="sr-empty">sonuç bulunamadı</div>';
+    return;
+  }
+
+  container.innerHTML = '';
+
+  const badgeMap = {
+    domain:   ['srb-domain',   'domain'],
+    entity:   ['srb-entity',   'varlık'],
+    question: ['srb-question', 'soru'],
+    answer:   ['srb-answer',   'cevap'],
+  };
+
+  results.forEach((r, i)=>{
+    const item = document.createElement('div');
+    item.className = 'sr-item' + (i===SEARCH.focusedIdx?' focused':'');
+    item.dataset.idx = i;
+
+    const [badgeCls, badgeTxt] = badgeMap[r.type]||['srb-entity','—'];
+    const colorStyle = r.color ? `background:${hexAlpha(r.color,.12)};color:${hexAlpha(r.color,.8)};` : '';
+
+    item.innerHTML = `
+      <span class="sr-badge ${badgeCls}" style="${colorStyle}">${badgeTxt}</span>
+      <span class="sr-main">${r.label}</span>
+      <span class="sr-sub">${r.sub||''}</span>
+    `;
+    item.onclick = ()=>selectSearchResult(i);
+    item.onmouseenter = ()=>{ SEARCH.focusedIdx=i; updateSearchFocus(); };
+    container.appendChild(item);
+  });
+}
+
+function updateSearchFocus(){
+  document.querySelectorAll('.sr-item').forEach((el,i)=>{
+    el.classList.toggle('focused', i===SEARCH.focusedIdx);
+  });
+  // Scroll focused into view
+  const focused = document.querySelector('.sr-item.focused');
+  if(focused) focused.scrollIntoView({block:'nearest'});
+}
+
+function selectSearchResult(idx){
+  const r = SEARCH.results[idx]; if(!r) return;
+  _closeSearch();
+
+  // Navigate to result
+  if(r.type==='domain'){
+    focusDomain(r.domainId);
+  } else if(r.type==='entity'){
+    focusEntity(r.id);
+    setTimeout(()=>openPanelEntity(r.id), 500);
+  } else if(r.type==='question'){
+    // Zoom to question node if exists, else open panel directly
+    const qNode = S.nodes.find(n=>n.id===r.id);
+    if(qNode){
+      focusEntity(r.id);
+      setTimeout(()=>openPanelQuestion(r.id), 500);
+    } else {
+      openPanelQuestion(r.id);
+    }
+  } else if(r.type==='answer'){
+    // Navigate to parent question
+    if(r.questionId){
+      const qNode = S.nodes.find(n=>n.id===r.questionId);
+      if(qNode){
+        focusEntity(r.questionId);
+        setTimeout(()=>openPanelQuestion(r.questionId), 500);
+      } else {
+        openPanelQuestion(r.questionId);
+      }
+    }
+  }
+}
+
+// Input handler
+document.getElementById('search-input')?.addEventListener('input', ()=>{
+  SEARCH.focusedIdx = -1;
+  renderSearchResults();
+});
+
+document.getElementById('search-input')?.addEventListener('keydown', e=>{
+  if(e.key==='Escape'){ e.preventDefault(); _closeSearch(); return; }
+  if(e.key==='ArrowDown'){
+    e.preventDefault();
+    SEARCH.focusedIdx = Math.min(SEARCH.focusedIdx+1, SEARCH.results.length-1);
+    updateSearchFocus();
+  } else if(e.key==='ArrowUp'){
+    e.preventDefault();
+    SEARCH.focusedIdx = Math.max(SEARCH.focusedIdx-1, 0);
+    updateSearchFocus();
+  } else if(e.key==='Enter'){
+    e.preventDefault();
+    if(SEARCH.focusedIdx>=0) selectSearchResult(SEARCH.focusedIdx);
+    else if(SEARCH.results.length>0) selectSearchResult(0);
+  }
+});
+
 
 // ══════════════════════════════════════════
 // AUTO-RESTORE — script sonu, tüm fonksiyonlar yüklü
@@ -2982,7 +3219,8 @@ function closePanel(){document.getElementById('panel').classList.remove('open');
 // ══════════════════════════════════════════
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){resetComposer();closePanel();}
-  if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();document.getElementById('input-field').focus();}
+  if((e.metaKey||e.ctrlKey)&&e.key==='k'){ e.preventDefault(); openSearch(); }
+  if(e.key==='Escape' && SEARCH.open){ _closeSearch(); }
 });
 
 // ══════════════════════════════════════════
