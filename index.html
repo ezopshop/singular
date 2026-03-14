@@ -4378,7 +4378,7 @@ function rerenderAll(){
 
 function renderExisting(){
   if(!S.universe)return;
-  S._rendering = true;  // bulk load sırasında viewport nudge'ı durdur
+  S._rendering = true;
   Object.values(S.universe.domains).forEach(did=>{
     const ent=S.universe.entities.find(e=>e.id===did);
     if(ent) spawnDomainNode(ent);
@@ -4390,8 +4390,9 @@ function renderExisting(){
   S.universe.links.forEach(l=>drawLink(l.from,l.to,l.relation));
   updateCounters();
   S._rendering = false;
-  // Akıllı başlangıç view — node sayısına göre
   setTimeout(()=>smartInitialView(), 120);
+  // Cognitive Loop — cosmos yüklendikten sonra örüntüleri bul
+  setTimeout(()=>updateGuidanceFromCognition(), 1500);
 }
 
 // ── SMART INITIAL VIEW ─────────────────────────────────────────────────
@@ -4874,22 +4875,51 @@ const TYPE_FALLBACK_FAMILY = {
   concept:    'nedir',
 };
 
+// ── BAĞLAM DUYARLI SORU PAKETI ──────────────────────────────────────────
+// Entity'nin tipine + cosmos'taki mevcut bağlantılarına bakarak soru üretir
+// AI değil — graph traversal ile akıllı öneri
+
 const SUGGESTION_PACKS = {
-  person: (topic) => [
-    {text:`${topic} kim?`,              tid:'kim',        ctx:'bu'},
-    {text:`${topic} ile ilişkim ne?`,   tid:'kiminle',    ctx:'benim'},
-    {text:`${topic} neden önemli?`,     tid:'neden',      ctx:'benim'},
-  ],
+  person: (topic, ent) => {
+    const base = [
+      {text:`${topic} kim?`,              tid:'kim',        ctx:'bu'},
+      {text:`${topic} ile ilişkim ne?`,   tid:'kiminle',    ctx:'benim'},
+      {text:`${topic} neden önemli?`,     tid:'neden',      ctx:'benim'},
+    ];
+    // Kişi cosmos'ta var mı? Eksik bilgilere göre öneri ekle
+    if(ent){
+      if(!ent.properties?.phone) base.push({text:`${topic} telefon numarası nedir?`, tid:'kac', ctx:'bu'});
+      if(!ent.properties?.birth_place) base.push({text:`${topic} nerede doğdu?`, tid:'nerede_yer', ctx:'bu'});
+      if(!ent.properties?.lives_in) base.push({text:`${topic} nerede yaşıyor?`, tid:'nerede_yer', ctx:'bu'});
+    }
+    return base.slice(0,4);
+  },
   place: (topic) => [
     {text:`${topic} nerede?`,                   tid:'nerede_yer', ctx:'—'},
     {text:`${topic} ile bağlantım ne?`,         tid:'kiminle',    ctx:'benim'},
     {text:`${topic} neden önemli benim için?`,  tid:'neden',      ctx:'benim'},
   ],
-  project: (topic) => [
-    {text:`${topic} nedir?`,                    tid:'nedir',      ctx:'—'},
-    {text:`${topic} şu an ne aşamada?`,         tid:'ne_asamada', ctx:'—'},
-    {text:`${topic} için sonraki adım ne?`,     tid:'yapmalı',    ctx:'—'},
-  ],
+  project: (topic, ent) => {
+    // Proje bağlamını cosmos'tan çek
+    const base = [
+      {text:`${topic} ne aşamada?`,             tid:'ne_asamada', ctx:'—'},
+      {text:`${topic} için sonraki adım ne?`,   tid:'yapmalı',    ctx:'—'},
+      {text:`${topic} neden önemli?`,           tid:'neden',      ctx:'benim'},
+    ];
+    // Proje ile ilgili entity'leri bul — kişiler, yerler vs.
+    if(ent && S.universe){
+      const relLinks = S.universe.links.filter(l=>l.from===ent.id||l.to===ent.id);
+      const relEnts = relLinks.map(l=>{
+        const id = l.from===ent.id?l.to:l.from;
+        return S.universe.entities.find(e=>e.id===id&&e.type!=='domain');
+      }).filter(Boolean);
+      const people = relEnts.filter(e=>e.type==='person');
+      if(people.length) base.push({text:`${topic} ekibinde kimler var?`, tid:'kim', ctx:'bu'});
+      const places = relEnts.filter(e=>e.type==='place');
+      if(places.length===0) base.push({text:`${topic} nerede yapılıyor?`, tid:'nerede_yer', ctx:'bu'});
+    }
+    return base.slice(0,4);
+  },
   credential: (topic) => [
     {text:`${topic} nerede saklanıyor?`,        tid:'nerede_dok', ctx:'benim'},
     {text:`${topic} değeri nedir?`,             tid:'kac',        ctx:'benim'},
@@ -4898,15 +4928,39 @@ const SUGGESTION_PACKS = {
     {text:`${topic} nerede saklanıyor?`,        tid:'nerede_dok', ctx:'benim'},
     {text:`${topic} nedir?`,                    tid:'nedir',      ctx:'—'},
   ],
-  concept: (topic) => [
-    {text:`${topic} nedir?`,                    tid:'nedir',      ctx:'—'},
-    {text:`${topic} bana ne anlama geliyor?`,   tid:'ne_anlama',  ctx:'benim'},
-    {text:`${topic} neden önemli?`,             tid:'neden',      ctx:'benim'},
-  ],
+  concept: (topic, ent) => {
+    const base = [
+      {text:`${topic} nedir?`,                  tid:'nedir',      ctx:'—'},
+      {text:`${topic} bana ne anlama geliyor?`, tid:'ne_anlama',  ctx:'benim'},
+      {text:`${topic} neden önemli?`,           tid:'neden',      ctx:'benim'},
+    ];
+    // Cosmos'ta bu kavramla ilgili zaten cevaplı soru var mı?
+    if(ent && S.universe){
+      const relQs = S.universe.questions.filter(q=>
+        S.universe.links.some(l=>l.from===q.id&&l.to===ent.id&&l.relation==='asks_about')
+      );
+      const answered = relQs.filter(q=>q.status==='answered');
+      if(answered.length===0) base.unshift({text:`${topic} nasıl çalışır?`, tid:'nasil', ctx:'—'});
+      else base.push({text:`${topic} ile ne yapmalıyım?`, tid:'yapmalı', ctx:'benim'});
+    }
+    return base.slice(0,4);
+  },
   media_item: (topic) => [
     {text:`${topic} bana ne anlama geliyor?`,   tid:'ne_anlama',  ctx:'benim'},
     {text:`${topic} neden önemli?`,             tid:'neden',      ctx:'benim'},
-    {text:`${topic} en sevdiğim nedir?`,        tid:'en_sevdigi', ctx:'benim'},
+    {text:`${topic} hakkında en sevdiğim ne?`,  tid:'en_sevdigi', ctx:'benim'},
+    {text:`${topic} nasıl keşfettim?`,          tid:'nezaman',    ctx:'benim'},
+  ],
+  organization: (topic, ent) => [
+    {text:`${topic} nedir?`,                    tid:'nedir',      ctx:'—'},
+    {text:`${topic} ile ilişkim ne?`,           tid:'kiminle',    ctx:'benim'},
+    {text:`${topic} nerede?`,                   tid:'nerede_yer', ctx:'—'},
+    {text:`${topic} benim için ne ifade ediyor?`, tid:'ne_anlama', ctx:'benim'},
+  ],
+  event: (topic) => [
+    {text:`${topic} ne zaman?`,                 tid:'nezaman',    ctx:'—'},
+    {text:`${topic} nerede oldu?`,              tid:'nerede_yer', ctx:'—'},
+    {text:`${topic} bana ne ifade ediyor?`,     tid:'ne_anlama',  ctx:'benim'},
   ],
 };
 
@@ -4984,20 +5038,116 @@ function isValidQuestionFamily(entityType, familyId){
 }
 
 // ── Get valid suggestion pack with guardrails applied
-function getSuggestionPack(topic, entityType){
+function getSuggestionPack(topic, entityType, ent){
   const packFn = SUGGESTION_PACKS[entityType] || SUGGESTION_PACKS.concept;
-  let sugs = packFn(topic);
-
-  // Apply guardrails — filter invalid suggestions
+  let sugs = packFn(topic, ent);
   sugs = sugs.filter(s=>{
-    if(!isValidQuestionFamily(entityType, s.tid)){
-      console.debug(`Guardrail blocked: ${topic} (${entityType}) + ${s.tid}`);
-      return false;
-    }
+    if(!isValidQuestionFamily(entityType, s.tid)) return false;
     return true;
   });
-
   return sugs;
+}
+
+// ══════════════════════════════════════════
+// COGNİTİVE LOOP — Graph'tan örüntü çıkarımı
+// AI yok — sadece cosmos traversal
+// ══════════════════════════════════════════
+function cognitiveLoop(){
+  if(!S.universe) return [];
+  const insights = [];
+  const now = new Date();
+  const selfEnt = S.universe.entities.find(e=>e.properties?.is_self);
+
+  // 1. YAKIN TARİHLER — temporal entity'ler + açık projeler
+  S.universe.entities.filter(e=>e.type==='event'||e.properties?.due_date||e.properties?.event_date).forEach(e=>{
+    const d = e.properties?.due_date || e.properties?.event_date;
+    if(!d) return;
+    const diff = Math.ceil((new Date(d)-now)/(1000*60*60*24));
+    if(diff > 0 && diff <= 30){
+      // Bu tarihe bağlı projeler var mı?
+      const relProjects = S.universe.entities.filter(p=>
+        p.type==='project'&&S.universe.links.some(l=>(l.from===p.id&&l.to===e.id)||(l.from===e.id&&l.to===p.id))
+      );
+      if(relProjects.length){
+        insights.push({
+          type:'deadline', urgency: diff <= 7 ? 'high':'medium',
+          text:`${e.label} ${diff} gün sonra — ${relProjects[0].label} hazır mı?`,
+          action:()=>{ focusEntity(relProjects[0].id); openPanelEntity(relProjects[0].id); }
+        });
+      }
+    }
+  });
+
+  // 2. EKSİK BİLGİ — bilinen entity'lerin boş alanları
+  const people = S.universe.entities.filter(e=>e.type==='person'&&!e.properties?.is_self&&!e.properties?.deleted);
+  people.forEach(p=>{
+    const missingFields = [];
+    if(!p.properties?.phone && !p.properties?.contact_info) missingFields.push('telefon');
+    if(!p.properties?.birth_place && !p.properties?.lives_in) missingFields.push('nerede yaşıyor');
+    if(missingFields.length >= 2){
+      insights.push({
+        type:'incomplete', urgency:'low',
+        text:`${p.label} hakkında ${missingFields[0]} bilgisi eksik`,
+        action:()=>{ focusEntity(p.id); openPanelEntity(p.id); }
+      });
+    }
+  });
+
+  // 3. BAĞLANTISIZ ENTITY'LER — sadece domain'e bağlı, başka bağlantısı yok
+  const orphans = S.universe.entities.filter(e=>{
+    if(e.type==='domain'||e.properties?.is_self||e.properties?.deleted) return false;
+    const links = S.universe.links.filter(l=>!l.hidden&&(l.from===e.id||l.to===e.id));
+    const nonDomainLinks = links.filter(l=>l.relation!=='belongs_to_domain');
+    return nonDomainLinks.length === 0;
+  });
+  if(orphans.length >= 3){
+    insights.push({
+      type:'orphan', urgency:'low',
+      text:`${orphans.length} varlık henüz hiçbir şeyle bağlantısız`,
+      action:()=>{ openSearch(); }
+    });
+  }
+
+  // 4. ÖRÜNTÜ — aynı domain'de çok entity var ama soru yok
+  const domainCounts = {};
+  S.universe.entities.filter(e=>e.type!=='domain'&&!e.properties?.deleted).forEach(e=>{
+    if(e.domain) domainCounts[e.domain]=(domainCounts[e.domain]||0)+1;
+  });
+  Object.entries(domainCounts).forEach(([domId, count])=>{
+    if(count >= 4){
+      const domQs = S.universe.questions.filter(q=>q.family===domId);
+      if(domQs.length === 0){
+        const cfg = DOMAINS[domId];
+        insights.push({
+          type:'explore', urgency:'low',
+          text:`${cfg?.label||domId} alanında ${count} varlık var ama hiç soru sorulmadı`,
+          action:()=>{ openComposer(''); }
+        });
+      }
+    }
+  });
+
+  return insights.slice(0, 5); // max 5 insight
+}
+
+// Guidance bar'ı güncelle — sol alt köşedeki activity feed
+function updateGuidanceFromCognition(){
+  const insights = cognitiveLoop();
+  if(!insights.length) return;
+
+  const feed = document.getElementById('activity-feed');
+  if(!feed) return;
+
+  // Sadece urgency:high olanları öne çıkar
+  const urgent = insights.filter(i=>i.urgency==='high');
+  urgent.forEach(ins=>{
+    const item = document.createElement('div');
+    item.className = 'af-item';
+    item.style.cssText = 'color:rgba(248,113,113,.8);cursor:pointer;';
+    item.textContent = '⚡ ' + ins.text;
+    item.onclick = ins.action;
+    feed.insertBefore(item, feed.firstChild);
+  });
 }
 
 // ── Learn type from user interaction (called after manual correction or confirmed selection)
@@ -5188,7 +5338,8 @@ function showSugLayer(topic){
     }
   }
 
-  const sugs = getSuggestionPack(topic, seedType);
+  const newEnt = S.universe.entities.find(e=>e.label.toLowerCase()===topic.toLowerCase()&&e.type!=='domain');
+  const sugs = getSuggestionPack(topic, seedType, newEnt);
   document.getElementById('suglbl').innerHTML=
     `<span style="opacity:.6">"${topic}"</span> → nasıl bir soru?`;
   const opts=document.getElementById('sugopts'); opts.innerHTML='';
