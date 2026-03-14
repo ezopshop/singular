@@ -171,6 +171,12 @@ canvas#stars{position:fixed;inset:0;pointer-events:none;z-index:0;}
 .p-btn:hover{color:var(--text);border-color:rgba(167,139,250,.22);}
 .p-tags{display:flex;flex-wrap:wrap;gap:.28rem;margin-bottom:.65rem;}
 .p-tag{font-size:.52rem;padding:.15rem .48rem;border:.5px solid var(--border-hi);border-radius:4px;color:rgba(167,139,250,.55);}
+.p-tag.clickable{cursor:pointer;transition:all .2s;}
+.p-tag.clickable:hover{transform:scale(1.08);border-color:currentColor;filter:brightness(1.4);}
+/* Domain focus overlay */
+.domain-focus-ring{position:fixed;inset:0;pointer-events:none;z-index:5;transition:opacity .4s;}
+/* Entity highlight pulse */
+@keyframes nodeHighlight{0%{r:var(--base-r);}50%{r:calc(var(--base-r)*1.6);}100%{r:var(--base-r);}}
 .qdot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:.38rem;vertical-align:middle;}
 .qdot.open{background:#60a5fa;box-shadow:0 0 5px rgba(96,165,250,.5);}
 .qdot.answered{background:#34d399;box-shadow:0 0 5px rgba(52,211,153,.5);}
@@ -2067,6 +2073,13 @@ function attachDrag(g,node){
 
 // ── INTERACTION ─────────────────────────────────────────────────────
 function initInteraction(){
+  // Cosmos boş alana tıklayınca focus temizle
+  svgEl.addEventListener('click',e=>{
+    if(!e.target.closest('.g-domain,.g-entity,.g-question') && NAV?.focusedDomain){
+      clearFocus();
+    }
+  });
+
   svgEl.addEventListener('mousedown',e=>{
     if(e.target.closest('.g-domain,.g-entity,.g-question')) return;
     S.panning=true;S.panSX=e.clientX;S.panSY=e.clientY;
@@ -2714,9 +2727,14 @@ function openPanelCore(){
     const row=document.createElement('div');row.className='p-tags';
     domainList.forEach(d=>{
       const cfg=DOMAINS[d];
-      const tag=document.createElement('span');tag.className='p-tag';
-      tag.textContent=cfg?.label||d;tag.style.borderColor=hexAlpha(cfg?.color||'#fff',.3);
+      const entCount = S.universe.entities.filter(e=>e.domain===d&&e.type!=='domain').length;
+      const tag=document.createElement('span');
+      tag.className='p-tag clickable';
+      tag.textContent=(cfg?.label||d)+(entCount>0?` ·${entCount}`:'');
+      tag.style.borderColor=hexAlpha(cfg?.color||'#fff',.3);
       tag.style.color=hexAlpha(cfg?.color||'#fff',.7);
+      tag.title = `${cfg?.label||d} domain'ine git`;
+      tag.onclick=()=>{ closePanel(); focusDomain(d); };
       row.appendChild(tag);
     });
     sec.appendChild(lbl);sec.appendChild(row);body.appendChild(sec);
@@ -2739,8 +2757,9 @@ function openPanelDomain(ent){
     const list=document.createElement('div');list.className='p-answers';
     ents.forEach(e=>{
       const item=document.createElement('div');item.className='p-ans';
-      item.innerHTML=`<strong>${e.type}</strong>${e.label}`;
-      item.style.cursor='pointer';item.onclick=()=>openPanelEntity(e.id);
+      item.style.cursor='pointer';
+      item.innerHTML=`<strong style="color:${hexAlpha(cfg.color,.7)}">${e.type}</strong>${e.label}`;
+      item.onclick=()=>{ focusEntity(e.id); openPanelEntity(e.id); };
       list.appendChild(item);
     });
     sec.appendChild(lbl);sec.appendChild(list);body.appendChild(sec);
@@ -2972,6 +2991,122 @@ function logout(){
   // Sayfayı yenile — temiz boot ekranı
   window.location.reload();
 }
+
+
+// ══════════════════════════════════════════
+// COSMOS NAVIGATION ENGINE
+// Tag tıklama → domain focus → zoom → entity highlight
+// ══════════════════════════════════════════
+
+// Aktif focus state
+const NAV = {
+  focusedDomain: null,
+  focusedEntity: null,
+};
+
+// Domain yıldızına smooth zoom + focus
+function focusDomain(domainId){
+  const domNode = S.nodes.find(n=>n.id==='domain_'+domainId);
+  if(!domNode) return;
+  const cfg = DOMAINS[domainId]||DOMAINS.knowledge;
+
+  NAV.focusedDomain = domainId;
+  closePanel();
+
+  // Smooth zoom to domain position
+  const targetScale = 1.8;
+  const targetX = W/2/targetScale - domNode.x;
+  const targetY = H/2/targetScale - domNode.y;
+
+  animateViewport(targetX, targetY, targetScale, 600, ()=>{
+    // After zoom: highlight domain entities, dim others
+    applyDomainFocus(domainId, cfg.color);
+    openPanelDomain(S.universe.entities.find(e=>e.id==='domain_'+domainId));
+  });
+}
+
+// Belirli entity'ye zoom
+function focusEntity(entId){
+  const entNode = S.nodes.find(n=>n.id===entId);
+  if(!entNode) return;
+  NAV.focusedEntity = entId;
+
+  animateViewport(
+    W/2/2.2 - entNode.x,
+    H/2/2.2 - entNode.y,
+    2.2, 500,
+    ()=>{ pulseNode(entId); }
+  );
+}
+
+// Smooth viewport animation
+function animateViewport(targetX, targetY, targetScale, duration, onDone){
+  const startX = S.vpX, startY = S.vpY, startS = S.vpS;
+  const startTime = performance.now();
+
+  function step(now){
+    const t = Math.min((now - startTime)/duration, 1);
+    const ease = t<0.5 ? 2*t*t : -1+(4-2*t)*t; // easeInOut
+    S.vpX = startX + (targetX - startX)*ease;
+    S.vpY = startY + (targetY - startY)*ease;
+    S.vpS = startS + (targetScale - startS)*ease;
+    applyVP();
+    if(t < 1) requestAnimationFrame(step);
+    else if(onDone) onDone();
+  }
+  requestAnimationFrame(step);
+}
+
+// Domain focus — ilgili entity'leri öne çıkar, diğerlerini soldur
+function applyDomainFocus(domainId, color){
+  svgEl.querySelectorAll('.g-entity,.g-question').forEach(g=>{
+    const nid = g.getAttribute('data-nid');
+    const ent = S.universe.entities.find(e=>e.id===nid)||S.universe.questions.find(q=>q.id===nid);
+    const inDomain = ent?.domain===domainId || (nid && S.universe.questions.find(q=>q.id===nid&&q.family===domainId));
+    g.style.opacity = inDomain ? '1' : '0.15';
+    g.style.transition = 'opacity .4s';
+  });
+  // Domain star itself — glow up
+  const domG = svgEl.querySelector(`[data-nid="domain_${domainId}"]`);
+  if(domG){ domG.style.filter=`drop-shadow(0 0 12px ${color})`; domG.style.opacity='1'; }
+}
+
+// Focus temizle — tüm node'ları normal'e döndür
+function clearFocus(){
+  NAV.focusedDomain = null;
+  NAV.focusedEntity = null;
+  svgEl.querySelectorAll('.g-entity,.g-question,.g-domain').forEach(g=>{
+    g.style.opacity=''; g.style.filter=''; g.style.transition='opacity .3s';
+  });
+}
+
+// Node pulse animasyonu
+function pulseNode(nodeId){
+  const g = svgEl.querySelector(`[data-nid="${nodeId}"]`);
+  if(!g) return;
+  const circle = g.querySelector('circle');
+  if(!circle) return;
+  const origR = parseFloat(circle.getAttribute('r'));
+  let t = 0;
+  const anim = setInterval(()=>{
+    t += 0.15;
+    const r = origR + Math.sin(t)*origR*0.5;
+    circle.setAttribute('r', r);
+    if(t > Math.PI*2){ clearInterval(anim); circle.setAttribute('r',origR); }
+  },16);
+}
+
+// Escape ile focus temizle
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){ clearFocus(); closePanel(); resetComposer(); }
+});
+
+// Cosmos'a tıklayınca (node değil) focus temizle
+svgEl?.addEventListener('click', e=>{
+  if(!e.target.closest('.g-domain,.g-entity,.g-question') && NAV.focusedDomain){
+    clearFocus();
+  }
+});
 
 // ── AUTO SESSION RESTORE — script tam yüklendikten sonra çalış ───────
 (async ()=>{
