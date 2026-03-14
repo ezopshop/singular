@@ -7,12 +7,21 @@
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Serif+Display:ital@0;1&display=swap');
+
 :root {
   --bg:#04040e;--bg2:#08081a;
-  --core:#a78bfa;
+  --core:#a78bfa;--core-glow:rgba(167,139,250,0.1);
   --text:#dddaf0;--text-muted:#55527a;--text-dim:#252340;
   --border:rgba(167,139,250,0.1);--border-hi:rgba(167,139,250,0.26);
   --panel:rgba(4,4,14,0.97);
+  /* Domain colors */
+  --d-identity:#a78bfa; --d-family:#f472b6; --d-music:#34d399;
+  --d-film:#f59e0b;     --d-docs:#60a5fa;   --d-projects:#fb923c;
+  --d-finance:#22d3ee;  --d-health:#a3e635; --d-edu:#e879f9;
+  --d-knowledge:#94a3b8;
+  /* Node type colors */
+  --n-entity:#e2e0f0;   --n-question:#60a5fa; --n-answer:#34d399;
+  --n-relation:rgba(167,139,250,0.3);
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);}
@@ -22,7 +31,7 @@ canvas#stars{position:fixed;inset:0;pointer-events:none;z-index:0;}
 /* BOOT */
 #boot{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg);z-index:200;transition:opacity .9s ease,transform .9s ease;opacity:0;pointer-events:none;}
 #boot.out{opacity:0;transform:scale(1.07);pointer-events:none;}
-.boot-logo{font-family:'DM Serif Display',serif;font-size:4rem;letter-spacing:.35em;opacity:.92;margin-bottom:.2rem;}
+.boot-logo{font-family:'DM Serif Display',serif;font-size:4rem;letter-spacing:.35em;opacity:.92;margin-bottom:.2rem;text-shadow:0 0 80px rgba(167,139,250,.18);}
 .boot-sub{font-size:.58rem;letter-spacing:.45em;color:var(--text-muted);text-transform:uppercase;margin-bottom:4rem;}
 .boot-card{background:rgba(8,8,26,.92);border:.5px solid var(--border-hi);border-radius:14px;padding:2.2rem 2.8rem;width:380px;text-align:center;backdrop-filter:blur(20px);}
 .boot-card-title{font-size:.62rem;letter-spacing:.28em;color:var(--text-muted);text-transform:uppercase;margin-bottom:1.75rem;}
@@ -38,13 +47,14 @@ canvas#stars{position:fixed;inset:0;pointer-events:none;z-index:0;}
 #universe.active{opacity:1;pointer-events:all;}
 #cosmos{position:absolute;inset:0;width:100%;height:100%;cursor:grab;}
 #cosmos.panning{cursor:grabbing;}
+
+/* SVG classes */
 .orbit-ring{fill:none;stroke-width:.5;}
-.g-domain,.g-entity,.g-question{cursor:pointer;}
+.g-domain{cursor:pointer;}
+.g-entity{cursor:pointer;}
+.g-question{cursor:pointer;}
 .node-label{font-family:'DM Mono',monospace;font-size:9px;pointer-events:none;}
 .g-link{fill:none;stroke-width:.5;pointer-events:none;}
-
-/* ZOOM LEVEL INDICATOR */
-#zoom-indicator{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:.5rem;letter-spacing:.4em;text-transform:uppercase;color:rgba(167,139,250,.2);pointer-events:none;transition:opacity .4s;z-index:5;}
 
 /* STATUS */
 #status{position:fixed;top:1.5rem;left:1.5rem;display:flex;align-items:center;gap:.5rem;font-size:.58rem;letter-spacing:.18em;color:var(--text-muted);text-transform:uppercase;z-index:10;}
@@ -54,48 +64,72 @@ canvas#stars{position:fixed;inset:0;pointer-events:none;z-index:0;}
 .sdot{width:5px;height:5px;border-radius:50%;background:var(--text-dim);transition:all .4s;}
 .sdot.on{background:#34d399;box-shadow:0 0 8px rgba(52,211,153,.55);}
 #topright{position:fixed;top:1.5rem;right:1.5rem;text-align:right;font-size:.58rem;letter-spacing:.1em;color:var(--text-muted);text-transform:uppercase;line-height:2.2;z-index:10;}
-#zoom-level-text{font-size:.5rem;color:var(--text-dim);letter-spacing:.2em;}
 
 /* CONTROLS */
 #ctrl{position:fixed;bottom:9.5rem;right:1.5rem;display:flex;flex-direction:column;gap:.3rem;z-index:10;}
-.cbtn{width:28px;height:28px;background:rgba(8,8,26,.85);border:.5px solid var(--border);border-radius:6px;color:var(--text-muted);cursor:pointer;font-size:.9rem;display:flex;align-items:center;justify-content:center;transition:color .15s;font-family:monospace;}
+.cbtn{width:28px;height:28px;background:rgba(8,8,26,.85);border:.5px solid var(--border);border-radius:6px;color:var(--text-muted);cursor:pointer;font-size:.9rem;display:flex;align-items:center;justify-content:center;transition:color .15s,border-color .15s;font-family:monospace;}
 .cbtn:hover{color:var(--text);border-color:var(--border-hi);}
 
 /* LEGEND */
-#legend{position:fixed;bottom:10.5rem;left:1.5rem;display:flex;flex-direction:column;gap:.38rem;opacity:.35;z-index:10;transition:opacity .3s;}
-#legend:hover{opacity:.8;}
+#legend{position:fixed;bottom:10.5rem;left:1.5rem;display:flex;flex-direction:column;gap:.38rem;opacity:.4;z-index:10;}
 .leg{display:flex;align-items:center;gap:.5rem;font-size:.5rem;letter-spacing:.12em;color:var(--text-muted);}
 .ldot{width:7px;height:7px;border-radius:50%;}
+.ldot.star{width:9px;height:9px;clip-path:polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);}
 
 /* HINT */
 #hint{position:fixed;bottom:9rem;left:50%;transform:translateX(-50%);font-size:.6rem;letter-spacing:.22em;color:var(--text-dim);text-transform:uppercase;transition:opacity .8s;white-space:nowrap;pointer-events:none;z-index:10;}
 
 /* COMPOSER */
 #composer{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);width:min(620px,93vw);z-index:20;display:flex;flex-direction:column;gap:.4rem;}
-#input-bar{background:rgba(8,8,26,.92);border:.5px solid var(--border-hi);border-radius:14px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.55);backdrop-filter:blur(24px);transition:border-color .2s;}
+
+#input-bar{background:rgba(8,8,26,.9);border:.5px solid var(--border-hi);border-radius:14px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.55),0 0 0 .5px rgba(167,139,250,.05);backdrop-filter:blur(24px);transition:border-color .2s;}
 #input-bar:focus-within{border-color:rgba(167,139,250,.38);}
 .ib-top{display:flex;align-items:center;gap:.5rem;padding:.5rem 1.1rem .25rem;}
-.mpill{font-size:.48rem;letter-spacing:.22em;text-transform:uppercase;padding:.18rem .55rem;border-radius:10px;}
+.mpill{font-size:.48rem;letter-spacing:.22em;text-transform:uppercase;padding:.18rem .55rem;border-radius:10px;transition:all .2s;}
 .mp-idle{background:rgba(167,139,250,.07);color:rgba(167,139,250,.45);}
 .mp-q{background:rgba(96,165,250,.1);color:#60a5fa;}
-.mp-s{background:rgba(52,211,153,.1);color:#34d399;}
-.ib-ctx{font-size:.58rem;color:var(--text-dim);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ib-ctx{font-size:.58rem;color:var(--text-dim);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:.04em;}
 .ib-row{display:flex;align-items:center;}
 #input-field{flex:1;padding:.82rem 1.1rem;background:transparent;border:none;outline:none;color:var(--text);font-family:'DM Mono',monospace;font-size:.8rem;letter-spacing:.03em;}
 #input-field::placeholder{color:var(--text-muted);}
-#input-send{padding:.7rem 1.1rem;background:transparent;border:none;border-left:.5px solid var(--border);color:var(--core);cursor:pointer;font-size:.95rem;opacity:.6;transition:opacity .2s;}
+#input-send{padding:.7rem 1.1rem;background:transparent;border:none;border-left:.5px solid var(--border);color:var(--core);cursor:pointer;font-size:.95rem;transition:opacity .2s;opacity:.6;}
 #input-send:hover{opacity:1;}
 
 /* SUGGESTION LAYER */
 #sug-layer{display:none;}
 #sug-layer.on{display:block;animation:su .18s ease;}
 @keyframes su{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:none;}}
-.sug-wrap{background:rgba(8,8,26,.94);border:.5px solid var(--border);border-radius:12px;padding:.75rem .9rem;backdrop-filter:blur(20px);}
+.sug-wrap{background:rgba(8,8,26,.92);border:.5px solid var(--border);border-radius:12px;padding:.75rem .9rem;backdrop-filter:blur(20px);}
 .sug-lbl{font-size:.5rem;letter-spacing:.22em;text-transform:uppercase;color:var(--text-muted);margin-bottom:.5rem;}
 .sug-opts{display:flex;flex-direction:column;gap:.22rem;}
 .sug-opt{font-size:.68rem;padding:.36rem .7rem;background:transparent;border:.5px solid transparent;border-radius:7px;color:var(--text-muted);cursor:pointer;font-family:'DM Mono',monospace;text-align:left;transition:all .12s;display:flex;align-items:center;gap:.5rem;}
 .sug-opt:hover{color:var(--text);border-color:rgba(96,165,250,.2);background:rgba(96,165,250,.04);}
 .sug-arr{color:var(--text-dim);font-size:.6rem;width:10px;flex-shrink:0;}
+.sug-opt.comp-opt:hover{border-color:rgba(167,139,250,.22);background:rgba(167,139,250,.03);}
+
+/* COMPOSER STAGE */
+#q-composer{display:none;}
+#q-composer.on{display:block;animation:su .18s ease;}
+.qc-wrap{background:rgba(8,8,26,.94);border:.5px solid var(--border-hi);border-radius:12px;padding:1.1rem 1.1rem .9rem;backdrop-filter:blur(24px);}
+.qc-lbl{font-size:.48rem;letter-spacing:.25em;text-transform:uppercase;color:var(--text-dim);margin-bottom:.6rem;}
+.qc-prev{font-family:'DM Serif Display',serif;font-size:1.15rem;color:var(--text);margin-bottom:.85rem;min-height:1.5rem;}
+.qc-slots{display:flex;flex-direction:column;gap:.45rem;margin-bottom:.8rem;}
+.slot-lbl{font-size:.47rem;letter-spacing:.2em;text-transform:uppercase;color:var(--text-dim);margin-bottom:.27rem;}
+.chip-row{display:flex;flex-wrap:wrap;gap:.27rem;padding:.37rem .48rem;background:rgba(255,255,255,.015);border:.5px solid var(--border);border-radius:7px;}
+.chip{padding:.21rem .58rem;border-radius:12px;font-size:.6rem;font-family:'DM Mono',monospace;cursor:pointer;border:.5px solid transparent;color:var(--text-muted);transition:all .12s;opacity:.6;}
+.chip.ctx-c{border-color:rgba(167,139,250,.14);color:rgba(167,139,250,.5);}
+.chip.tmpl-c{border-color:rgba(52,211,153,.12);color:rgba(52,211,153,.5);}
+.chip.sel{opacity:1!important;}
+.chip.ctx-c.sel{border-color:rgba(167,139,250,.38);color:var(--core);background:rgba(167,139,250,.06);}
+.chip.tmpl-c.sel{border-color:rgba(52,211,153,.32);color:#34d399;background:rgba(52,211,153,.05);}
+.topic-inp{background:transparent;border:none;border-bottom:.5px solid var(--border-hi);outline:none;color:#60a5fa;font-family:'DM Mono',monospace;font-size:.75rem;padding:.15rem .3rem;width:160px;letter-spacing:.04em;}
+.topic-inp::placeholder{color:var(--text-dim);}
+.qc-foot{display:flex;gap:.4rem;justify-content:flex-end;}
+.qbtn{padding:.38rem .85rem;border-radius:7px;font-size:.6rem;font-family:'DM Mono',monospace;cursor:pointer;transition:all .15s;letter-spacing:.07em;}
+.qbtn-ok{background:rgba(52,211,153,.09);border:.5px solid rgba(52,211,153,.24);color:#34d399;}
+.qbtn-ok:hover{background:rgba(52,211,153,.15);}
+.qbtn-cancel{background:transparent;border:.5px solid var(--border);color:var(--text-muted);}
+.qbtn-cancel:hover{color:var(--text);}
 
 /* FACET PANEL */
 #facet-panel{display:none;}
@@ -113,79 +147,39 @@ canvas#stars{position:fixed;inset:0;pointer-events:none;z-index:0;}
 .fp-foot{display:flex;align-items:center;justify-content:space-between;margin-top:.7rem;}
 .fp-skip{font-size:.57rem;color:var(--text-dim);background:transparent;border:none;cursor:pointer;font-family:'DM Mono',monospace;}
 .fp-skip:hover{color:var(--text-muted);}
-.qbtn{padding:.38rem .85rem;border-radius:7px;font-size:.6rem;font-family:'DM Mono',monospace;cursor:pointer;transition:all .15s;letter-spacing:.07em;}
-.qbtn-ok{background:rgba(52,211,153,.09);border:.5px solid rgba(52,211,153,.24);color:#34d399;}
-.qbtn-ok:hover{background:rgba(52,211,153,.15);}
 
-/* ══════════════════════════════════════════
-   DETAIL PANEL — CARD SYSTEM
-══════════════════════════════════════════ */
-#panel{position:fixed;top:50%;right:-420px;transform:translateY(-50%);width:360px;max-height:80vh;background:var(--panel);border:.5px solid var(--border-hi);border-radius:14px;transition:right .38s cubic-bezier(.16,1,.3,1);overflow-y:auto;z-index:50;backdrop-filter:blur(30px);}
+/* DETAIL PANEL */
+#panel{position:fixed;top:50%;right:-400px;transform:translateY(-50%);width:340px;max-height:76vh;background:var(--panel);border:.5px solid var(--border-hi);border-radius:14px;padding:1.5rem;transition:right .38s cubic-bezier(.16,1,.3,1);overflow-y:auto;z-index:50;backdrop-filter:blur(30px);}
 #panel.open{right:1.5rem;}
-.p-close{position:absolute;top:1rem;right:1rem;background:transparent;border:none;color:var(--text-muted);cursor:pointer;font-size:.85rem;font-family:'DM Mono',monospace;z-index:1;}
+.p-close{position:absolute;top:1rem;right:1rem;background:transparent;border:none;color:var(--text-muted);cursor:pointer;font-size:.85rem;font-family:'DM Mono',monospace;}
 .p-close:hover{color:var(--text);}
-
-/* Card Header */
-.card-header{padding:1.4rem 1.5rem .8rem;}
-.card-domain-bar{display:flex;align-items:center;gap:.4rem;margin-bottom:.7rem;}
-.card-domain-dot{width:6px;height:6px;border-radius:50%;}
-.card-domain-lbl{font-size:.48rem;letter-spacing:.25em;text-transform:uppercase;color:var(--text-muted);}
-.card-type-badge{font-size:.45rem;letter-spacing:.3em;text-transform:uppercase;padding:.18rem .5rem;border-radius:10px;margin-left:auto;}
-.card-title{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--text);line-height:1.45;margin-bottom:.3rem;}
-.card-subtitle{font-size:.58rem;color:var(--text-muted);letter-spacing:.06em;}
-
-/* Card Sections */
-.card-body{padding:0 1.5rem 1.5rem;}
-.card-section{margin-bottom:1rem;}
-.card-section-label{font-size:.48rem;letter-spacing:.28em;text-transform:uppercase;color:var(--text-dim);margin-bottom:.5rem;display:flex;align-items:center;gap:.4rem;}
-.card-section-label::after{content:'';flex:1;height:.5px;background:var(--border);}
-
-/* Property rows */
-.prop-row{display:flex;align-items:flex-start;gap:.5rem;padding:.32rem 0;border-bottom:.5px solid rgba(167,139,250,.04);}
-.prop-key{font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);min-width:80px;padding-top:.1rem;}
-.prop-val{font-size:.68rem;color:var(--text);flex:1;line-height:1.55;}
-.prop-val.empty{color:var(--text-dim);font-style:italic;}
-.prop-val a{color:#60a5fa;text-decoration:none;}
-
-/* Relation pills */
-.rel-list{display:flex;flex-direction:column;gap:.22rem;}
-.rel-item{display:flex;align-items:center;gap:.4rem;padding:.3rem .5rem;border:.5px solid var(--border);border-radius:6px;cursor:pointer;transition:border-color .15s,background .15s;}
-.rel-item:hover{border-color:var(--border-hi);background:rgba(167,139,250,.03);}
-.rel-type{font-size:.45rem;letter-spacing:.15em;text-transform:uppercase;color:var(--text-dim);min-width:55px;}
-.rel-label{font-size:.65rem;color:var(--text-muted);flex:1;}
-.rel-arrow{font-size:.5rem;color:var(--text-dim);}
-
-/* Answer list */
-.ans-list{display:flex;flex-direction:column;gap:.22rem;}
-.ans-item{padding:.35rem .55rem;border:.5px solid rgba(52,211,153,.1);border-radius:6px;background:rgba(52,211,153,.02);}
-.ans-facet{font-size:.45rem;letter-spacing:.15em;text-transform:uppercase;color:rgba(52,211,153,.5);margin-bottom:.15rem;}
-.ans-val{font-size:.67rem;color:var(--text-muted);}
-
-/* Question status */
-.q-status{display:inline-flex;align-items:center;gap:.3rem;font-size:.5rem;letter-spacing:.15em;text-transform:uppercase;padding:.2rem .5rem;border-radius:10px;}
-.q-open{background:rgba(96,165,250,.08);color:#60a5fa;}
-.q-answered{background:rgba(52,211,153,.08);color:#34d399;}
-.qdot{display:inline-block;width:5px;height:5px;border-radius:50%;}
-.qdot.open{background:#60a5fa;}
-.qdot.answered{background:#34d399;}
-
-/* Card Actions */
-.card-actions{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.8rem;}
-.card-action{font-size:.58rem;padding:.35rem .7rem;background:transparent;border:.5px solid var(--border);border-radius:6px;color:var(--text-muted);cursor:pointer;font-family:'DM Mono',monospace;transition:all .15s;}
-.card-action:hover{color:var(--text);border-color:var(--border-hi);}
-.card-action.primary{border-color:rgba(52,211,153,.22);color:#34d399;}
-.card-action.primary:hover{background:rgba(52,211,153,.06);}
-
-/* Core card */
-.core-stat{display:grid;grid-template-columns:1fr 1fr;gap:.4rem;margin-top:.5rem;}
-.cstat{padding:.5rem .65rem;background:rgba(167,139,250,.04);border:.5px solid var(--border);border-radius:7px;}
-.cstat-num{font-family:'DM Serif Display',serif;font-size:1.4rem;color:var(--text);line-height:1;}
-.cstat-lbl{font-size:.45rem;letter-spacing:.15em;text-transform:uppercase;color:var(--text-dim);margin-top:.15rem;}
-
-/* Domain tags */
-.domain-chips{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.4rem;}
-.domain-chip{font-size:.5rem;padding:.18rem .48rem;border-radius:10px;cursor:pointer;transition:opacity .15s;}
-.domain-chip:hover{opacity:.7;}
+.pbadge{display:inline-block;font-size:.48rem;letter-spacing:.3em;text-transform:uppercase;padding:.22rem .55rem;border-radius:4px;margin-bottom:.7rem;}
+.pb-domain{background:rgba(167,139,250,.1);color:var(--core);}
+.pb-entity{background:rgba(226,224,240,.07);color:rgba(226,224,240,.6);}
+.pb-question{background:rgba(96,165,250,.1);color:#60a5fa;}
+.pb-core{background:rgba(167,139,250,.1);color:var(--core);}
+.ptitle{font-family:'DM Serif Display',serif;font-size:1.05rem;color:var(--text);margin-bottom:.55rem;line-height:1.5;}
+.pmeta{font-size:.55rem;color:var(--text-dim);margin-bottom:.9rem;letter-spacing:.08em;}
+.psec{margin-bottom:.85rem;}
+.plbl{font-size:.5rem;letter-spacing:.25em;text-transform:uppercase;color:var(--text-muted);margin-bottom:.38rem;}
+.ptxt{font-size:.66rem;color:var(--text-muted);line-height:1.75;}
+.phr{border:none;border-top:.5px solid var(--border);margin:.65rem 0;}
+.p-answers{display:flex;flex-direction:column;gap:.28rem;}
+.p-ans{padding:.35rem .55rem;border:.5px solid rgba(52,211,153,.12);border-radius:6px;font-size:.65rem;color:var(--text-muted);}
+.p-ans strong{color:#34d399;font-weight:400;margin-right:.3rem;}
+.p-btn{width:100%;font-size:.6rem;padding:.38rem .7rem;background:transparent;border:.5px solid var(--border);border-radius:6px;color:var(--text-muted);cursor:pointer;font-family:'DM Mono',monospace;text-align:left;transition:color .15s,border-color .15s;margin-top:.28rem;}
+.p-btn:hover{color:var(--text);border-color:rgba(167,139,250,.22);}
+.p-tags{display:flex;flex-wrap:wrap;gap:.28rem;margin-bottom:.65rem;}
+.p-tag{font-size:.52rem;padding:.15rem .48rem;border:.5px solid var(--border-hi);border-radius:4px;color:rgba(167,139,250,.55);}
+.qdot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:.38rem;vertical-align:middle;}
+.qdot.open{background:#60a5fa;box-shadow:0 0 5px rgba(96,165,250,.5);}
+.qdot.answered{background:#34d399;box-shadow:0 0 5px rgba(52,211,153,.5);}
+/* Relations in panel */
+.p-rels{display:flex;flex-direction:column;gap:.25rem;}
+.p-rel{font-size:.62rem;padding:.32rem .55rem;border:.5px solid var(--border);border-radius:6px;color:var(--text-muted);display:flex;align-items:center;gap:.4rem;cursor:pointer;transition:border-color .15s;}
+.p-rel:hover{border-color:var(--border-hi);color:var(--text);}
+.rel-arrow{color:var(--text-dim);font-size:.55rem;}
+.rel-type{font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim);}
 
 ::-webkit-scrollbar{width:2px;}
 ::-webkit-scrollbar-track{background:transparent;}
@@ -193,6 +187,7 @@ canvas#stars{position:fixed;inset:0;pointer-events:none;z-index:0;}
 </style>
 </head>
 <body>
+
 <canvas id="stars"></canvas>
 
 <!-- BOOT -->
@@ -213,26 +208,28 @@ canvas#stars{position:fixed;inset:0;pointer-events:none;z-index:0;}
 <!-- UNIVERSE -->
 <div id="universe">
   <svg id="cosmos"></svg>
-  <div id="zoom-indicator">—</div>
-  <div id="status"><div class="sdot" id="sdot"></div><span id="stext">bağlanıyor…</span><button id="logout-btn" onclick="logout()">✕ çıkış</button></div>
-  <div id="topright">
-    <div id="nc">0 varlık</div>
-    <div id="qc">0 soru</div>
-    <div id="zoom-level-text">zoom 1</div>
-  </div>
+
+  <div id="status"><div class="sdot" id="sdot"></div><span id="stext">bağlanıyor…</span><button id="logout-btn" onclick="logout()" title="Çıkış yap">✕ çıkış</button></div>
+  <div id="topright"><div id="nc">0 varlık</div><div id="qc">0 soru</div></div>
+
   <div id="legend">
-    <div class="leg"><div class="ldot" style="background:#a78bfa"></div>domain yıldızı</div>
-    <div class="leg"><div class="ldot" style="background:#e2e0f0;opacity:.6"></div>varlık</div>
-    <div class="leg"><div class="ldot" style="background:#60a5fa"></div>soru</div>
-    <div class="leg"><div class="ldot" style="background:#34d399"></div>ifade / karar</div>
+    <div class="leg"><div class="ldot star" style="background:var(--core)"></div>domain (yıldız)</div>
+    <div class="leg"><div class="ldot" style="background:var(--n-entity);opacity:.7"></div>varlık (gezegen)</div>
+    <div class="leg"><div class="ldot" style="background:#60a5fa"></div>soru (bağlantı)</div>
   </div>
+
   <div id="ctrl">
     <button class="cbtn" onclick="zoomBy(1.22)">+</button>
     <button class="cbtn" onclick="zoomBy(0.82)">−</button>
     <button class="cbtn" onclick="resetView()" style="font-size:.52rem">⌂</button>
   </div>
-  <div id="hint">bir soru sor · bir şey söyle · bir kişi yaz</div>
+  <div id="zoom-level-wrap" style="position:fixed;bottom:9.5rem;right:4.5rem;font-size:.5rem;letter-spacing:.15em;color:var(--text-dim);text-transform:uppercase;text-align:right;z-index:10;">
+    <span id="zoom-level">yörünge</span>
+  </div>
 
+  <div id="hint">bir soru sor, bir kişi yaz, bir şey hatırla</div>
+
+  <!-- COMPOSER -->
   <div id="composer">
     <div id="input-bar">
       <div class="ib-top">
@@ -240,14 +237,25 @@ canvas#stars{position:fixed;inset:0;pointer-events:none;z-index:0;}
         <span class="ib-ctx" id="ibctx">ne sormak ya da hatırlamak istiyorsun?</span>
       </div>
       <div class="ib-row">
-        <input id="input-field" type="text" placeholder="bir kişi, yer, konu, soru ya da 'annemin adı Ayşe'…" autocomplete="off"/>
+        <input id="input-field" type="text" placeholder="bir kişi, yer, konu, soru…" autocomplete="off"/>
         <button id="input-send" onclick="handleInput()">→</button>
       </div>
     </div>
     <div id="sug-layer">
       <div class="sug-wrap">
-        <div class="sug-lbl" id="suglbl">—</div>
+        <div class="sug-lbl" id="suglbl">Ne sormak istiyorsun?</div>
         <div class="sug-opts" id="sugopts"></div>
+      </div>
+    </div>
+    <div id="q-composer">
+      <div class="qc-wrap">
+        <div class="qc-lbl">Soruyu Kur</div>
+        <div class="qc-prev" id="qcprev">—</div>
+        <div class="qc-slots" id="qcslots"></div>
+        <div class="qc-foot">
+          <button class="qbtn qbtn-cancel" onclick="resetComposer()">iptal</button>
+          <button class="qbtn qbtn-ok" onclick="confirmComposer()">kaydet →</button>
+        </div>
       </div>
     </div>
     <div id="facet-panel">
@@ -264,7 +272,10 @@ canvas#stars{position:fixed;inset:0;pointer-events:none;z-index:0;}
 
   <div id="panel">
     <button class="p-close" onclick="closePanel()">✕</button>
-    <div id="panel-content"></div>
+    <div class="pbadge pb-entity" id="pbadge">varlık</div>
+    <div class="ptitle" id="ptitle">—</div>
+    <div class="pmeta" id="pmeta">—</div>
+    <div id="pbody"></div>
   </div>
 </div>
 
@@ -272,131 +283,851 @@ canvas#stars{position:fixed;inset:0;pointer-events:none;z-index:0;}
 'use strict';
 
 // ══════════════════════════════════════════
+// AUTO-RESTORE — script sonu, tüm fonksiyonlar yüklü
+// tryRestoreSession script'in altında tanımlandı, oraya taşındı
+// ══════════════════════════════════════════
+
+// ══════════════════════════════════════════
+// ONTOLOGY SEED — ontology_seed.json inline
+// Parser, domain detector ve suggestion engine buradan beslenor
+// ══════════════════════════════════════════
+const ONTOLOGY = {
+  "_meta": {
+    "version": "1.0",
+    "description": "SINGULAR başlangıç ontoloji sözlüğü — parser bu dosyayı kullanarak entity, relation ve domain tespiti yapar",
+    "updated_at": "2026-03-14"
+  },
+  "domains": {
+    "identity": {
+      "label": "kimlik",
+      "color": "#a78bfa",
+      "description": "kişisel kimlik, özgeçmiş, kişisel bilgiler"
+    },
+    "family": {
+      "label": "aile",
+      "color": "#f472b6",
+      "description": "aile ilişkileri, akrabalar"
+    },
+    "knowledge": {
+      "label": "bilgi",
+      "color": "#94a3b8",
+      "description": "kavramlar, tanımlar, öğrenilen bilgiler"
+    },
+    "work": {
+      "label": "iş",
+      "color": "#fb923c",
+      "description": "kariyer, şirket, mesleki bilgiler"
+    },
+    "finance": {
+      "label": "finans",
+      "color": "#22d3ee",
+      "description": "banka, hesap, para yönetimi"
+    },
+    "health": {
+      "label": "sağlık",
+      "color": "#a3e635",
+      "description": "sağlık durumu, ilaçlar, doktorlar"
+    },
+    "places": {
+      "label": "yerler",
+      "color": "#34d399",
+      "description": "adresler, konumlar, şehirler"
+    },
+    "contacts": {
+      "label": "kişiler",
+      "color": "#f0abfc",
+      "description": "kişi rehberi, iletişim bilgileri"
+    },
+    "projects": {
+      "label": "projeler",
+      "color": "#f59e0b",
+      "description": "projeler, görevler, hedefler"
+    },
+    "documents": {
+      "label": "belgeler",
+      "color": "#60a5fa",
+      "description": "belgeler, dosyalar, linkler"
+    },
+    "credentials": {
+      "label": "hesaplar",
+      "color": "#38bdf8",
+      "description": "şifreler, kullanıcı adları, hesap bilgileri"
+    },
+    "media": {
+      "label": "medya",
+      "color": "#e879f9",
+      "description": "filmler, müzik, kitaplar, diziler"
+    },
+    "preferences": {
+      "label": "tercihler",
+      "color": "#fbbf24",
+      "description": "sevdiklerim, zevklerim, alışkanlıklar"
+    },
+    "memory": {
+      "label": "anı",
+      "color": "#f97316",
+      "description": "önemli anlar, hatıralar, geçmiş olaylar"
+    }
+  },
+  "entity_types": {
+    "person": {
+      "label": "kişi",
+      "default_domain": "family",
+      "icon": "@"
+    },
+    "organization": {
+      "label": "kurum",
+      "default_domain": "work",
+      "icon": "◆"
+    },
+    "place": {
+      "label": "yer",
+      "default_domain": "places",
+      "icon": "◉"
+    },
+    "document": {
+      "label": "belge",
+      "default_domain": "documents",
+      "icon": "□"
+    },
+    "account": {
+      "label": "hesap",
+      "default_domain": "credentials",
+      "icon": "⬡"
+    },
+    "credential": {
+      "label": "kimlik bilgisi",
+      "default_domain": "credentials",
+      "icon": "🔑"
+    },
+    "contact": {
+      "label": "kişi",
+      "default_domain": "contacts",
+      "icon": "@"
+    },
+    "event": {
+      "label": "olay",
+      "default_domain": "memory",
+      "icon": "◈"
+    },
+    "project": {
+      "label": "proje",
+      "default_domain": "projects",
+      "icon": "▷"
+    },
+    "media_item": {
+      "label": "medya",
+      "default_domain": "media",
+      "icon": "♪"
+    },
+    "fact": {
+      "label": "gerçek",
+      "default_domain": "knowledge",
+      "icon": "·"
+    },
+    "concept": {
+      "label": "kavram",
+      "default_domain": "knowledge",
+      "icon": "○"
+    },
+    "preference": {
+      "label": "tercih",
+      "default_domain": "preferences",
+      "icon": "★"
+    },
+    "property": {
+      "label": "özellik",
+      "default_domain": "identity",
+      "icon": "—"
+    }
+  },
+  "relation_types": {
+    "child_of": {
+      "label": "çocuğu",
+      "spring_k": 0.05,
+      "rest_len": 85,
+      "visual": "rgba(244,114,182,.45)"
+    },
+    "parent_of": {
+      "label": "ebeveyni",
+      "spring_k": 0.05,
+      "rest_len": 85,
+      "visual": "rgba(244,114,182,.45)"
+    },
+    "spouse_of": {
+      "label": "eşi",
+      "spring_k": 0.06,
+      "rest_len": 70,
+      "visual": "rgba(244,114,182,.6)"
+    },
+    "sibling_of": {
+      "label": "kardeşi",
+      "spring_k": 0.04,
+      "rest_len": 90,
+      "visual": "rgba(244,114,182,.35)"
+    },
+    "relative_of": {
+      "label": "akrabası",
+      "spring_k": 0.025,
+      "rest_len": 120,
+      "visual": "rgba(244,114,182,.2)"
+    },
+    "fills_role": {
+      "label": "rolünü doldurur",
+      "spring_k": 0.055,
+      "rest_len": 70,
+      "visual": "rgba(244,114,182,.6)"
+    },
+    "works_at": {
+      "label": "çalışır",
+      "spring_k": 0.03,
+      "rest_len": 110,
+      "visual": "rgba(251,146,60,.3)"
+    },
+    "works_on": {
+      "label": "çalışıyor",
+      "spring_k": 0.03,
+      "rest_len": 115,
+      "visual": "rgba(251,146,60,.25)"
+    },
+    "owns": {
+      "label": "sahibi",
+      "spring_k": 0.025,
+      "rest_len": 130,
+      "visual": "rgba(34,211,238,.2)"
+    },
+    "stored_in": {
+      "label": "saklandığı yer",
+      "spring_k": 0.035,
+      "rest_len": 100,
+      "visual": "rgba(96,165,250,.2)"
+    },
+    "located_at": {
+      "label": "konumu",
+      "spring_k": 0.025,
+      "rest_len": 120,
+      "visual": "rgba(52,211,153,.25)"
+    },
+    "lives_in": {
+      "label": "yaşıyor",
+      "spring_k": 0.025,
+      "rest_len": 120,
+      "visual": "rgba(52,211,153,.25)"
+    },
+    "belongs_to_domain": {
+      "label": "alanı",
+      "spring_k": 0.08,
+      "rest_len": 90,
+      "visual": "rgba(167,139,250,.2)"
+    },
+    "related_to": {
+      "label": "ilgili",
+      "spring_k": 0.015,
+      "rest_len": 165,
+      "visual": "rgba(148,163,184,.14)"
+    },
+    "mentions": {
+      "label": "bahseder",
+      "spring_k": 0.007,
+      "rest_len": 210,
+      "visual": "rgba(148,163,184,.07)"
+    },
+    "asks_about": {
+      "label": "sorusu",
+      "spring_k": 0.01,
+      "rest_len": 115,
+      "visual": "rgba(96,165,250,.18)"
+    },
+    "answered_by": {
+      "label": "cevabı",
+      "spring_k": 0.045,
+      "rest_len": 55,
+      "visual": "rgba(52,211,153,.35)"
+    },
+    "has_property": {
+      "label": "değeri",
+      "spring_k": 0.04,
+      "rest_len": 80,
+      "visual": "rgba(167,139,250,.25)"
+    },
+    "likes": {
+      "label": "seviyor",
+      "spring_k": 0.02,
+      "rest_len": 140,
+      "visual": "rgba(233,121,249,.2)"
+    },
+    "is_a": {
+      "label": "türü",
+      "spring_k": 0.04,
+      "rest_len": 75,
+      "visual": "rgba(163,230,53,.25)"
+    }
+  },
+  "property_types": {
+    "name": {
+      "label": "isim",
+      "domain": "identity",
+      "type": "text"
+    },
+    "birth_date": {
+      "label": "doğum tarihi",
+      "domain": "identity",
+      "type": "date"
+    },
+    "birth_place": {
+      "label": "doğum yeri",
+      "domain": "identity",
+      "type": "text"
+    },
+    "email": {
+      "label": "e-posta",
+      "domain": "credentials",
+      "type": "email"
+    },
+    "phone": {
+      "label": "telefon",
+      "domain": "contacts",
+      "type": "phone"
+    },
+    "address": {
+      "label": "adres",
+      "domain": "places",
+      "type": "text"
+    },
+    "username": {
+      "label": "kullanıcı adı",
+      "domain": "credentials",
+      "type": "text"
+    },
+    "password": {
+      "label": "şifre",
+      "domain": "credentials",
+      "type": "secret"
+    },
+    "url": {
+      "label": "link",
+      "domain": "documents",
+      "type": "url"
+    },
+    "note": {
+      "label": "not",
+      "domain": "knowledge",
+      "type": "text"
+    },
+    "source": {
+      "label": "kaynak",
+      "domain": "knowledge",
+      "type": "text"
+    },
+    "created_at": {
+      "label": "oluşturulma",
+      "domain": "identity",
+      "type": "datetime"
+    },
+    "updated_at": {
+      "label": "güncelleme",
+      "domain": "identity",
+      "type": "datetime"
+    }
+  },
+  "synonyms": {
+    "domains": {
+      "identity": [
+        "ben",
+        "kimlik",
+        "kişisel",
+        "özgeçmiş",
+        "profil"
+      ],
+      "family": [
+        "aile",
+        "annem",
+        "babam",
+        "kardeşim",
+        "eşim",
+        "çocuğum",
+        "nine",
+        "dede",
+        "amca",
+        "hala",
+        "dayı",
+        "teyze"
+      ],
+      "knowledge": [
+        "nedir",
+        "nasıl",
+        "tanım",
+        "kavram",
+        "öğrendim",
+        "bilgi"
+      ],
+      "work": [
+        "iş",
+        "şirket",
+        "kariyer",
+        "meslek",
+        "çalışıyorum",
+        "ofis",
+        "patron",
+        "müşteri"
+      ],
+      "finance": [
+        "para",
+        "banka",
+        "iban",
+        "kredi kartı",
+        "borç",
+        "vergi",
+        "gelir",
+        "hesap numarası"
+      ],
+      "health": [
+        "sağlık",
+        "ilaç",
+        "doktor",
+        "hastane",
+        "hastalık",
+        "kilo",
+        "boy",
+        "spor"
+      ],
+      "places": [
+        "adres",
+        "nerede",
+        "şehir",
+        "mahalle",
+        "ev",
+        "ofis adresi",
+        "yaşıyorum"
+      ],
+      "contacts": [
+        "telefon numarası",
+        "mail adresi",
+        "iletişim",
+        "rehber"
+      ],
+      "projects": [
+        "proje",
+        "geliştiriyorum",
+        "yapıyorum",
+        "başladım",
+        "bitirdim",
+        "hedef"
+      ],
+      "documents": [
+        "belge",
+        "dosya",
+        "sözleşme",
+        "sertifika",
+        "diploma",
+        "pasaport",
+        "ehliyet"
+      ],
+      "credentials": [
+        "şifre",
+        "parola",
+        "kullanıcı adı",
+        "hesap",
+        "giriş",
+        "login",
+        "2fa"
+      ],
+      "media": [
+        "film",
+        "dizi",
+        "müzik",
+        "şarkı",
+        "albüm",
+        "kitap",
+        "podcast",
+        "oyun"
+      ],
+      "preferences": [
+        "seviyorum",
+        "sevdiğim",
+        "tercihim",
+        "favorim",
+        "en iyi",
+        "beğeniyorum"
+      ],
+      "memory": [
+        "hatırlıyorum",
+        "bir zamanlar",
+        "geçmişte",
+        "o zaman",
+        "ilk kez",
+        "anım"
+      ]
+    },
+    "family_roles": {
+      "anne": [
+        "annem",
+        "annemin",
+        "annem adı",
+        "annem ismi",
+        "annesi",
+        "mother",
+        "mom"
+      ],
+      "baba": [
+        "babam",
+        "babamın",
+        "babam adı",
+        "babamın ismi",
+        "babası",
+        "father",
+        "dad"
+      ],
+      "kardeş": [
+        "kardeşim",
+        "kardeşimin",
+        "ablam",
+        "ağabeyim",
+        "erkek kardeşim",
+        "kız kardeşim"
+      ],
+      "eş": [
+        "eşim",
+        "eşimin",
+        "karım",
+        "kocam",
+        "partnerim",
+        "sevgilim"
+      ],
+      "çocuk": [
+        "çocuğum",
+        "oğlum",
+        "kızım",
+        "evladım"
+      ],
+      "nine": [
+        "ninem",
+        "büyükannem",
+        "babaannem",
+        "anneeannem"
+      ],
+      "dede": [
+        "dedem",
+        "büyükbabam",
+        "babaannem"
+      ],
+      "amca": [
+        "amcam",
+        "babanın kardeşi"
+      ],
+      "hala": [
+        "halam",
+        "babanın kız kardeşi"
+      ],
+      "dayı": [
+        "dayım",
+        "annemin erkek kardeşi"
+      ],
+      "teyze": [
+        "teyzem",
+        "annemin kız kardeşi"
+      ]
+    },
+    "statement_patterns": [
+      {
+        "pattern": "adım X",
+        "prop": "name",
+        "domain": "identity",
+        "self": true
+      },
+      {
+        "pattern": "ismim X",
+        "prop": "name",
+        "domain": "identity",
+        "self": true
+      },
+      {
+        "pattern": "ben X'im",
+        "prop": "name",
+        "domain": "identity",
+        "self": true
+      },
+      {
+        "pattern": "doğum tarihim X",
+        "prop": "birth_date",
+        "domain": "identity",
+        "self": true
+      },
+      {
+        "pattern": "X'de doğdum",
+        "prop": "birth_place",
+        "domain": "identity",
+        "self": true
+      },
+      {
+        "pattern": "doğum yerim X",
+        "prop": "birth_place",
+        "domain": "identity",
+        "self": true
+      },
+      {
+        "pattern": "mailim X",
+        "prop": "email",
+        "domain": "credentials",
+        "self": true
+      },
+      {
+        "pattern": "e-postam X",
+        "prop": "email",
+        "domain": "credentials",
+        "self": true
+      },
+      {
+        "pattern": "telefonum X",
+        "prop": "phone",
+        "domain": "contacts",
+        "self": true
+      },
+      {
+        "pattern": "numaramX",
+        "prop": "phone",
+        "domain": "contacts",
+        "self": true
+      },
+      {
+        "pattern": "adresim X",
+        "prop": "address",
+        "domain": "places",
+        "self": true
+      },
+      {
+        "pattern": "X'de yaşıyorum",
+        "prop": "lives_in",
+        "domain": "places",
+        "self": true
+      },
+      {
+        "pattern": "şirketim X",
+        "prop": "works_at",
+        "domain": "work",
+        "self": true
+      },
+      {
+        "pattern": "işim X",
+        "prop": "works_at",
+        "domain": "work",
+        "self": true
+      },
+      {
+        "pattern": "annemin adı X",
+        "prop": "name",
+        "domain": "family",
+        "role": "anne"
+      },
+      {
+        "pattern": "annem X",
+        "prop": "name",
+        "domain": "family",
+        "role": "anne"
+      },
+      {
+        "pattern": "babamın adı X",
+        "prop": "name",
+        "domain": "family",
+        "role": "baba"
+      },
+      {
+        "pattern": "babam X",
+        "prop": "name",
+        "domain": "family",
+        "role": "baba"
+      },
+      {
+        "pattern": "X şifresi Y",
+        "prop": "password",
+        "domain": "credentials",
+        "credential": true
+      },
+      {
+        "pattern": "X parolası Y",
+        "prop": "password",
+        "domain": "credentials",
+        "credential": true
+      },
+      {
+        "pattern": "en sevdiğim X Y",
+        "prop": "likes",
+        "domain": "preferences",
+        "like": true
+      },
+      {
+        "pattern": "favorim X",
+        "prop": "likes",
+        "domain": "preferences",
+        "like": true
+      }
+    ]
+  },
+  "knowledge_clusters": {
+    "self_profile": {
+      "label": "Kişisel Profil",
+      "required_props": [
+        "name",
+        "birth_date",
+        "birth_place"
+      ],
+      "optional_props": [
+        "email",
+        "phone",
+        "address"
+      ],
+      "relations": [
+        "child_of",
+        "spouse_of",
+        "works_at"
+      ]
+    },
+    "family_tree": {
+      "label": "Aile Ağacı",
+      "entity_types": [
+        "person"
+      ],
+      "relations": [
+        "child_of",
+        "parent_of",
+        "sibling_of",
+        "spouse_of"
+      ]
+    },
+    "work_profile": {
+      "label": "İş Profili",
+      "entity_types": [
+        "organization",
+        "project"
+      ],
+      "relations": [
+        "works_at",
+        "works_on"
+      ]
+    },
+    "credentials_vault": {
+      "label": "Hesaplar",
+      "entity_types": [
+        "credential",
+        "account"
+      ],
+      "relations": [
+        "owns",
+        "stored_in"
+      ]
+    }
+  }
+};
+
+// Runtime aliases — mevcut kodun ontology'den beslenmesi
+// DOMAINS → ONTOLOGY.domains'den türetilir
+const DOMAINS = Object.fromEntries(
+  Object.entries(ONTOLOGY.domains).map(([id, cfg]) => [id, {
+    label:    cfg.label,
+    color:    cfg.color,
+    keywords: ONTOLOGY.synonyms?.domains?.[id] || []
+  }])
+);
+
+// REL_SPRING → ONTOLOGY.relation_types'dan türetilir
+const REL_SPRING = Object.fromEntries(
+  Object.entries(ONTOLOGY.relation_types).map(([id, cfg]) => [id, {
+    k:       cfg.spring_k,
+    restLen: cfg.rest_len
+  }])
+);
+
+// LINK_STYLE → ONTOLOGY.relation_types'dan türetilir
+const LINK_STYLE = Object.fromEntries(
+  Object.entries(ONTOLOGY.relation_types).map(([id, cfg]) => [id, {
+    stroke: cfg.visual,
+    width:  id === 'child_of' || id === 'parent_of' || id === 'spouse_of' || id === 'fills_role' ? '1.1' : '.5',
+    dash:   id === 'asks_about' || id === 'is_a' ? '3 4' : null
+  }])
+);
+
+// RELATION_TYPES (display labels)
+const RELATION_TYPES = Object.fromEntries(
+  Object.entries(ONTOLOGY.relation_types).map(([id, cfg]) => [id, cfg.label])
+);
+
+// FAMILY_ROLES → ontology.synonyms.family_roles'dan
+const FAMILY_ROLES = {};
+if(ONTOLOGY.synonyms?.family_roles){
+  Object.entries(ONTOLOGY.synonyms.family_roles).forEach(([canonical, aliases]) => {
+    aliases.forEach(alias => { FAMILY_ROLES[alias.toLowerCase()] = canonical; });
+    FAMILY_ROLES[canonical] = canonical;
+  });
+}
+
+// STATEMENT_PATTERNS → ontology.synonyms.statement_patterns
+const STATEMENT_PATTERNS = ONTOLOGY.synonyms?.statement_patterns || [];
+
+// DOMAIN_PRIORITY — family önce, knowledge sonda
+const DOMAIN_PRIORITY = [
+  'family','work','projects','finance','health','places',
+  'media','memory','credentials','documents','contacts','preferences','identity','knowledge'
+];
+
+// ══════════════════════════════════════════
 // CONFIG
 // ══════════════════════════════════════════
 const GOOGLE_CLIENT_ID = '557723915441-q49en6uqqkqm9s5fie14ejm6cak9eo6r.apps.googleusercontent.com';
+const AI_PROXY_URL     = 'https://broad-limit-fea7.ezopshop.workers.dev/chat';
 const DRIVE_SCOPE      = 'https://www.googleapis.com/auth/drive.file';
 const UNIVERSE_FILE    = 'universe.json';
 const FOLDER_NAME      = 'SINGULAR';
-const AUTH_SESSION_KEY = 'singular_auth';
-const MODE_SESSION_KEY = 'singular_mode';
+const SESSION_KEY      = 'singular_session';
+const AUTH_SESSION_KEY = 'singular_auth';   // Google token session kaydı
+const MODE_SESSION_KEY = 'singular_mode';   // 'google' | 'local'
 
 // ══════════════════════════════════════════
-// ONTOLOGY — loaded from ontology_seed.json
+// TAXONOMY
 // ══════════════════════════════════════════
-let ONT = null; // populated at boot
-
-async function loadOntology() {
-  try {
-    const res = await fetch('./ontology_seed.json');
-    ONT = await res.json();
-  } catch(e) {
-    console.warn('ontology_seed.json yüklenemedi, varsayılan kullanılıyor.', e);
-    ONT = null;
-  }
-}
-
-// Build DOMAINS from ontology or fallback to hardcoded
-function buildDomains() {
-  if (!ONT) return DOMAINS_FALLBACK;
-  const result = {};
-  Object.entries(ONT.domains).forEach(([id, cfg]) => {
-    const synonyms = ONT.synonyms?.domains?.[id] || [];
-    result[id] = { label: cfg.label, color: cfg.color, keywords: synonyms };
-  });
-  return result;
-}
-
-function buildFamilyRoles() {
-  if (!ONT) return FAMILY_ROLES_FALLBACK;
-  const result = {};
-  Object.entries(ONT.synonyms?.family_roles || {}).forEach(([canonical, synonymList]) => {
-    synonymList.forEach(syn => { result[syn.toLowerCase()] = canonical; });
-    result[canonical] = canonical;
-  });
-  return result;
-}
-
-function buildRelationTypes() {
-  if (!ONT) return RELATION_TYPES_FALLBACK;
-  const result = {};
-  Object.entries(ONT.relation_types).forEach(([id, cfg]) => { result[id] = cfg.label; });
-  return result;
-}
-
-// ── Fallback taxonomy (used if ontology_seed.json missing) ──────────
-const DOMAINS_FALLBACK = {
-  identity:    {label:'kimlik',    color:'#a78bfa', keywords:['ben kimim','adım','doğum','yaş','kimliğim','pasaport','tc kimlik','ehliyet','telefon','email']},
-  family:      {label:'aile',      color:'#f472b6', keywords:['anne','annem','baba','babam','kardeş','aile','eş','çocuk','nine','dede','amca','hala','dayı','teyze']},
-  work:        {label:'iş',        color:'#fb923c', keywords:['iş','şirket','meslek','ofis','çalışıyorum','kariyer','ortağım','müşteri']},
-  projects:    {label:'projeler',  color:'#f59e0b', keywords:['proje','singular','cillop','geliştiriyorum','uygulama','startup','yazılım']},
-  places:      {label:'yerler',    color:'#34d399', keywords:['adres','nerede yaşıyorum','ev adres','ofis adres','şehir','mahalle','ülke']},
-  finance:     {label:'finans',    color:'#22d3ee', keywords:['para','bütçe','banka','iban','kredi kartı','borç','gelir','vergi']},
-  health:      {label:'sağlık',    color:'#a3e635', keywords:['sağlık','hastalık','ilaç','doktor','boy','kilo','spor','diyet']},
-  media:       {label:'medya',     color:'#e879f9', keywords:['film','dizi','müzik','şarkı','sanatçı','albüm','izledim','dinliyorum']},
-  memory:      {label:'anı',       color:'#f97316', keywords:['hatırlıyorum','ilk kez','ne zamandı','konser','üniversite','aldım','gittim']},
-  knowledge:   {label:'bilgi',     color:'#94a3b8', keywords:['nedir','nasıl çalışır','ne anlama','modal','jazz','tarih']},
-  docs:        {label:'belgeler',  color:'#60a5fa', keywords:['şifre','parola','hesap','arşiv','dosya','link','url','numaram']},
-  contacts:    {label:'kişiler',   color:'#f0abfc', keywords:['rehber','iletişim','telefon numarası','mail adresi']},
-  credentials: {label:'hesaplar',  color:'#38bdf8', keywords:['kullanıcı adı','login','giriş','2fa','şifre yöneticisi']},
-  preferences: {label:'tercihler', color:'#fbbf24', keywords:['seviyorum','sevdiğim','tercihim','favorim','en iyi','beğeniyorum']},
-};
-
-const FAMILY_ROLES_FALLBACK = {
-  'anne':'anne','annem':'anne','annesi':'anne','annemin adı':'anne',
-  'baba':'baba','babam':'baba','babası':'baba','babamın adı':'baba',
-  'kardeş':'kardeş','kardeşim':'kardeş','ablam':'kardeş','ağabeyim':'kardeş',
-  'eş':'eş','eşim':'eş','koca':'koca','karım':'eş',
-  'nine':'nine','büyükanne':'nine','ninem':'nine','babaannem':'nine','anneeannem':'nine',
-  'dede':'dede','büyükbaba':'dede','dedem':'dede',
-  'amca':'amca','amcam':'amca','hala':'hala','halam':'hala',
-  'dayı':'dayı','dayım':'dayı','teyze':'teyze','teyzem':'teyze',
-};
-
-const RELATION_TYPES_FALLBACK = {
-  belongs_to_domain:'alanı', child_of:'çocuğu', parent_of:'ebeveyni',
-  spouse_of:'eşi', sibling_of:'kardeşi', fills_role:'rolünü doldurur',
-  is_a:'türü', part_of:'parçası', related_to:'ilgili',
-  works_at:'çalışır', works_on:'çalışıyor', lives_in:'yaşıyor',
-  owns:'sahibi', likes:'seviyor', stored_in:'saklandığı yer',
-  located_at:'konumu', asks_about:'sorusu', answered_by:'cevabı',
-  mentions:'bahseder', has_property:'değeri',
-};
-
-// ── Live references — rebuilt after ontology loads ───────────────────
-let DOMAINS       = DOMAINS_FALLBACK;
-let FAMILY_ROLES  = FAMILY_ROLES_FALLBACK;
-let RELATION_TYPES = RELATION_TYPES_FALLBACK;
-
+// [DOMAINS_BLOCK — moved to ONTOLOGY layer]
+const Q_TEMPLATES = [
+  {id:'kim',     label:'kim',           family:'identity', suffix:'kim?'},
+  {id:'nedir',   label:'nedir',         family:'knowledge',suffix:'nedir?'},
+  {id:'nerede',  label:'nerede',        family:'docs',     suffix:'nerede?'},
+  {id:'nezaman', label:'ne zaman',      family:'knowledge',suffix:'ne zaman?'},
+  {id:'nasil',   label:'nasıl',         family:'knowledge',suffix:'nasıl?'},
+  {id:'neden',   label:'neden',         family:'knowledge',suffix:'neden önemli?'},
+  {id:'yapmalı', label:'ne yapmalıyım', family:'projects', suffix:'ne yapmalıyım?'},
+  {id:'kiminle', label:'kiminle',       family:'family',   suffix:'kiminle?'},
+  {id:'baname',  label:'bana ne',       family:'identity', suffix:'bana ne ifade ediyor?'},
+];
+const Q_CONTEXTS = ['benim','bu','o','biz','—'];
 const FAMILY_FACETS = {
-  identity:    ['isim','doğum tarihi','doğduğum şehir','köken','roller','değerler','hedef'],
-  family:      ['isim','ilişki türü','nerede yaşıyor','iletişim','önemli anılar'],
-  work:        ['şirket adı','pozisyon','nerede','ne iş yapıyorum','ortaklar'],
-  projects:    ['amaç','ne aşamada','sonraki adım','ekip','neden önemli'],
-  places:      ['adres / link','şehir','ülke','notlar'],
-  finance:     ['banka','iban','kart türü','notlar'],
-  health:      ['değer','ne zaman ölçüldü','doktor','notlar'],
-  media:       ['tür','sanatçı / yönetmen','neden önemli','notlar'],
-  memory:      ['ne oldu','ne zaman','kimler vardı','hissettiklerim'],
-  knowledge:   ['tanım','örnek','ilgili kavramlar','önemi'],
-  docs:        ['adres / link','şifre / anahtar','notlar'],
-  contacts:    ['isim','telefon','email','nasıl tanıdım','notlar'],
-  credentials: ['kullanıcı adı','şifre / anahtar','2fa','kurtarma kodu','notlar'],
-  preferences: ['ne','neden seviyorum','ne zaman keşfettim','notlar'],
+  identity:   ['isim','doğum tarihi','doğduğum şehir','köken','roller','değerler','hedef'],
+  family:     ['isim','ilişki türü','nerede yaşıyor','iletişim','önemli anılar'],
+  work:       ['şirket adı','pozisyon','nerede','ne iş yapıyorum','ortaklar'],
+  projects:   ['amaç','ne aşamada','sonraki adım','ekip','neden önemli'],
+  places:     ['adres / link','şehir','ülke','notlar'],
+  finance:    ['banka','iban','kart türü','notlar'],
+  health:     ['değer','ne zaman ölçüldü','doktor','notlar'],
+  media:      ['tür','sanatçı / yönetmen','neden önemli','notlar'],
+  memory:     ['ne oldu','ne zaman','kimler vardı','hissettiklerim'],
+  knowledge:  ['tanım','örnek','ilgili kavramlar','önemi'],
+  docs:       ['adres / link','şifre / anahtar','notlar'],
 };
 
+// [RELATION_TYPES_BLOCK — moved to ONTOLOGY layer]
 // ══════════════════════════════════════════
 // STATE
 // ══════════════════════════════════════════
 const S = {
   mode:null, accessToken:null, driveFileId:null, driveFolderId:null,
   universe:null,
-  nodes:[], vpX:0, vpY:0, vpS:1,
+  // Physics nodes
+  nodes:[],   // {id, x, y, vx, vy, kind, ref, pinned, dragging}
+  // Viewport
+  vpX:0, vpY:0, vpS:1,
   panning:false, panSX:0, panSY:0, panOX:0, panOY:0,
   dragNode:null,
+  // Composer
+  cTopic:'', cCtx:'—', cTmpl:'nedir',
+  // Facets
   fQ:null, fInputs:{},
-  // Zoom level: 1=domains, 2=entities, 3=questions, 4=detail
-  zoomLevel: 1,
 };
 
 // ══════════════════════════════════════════
@@ -404,34 +1135,40 @@ const S = {
 // ══════════════════════════════════════════
 function createUniverse(){
   const now=new Date().toISOString();
-  return {meta:{version:'1.0',created_at:now,updated_at:now},
-    profile:{name:null},
+  return {
+    meta:{version:'4.0',created_at:now,updated_at:now},
+    profile:{name:null,gender:null},
     entries:[],questions:[],answers:[],
-    entities:[],links:[],domains:{}};
+    entities:[],  // {id,type,label,slug,domain,created_at,properties:{}}
+    links:[],     // {id,from,to,relation,created_at}
+    domains:{}    // active domain ids
+  };
 }
+
 function migrateUniverse(u){
   if(!u) return createUniverse();
   ['questions','answers','entities','links','entries'].forEach(k=>{if(!u[k])u[k]=[];});
-  if(!u.profile) u.profile={name:null};
+  if(!u.profile) u.profile={name:null,gender:null};
   if(!u.domains) u.domains={};
-  if(!u.meta) u.meta={version:'1.0',created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+  if(!u.meta) u.meta={version:'4.0',created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
   return u;
 }
+
 function uid(p){return p+'_'+Date.now()+'_'+Math.random().toString(36).slice(2,5);}
 
 function rawEntry(text,kind,qId,aId){
   const e={id:uid('e'),text,created_at:new Date().toISOString(),kind,question_id:qId||null,answer_id:aId||null};
   S.universe.entries.push(e); return e;
 }
+
 function addLink(from,to,relation){
-  const exists=S.universe.links.find(l=>l.from===from&&l.to===to&&l.relation===relation);
-  if(exists) return exists;
   const l={id:uid('l'),from,to,relation,created_at:new Date().toISOString()};
   S.universe.links.push(l);
   drawLink(from,to,relation);
   return l;
 }
 
+// ── Domain nodes ───────────────────────────────────────────────────────
 function ensureDomain(domainId){
   if(S.universe.domains[domainId]) return S.universe.domains[domainId];
   const cfg=DOMAINS[domainId]||DOMAINS.knowledge;
@@ -443,48 +1180,106 @@ function ensureDomain(domainId){
   return ent.id;
 }
 
-const DOMAIN_PRIORITY=['family','work','projects','finance','health','places','media','memory','docs','identity','knowledge'];
+// ── Detect domain from text — öncelikli eşleşme ──────────────────────
+// Öncelik sırası önemli: daha spesifik önce gelir
+// [DOMAIN_PRIORITY_BLOCK — moved to ONTOLOGY layer]
 function detectDomain(text){
-  const t=text.toLowerCase();
+  const t = text.toLowerCase();
   for(const id of DOMAIN_PRIORITY){
-    if((DOMAINS[id]?.keywords||[]).some(k=>t.includes(k))) return id;
+    const cfg = DOMAINS[id];
+    if(!cfg) continue;
+    if(cfg.keywords.some(k => t.includes(k))) return id;
   }
   return 'knowledge';
 }
 
-function mkEntity(type,label,domainId,props){
-  const slug=slugify(label);
-  const existing=S.universe.entities.find(e=>e.slug===slug&&e.type===type);
+// Kullanıcı sözlüğü — öğrenilen kişisel eşleşmeler
+// Örn: {anne: 'Ayşe', baba: 'Mehmet'}
+function getUserDictionary(){
+  const dict = {};
+  S.universe.links.filter(l=>l.relation==='fills_role').forEach(l=>{
+    const real = S.universe.entities.find(e=>e.id===l.from);
+    const role = S.universe.entities.find(e=>e.id===l.to);
+    if(real&&role) dict[role.slug] = real.label;
+  });
+  return dict;
+}
+
+// ── Entity — role vs real ayrımı ──────────────────────────────────────
+// role_entity: anne, baba (soyut ilişki rolü)  — başta boş, cevapla dolar
+// real_entity: Ayşe, Mehmet (somut kişi)        — cevaptan doğar
+
+// Aile rol haritası — hangi keywords hangi role map eder
+// [FAMILY_ROLES_BLOCK — moved to ONTOLOGY layer]
+// Work role map
+const WORK_ROLES = {
+  'şirketim':'şirket','şirketimiz':'şirket','şirket':'şirket',
+  'ofisim':'ofis','ortağım':'ortak','ortağımız':'ortak',
+  'müşterim':'müşteri','patronum':'patron','çalıştığım':'şirket',
+};
+
+function mkEntity(type, label, domainId, props){
+  const slug = label.toLowerCase().replace(/[\s@]+/g,'_');
+  const existing = S.universe.entities.find(e => e.slug===slug);
   if(existing) return existing;
-  const ent={id:uid('ent'),type,label,slug,domain:domainId||'knowledge',
-    created_at:new Date().toISOString(),properties:props||{}};
+  const ent = {
+    id: uid('ent'), type, label, slug,
+    domain: domainId||'knowledge',
+    created_at: new Date().toISOString(),
+    properties: props||{},
+    // role_entity: soyut rol (anne, baba) — gerçek kişiyle doldurulacak
+    // real_entity: somut kişi (Ayşe) — cevaptan doğdu
+    entityClass: props?.is_role ? 'role' : (props?.is_real ? 'real' : 'concept')
+  };
   S.universe.entities.push(ent);
   return ent;
 }
 
-function materializeRole(roleEntId,realName,domainId){
-  const roleEnt=S.universe.entities.find(e=>e.id===roleEntId);
+// Cevap geldiğinde role entity'yi somut kişiyle güncelle
+// "anne" → Ayşe  →  Ayşe --fills_role--> anne,  ben --child_of--> Ayşe
+function materializeRole(roleEntId, realName, domainId){
+  const roleEnt = S.universe.entities.find(e => e.id === roleEntId);
   if(!roleEnt) return null;
-  const slug=slugify(realName);
-  let realEnt=S.universe.entities.find(e=>e.slug===slug&&e.properties?.is_real);
+
+  const slug = realName.toLowerCase().replace(/\s+/g,'_');
+  let realEnt = S.universe.entities.find(e => e.slug === slug && e.entityClass === 'real');
   if(!realEnt){
-    realEnt=mkEntity('person',realName,domainId||roleEnt.domain,{is_real:true,fills_role:roleEnt.slug});
-    spawnEntityNode(realEnt,domainId||roleEnt.domain);
+    realEnt = mkEntity('person', realName, domainId||roleEnt.domain, {is_real:true, fills_role: roleEnt.slug});
+    spawnEntityNode(realEnt, domainId||roleEnt.domain);
   }
+
+  // Link: realEnt --fills_role--> roleEnt
   if(!S.universe.links.find(l=>l.from===realEnt.id&&l.to===roleEnt.id&&l.relation==='fills_role')){
-    addLink(realEnt.id,roleEnt.id,'fills_role');
+    addLink(realEnt.id, roleEnt.id, 'fills_role');
   }
-  const selfEnt=S.universe.entities.find(e=>e.properties?.is_self);
+  // Link: realEnt --is_a--> person
+  const personConcept = S.universe.entities.find(e=>e.slug==='person')||
+    mkEntity('concept','person','knowledge');
+  if(!S.universe.links.find(l=>l.from===realEnt.id&&l.to===personConcept.id)){
+    addLink(realEnt.id, personConcept.id, 'is_a');
+  }
+
+  // Rewire: ben --child_of--> realEnt (instead of role)
+  const selfEnt = S.universe.entities.find(e=>e.properties?.is_self);
   if(selfEnt){
-    const ex=S.universe.links.find(l=>l.from===selfEnt.id&&l.to===roleEnt.id&&l.relation==='child_of');
-    if(ex) ex.to=realEnt.id;
-    else if(!S.universe.links.find(l=>l.from===selfEnt.id&&l.to===realEnt.id)){
-      addLink(selfEnt.id,realEnt.id,'child_of');
+    const existingChild = S.universe.links.find(l=>l.from===selfEnt.id&&l.to===roleEnt.id&&l.relation==='child_of');
+    if(existingChild){
+      existingChild.to = realEnt.id; // update in-place
+    } else {
+      if(!S.universe.links.find(l=>l.from===selfEnt.id&&l.to===realEnt.id)){
+        addLink(selfEnt.id, realEnt.id, 'child_of');
+      }
     }
   }
+
+  // Update role entity label on graph to show it's filled
+  const gLbl = svgEl?.querySelector(`[data-nid="${roleEnt.id}"] text`);
+  if(gLbl) gLbl.textContent = roleEnt.label + ' (' + realName.slice(0,8) + ')';
+
   return realEnt;
 }
 
+// ── Question ───────────────────────────────────────────────────────────
 function mkQuestion({text,template,topic,context,family}){
   const q={id:uid('q'),text,template:template||null,topic:topic||null,
     context:context||null,family:family||'knowledge',status:'open',
@@ -493,9 +1288,11 @@ function mkQuestion({text,template,topic,context,family}){
   rawEntry(text,'question_raw',q.id,null);
   return q;
 }
+
+// ── Answer ─────────────────────────────────────────────────────────────
 function mkAnswer(qId,facet,value){
   const a={id:uid('a'),question_id:qId,facet,value,
-    created_at:new Date().toISOString()};
+    created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
   S.universe.answers.push(a);
   rawEntry(value,'answer_raw',qId,a.id);
   const q=S.universe.questions.find(x=>x.id===qId);
@@ -504,124 +1301,130 @@ function mkAnswer(qId,facet,value){
 }
 
 // ══════════════════════════════════════════
-// STATEMENT PARSER — "annemin adı Ayşe" gibi
+// BIG BANG — parse → extract → classify → connect
 // ══════════════════════════════════════════
-const STATEMENT_PATTERNS = [
-  // "annemin adı X" / "annem X"
-  { rx:/(?:annem(?:in ad[iı])?|annemin ad[iı])\s+(\S+)/i, role:'anne', prop:'isim', domain:'family' },
-  { rx:/(?:babam(?:ın ad[iı])?|babamın ad[iı])\s+(\S+)/i, role:'baba', prop:'isim', domain:'family' },
-  // "ben X'im / X'yim / Xım"
-  { rx:/^ben\s+(.+?)[ıiuü]m\.?$/i, self:true, prop:'isim', domain:'identity' },
-  // "adım X"
-  { rx:/^ad[iı]m\s+(\S+)/i, self:true, prop:'isim', domain:'identity' },
-  // "X'den / X'den geliyorum / X'lıyım"
-  { rx:/(.+?)[a-zA-Z]+lıyım|(.+?)[a-zA-Z]+liyim/i, self:true, prop:'köken', domain:'identity' },
-  // "mailim / e-postam X"
-  { rx:/(?:mail(?:im)?|e-?postam?|emailim?)\s+(\S+)/i, self:true, prop:'email', domain:'docs' },
-  // "telefonum X"
-  { rx:/telefon(?:um)?\s+(\S+)/i, self:true, prop:'telefon', domain:'docs' },
-  // "şirketim X"
-  { rx:/şirket(?:im)?\s+(.+)/i, self:true, prop:'şirket', domain:'work' },
-  // "en sevdiğim X Y"
-  { rx:/en sevdiğim\s+(\w+)\s+(.+)/i, like:true },
-  // "X şifresi Y" / "X parolası Y"
-  { rx:/(\S+)\s+(?:şifres[iı]|parolas[iı])\s+(\S+)/i, credential:true },
-  // "yaşım X" / "X yaşındayım"
-  { rx:/yaş[iı]m\s+(\d+)|(\d+)\s+yaşındayım/i, self:true, prop:'yaş', domain:'identity' },
-];
+function bigBang(text, questionObj){
+  const t=text.toLowerCase();
 
-function tryParseStatement(text){
-  const t = text.trim();
+  // 1. Detect domain
+  const domainId=detectDomain(t);
+  const domNodeId=ensureDomain(domainId);
 
-  for(const pat of STATEMENT_PATTERNS){
-    const m = t.match(pat.rx);
-    if(!m) continue;
+  // 2. Extract entities from text
+  const extracted=extractConcepts(text, domainId);
 
-    // Self property
-    if(pat.self){
-      const val = m[1]||m[2]||'';
-      if(!val || val.length < 1) continue;
-      const domId = pat.domain||'identity';
-      ensureDomain(domId);
-      let selfEnt = S.universe.entities.find(e=>e.properties?.is_self);
-      if(!selfEnt){
-        selfEnt = mkEntity('person','ben',domId,{is_self:true});
-        spawnEntityNode(selfEnt,domId);
-        addLink(selfEnt.id,'domain_'+domId,'belongs_to_domain');
-      }
-      // Store property as answer on an auto-created question
-      const qText = `benim ${pat.prop}im ne?`;
-      let q = S.universe.questions.find(x=>x.text===qText);
-      if(!q) q = mkQuestion({text:qText,family:domId});
-      if(!S.universe.answers.find(a=>a.question_id===q.id&&a.facet===pat.prop)){
-        mkAnswer(q.id, pat.prop, val);
-        spawnQuestionNode(q,domId);
-        addLink(q.id,'domain_'+domId,'asks_about');
-        const propEnt = mkEntity('property',val,domId,{is_property:true,for_prop:pat.prop});
-        spawnEntityNode(propEnt,domId);
-        addLink(selfEnt.id,propEnt.id,'has_property');
-        addLink(q.id,propEnt.id,'answered_by');
-      }
-      return { handled:true, kind:'statement', domain:domId };
+  // 3. Spawn entity nodes and connect to domain
+  const spawnedEnts=[];
+  extracted.forEach(e=>{
+    const ent=mkEntity(e.type,e.label,domainId,e.properties||{});
+    if(!S.nodes.find(n=>n.id===ent.id)){
+      spawnEntityNode(ent, domainId);
     }
-
-    // Role assignment (anne → Ayşe)
-    if(pat.role){
-      const val = m[1]||'';
-      if(!val) continue;
-      ensureDomain(pat.domain||'family');
-      const roleEnt = mkEntity('person',pat.role,pat.domain||'family',{is_role:true,relation_to_self:pat.role});
-      if(!S.nodes.find(n=>n.id===roleEnt.id)) spawnEntityNode(roleEnt,pat.domain||'family');
-      addLink(roleEnt.id,'domain_'+(pat.domain||'family'),'belongs_to_domain');
-      buildFamilyRelation(roleEnt);
-      materializeRole(roleEnt.id, val, pat.domain||'family');
-      if(pat.prop && pat.prop==='isim'){
-        const q = mkQuestion({text:pat.role+' kim?',family:pat.domain||'family'});
-        mkAnswer(q.id,'isim',val);
-        spawnQuestionNode(q,pat.domain||'family');
-        addLink(q.id,'domain_'+(pat.domain||'family'),'asks_about');
-      }
-      return { handled:true, kind:'statement', domain:pat.domain||'family' };
+    // link entity → domain
+    if(!S.universe.links.find(l=>l.from===ent.id&&l.to===domNodeId)){
+      addLink(ent.id,domNodeId,'belongs_to_domain');
     }
+    spawnedEnts.push(ent);
+  });
 
-    // Likes
-    if(pat.like){
-      const category = m[1]||'';
-      const item = m[2]||'';
-      if(!item) continue;
-      const dom = detectDomain(category+' '+item);
-      ensureDomain(dom);
-      const ent = mkEntity(category||'concept',item,dom,{liked:true});
-      spawnEntityNode(ent,dom);
-      addLink(ent.id,'domain_'+dom,'belongs_to_domain');
-      const selfEnt = S.universe.entities.find(e=>e.properties?.is_self);
-      if(selfEnt) addLink(selfEnt.id,ent.id,'likes');
-      return { handled:true, kind:'statement', domain:dom };
+  // 4. If question, connect question node → entities + domain
+  if(questionObj){
+    spawnQuestionNode(questionObj, domainId);
+    // link question → domain
+    addLink(questionObj.id,domNodeId,'asks_about');
+    // link question → primary entity (first extracted)
+    if(spawnedEnts.length>0){
+      addLink(questionObj.id,spawnedEnts[0].id,'asks_about');
     }
-
-    // Credentials
-    if(pat.credential){
-      const credName = m[1]||'';
-      const credVal = m[2]||'';
-      if(!credName||!credVal) continue;
-      ensureDomain('docs');
-      const credEnt = mkEntity('credential',credName,'docs',{is_credential:true});
-      spawnEntityNode(credEnt,'docs');
-      addLink(credEnt.id,'domain_docs','belongs_to_domain');
-      const q = mkQuestion({text:credName+' şifresi nedir?',family:'docs'});
-      mkAnswer(q.id,'şifre / anahtar', credVal);
-      spawnQuestionNode(q,'docs');
-      addLink(q.id,credEnt.id,'asks_about');
-      addLink(q.id,'domain_docs','asks_about');
-      const selfEnt = S.universe.entities.find(e=>e.properties?.is_self);
-      if(selfEnt) addLink(selfEnt.id,credEnt.id,'owns');
-      return { handled:true, kind:'statement', domain:'docs' };
-    }
+    // Inter-entity relations
+    buildEntityRelations(spawnedEnts, questionObj);
   }
-  return { handled:false };
+
+  return {domainId, entities:spawnedEnts};
 }
 
-function buildFamilyRelation(roleEnt){
+// ── Extract concepts from text ─────────────────────────────────────────
+function extractConcepts(text, domainId){
+  const t = text.trim();
+  const lower = t.toLowerCase();
+  const concepts = [];
+
+  // 1. @mention → real person
+  (t.match(/@([\wğüşıöçĞÜŞİÖÇ]+)/g)||[]).forEach(m=>{
+    concepts.push({type:'person', label:m.slice(1), properties:{is_real:true}});
+  });
+
+  // 2. Family roles → role_entity (soyut, cevapla dolacak)
+  Object.entries(FAMILY_ROLES).forEach(([kw, canonical])=>{
+    if(lower.includes(kw) && !concepts.find(c=>c.label===canonical)){
+      concepts.push({type:'person', label:canonical,
+        properties:{is_role:true, relation_to_self:canonical, role_keyword:kw}});
+    }
+  });
+
+  // 3. Work roles → role_entity
+  if(domainId==='work'){
+    Object.entries(WORK_ROLES).forEach(([kw, canonical])=>{
+      if(lower.includes(kw) && !concepts.find(c=>c.label===canonical)){
+        concepts.push({type:'organization', label:canonical, properties:{is_role:true, role_keyword:kw}});
+      }
+    });
+  }
+
+  // 4. Credential / document keywords
+  const credKw = [
+    ['şifre','şifre'],['parola','parola'],['iban','iban'],
+    ['pasaport','pasaport'],['vergi no','vergi_no'],['tc kimlik','tc_kimlik'],
+    ['kredi kartı','kredi_kartı'],['ehliyet','ehliyet'],['email','email'],
+    ['mail','email'],['telefon','telefon'],
+  ];
+  credKw.forEach(([kw,slug])=>{
+    if(lower.includes(kw) && !concepts.find(c=>c.slug===slug||c.label===slug)){
+      concepts.push({type:'credential', label:slug.replace('_',' '), properties:{is_credential:true}});
+    }
+  });
+
+  // 5. Place keywords
+  const placeKw = [['ev adres','ev'],['ofis','ofis'],['şehir','şehir'],['adresim','adres']];
+  if(domainId==='places'){
+    placeKw.forEach(([kw,lbl])=>{
+      if(lower.includes(kw) && !concepts.find(c=>c.label===lbl)){
+        concepts.push({type:'place', label:lbl, properties:{is_place:true}});
+      }
+    });
+  }
+
+  // 6. Project names (capitalized or known)
+  const knownProjects = ['singular','cillop'];
+  knownProjects.forEach(p=>{
+    if(lower.includes(p) && !concepts.find(c=>c.label===p)){
+      concepts.push({type:'project', label:p, properties:{is_project:true}});
+    }
+  });
+
+  // 7. Health attributes
+  if(domainId==='health'){
+    const healthKw = [['boy','boy'],['kilo','kilo'],['doktor','doktor'],['spor','spor']];
+    healthKw.forEach(([kw,lbl])=>{
+      if(lower.includes(kw) && !concepts.find(c=>c.label===lbl)){
+        concepts.push({type:'attribute', label:lbl, properties:{is_attribute:true}});
+      }
+    });
+  }
+
+  // 8. Generic fallback — clean up question words
+  if(!concepts.length && t.length > 1){
+    const stopWords = /\b(benim|bana|nedir|nerede|nasıl|neden|kim|ne zaman|kiminle|ne yapmalıyım|hangi|kaç|hangisi)\b/gi;
+    const topic = t.replace(stopWords,'').replace(/[?!.]+$/,'').trim();
+    if(topic.length > 1) concepts.push({type:'concept', label:topic.slice(0,50)});
+  }
+
+  return concepts;
+}
+
+// ── Build semantic relations between entities ──────────────────────────
+function buildEntityRelations(entities, question){
+  // Ensure 'ben' self entity
   let selfEnt = S.universe.entities.find(e=>e.properties?.is_self);
   if(!selfEnt){
     selfEnt = mkEntity('person','ben','identity',{is_self:true});
@@ -629,92 +1432,67 @@ function buildFamilyRelation(roleEnt){
     ensureDomain('identity');
     addLink(selfEnt.id,'domain_identity','belongs_to_domain');
   }
-  const parentRoles = ['anne','baba','nine','dede'];
-  const rel = parentRoles.includes(roleEnt.slug) ? 'child_of' : 'related_to';
-  if(!S.universe.links.find(l=>l.from===selfEnt.id&&l.to===roleEnt.id)){
-    addLink(selfEnt.id,roleEnt.id,rel);
-  }
-}
 
-// ══════════════════════════════════════════
-// BIG BANG
-// ══════════════════════════════════════════
-function bigBang(text, questionObj){
-  const t=text.toLowerCase();
-  const domainId=detectDomain(t);
-  const domNodeId=ensureDomain(domainId);
-  const extracted=extractConcepts(text,domainId);
-  const spawnedEnts=[];
-
-  extracted.forEach(e=>{
-    const ent=mkEntity(e.type,e.label,domainId,e.properties||{});
-    if(!S.nodes.find(n=>n.id===ent.id)) spawnEntityNode(ent,domainId);
-    if(!S.universe.links.find(l=>l.from===ent.id&&l.to===domNodeId)) addLink(ent.id,domNodeId,'belongs_to_domain');
-    spawnedEnts.push(ent);
-  });
-
-  if(questionObj){
-    spawnQuestionNode(questionObj,domainId);
-    addLink(questionObj.id,domNodeId,'asks_about');
-    if(spawnedEnts.length>0) addLink(questionObj.id,spawnedEnts[0].id,'asks_about');
-    buildEntityRelations(spawnedEnts,questionObj);
-  }
-  return {domainId,entities:spawnedEnts};
-}
-
-function extractConcepts(text,domainId){
-  const t=text.trim(); const lower=t.toLowerCase(); const concepts=[];
-  (t.match(/@([\wğüşıöçĞÜŞİÖÇ]+)/g)||[]).forEach(m=>{concepts.push({type:'person',label:m.slice(1),properties:{is_real:true}});});
-  Object.entries(FAMILY_ROLES).forEach(([kw,canonical])=>{
-    if(lower.includes(kw)&&!concepts.find(c=>c.label===canonical))
-      concepts.push({type:'person',label:canonical,properties:{is_role:true,relation_to_self:canonical}});
-  });
-  const credKw=[['şifre','şifre'],['parola','parola'],['iban','iban'],['pasaport','pasaport'],['email','email'],['mail','email'],['telefon','telefon']];
-  credKw.forEach(([kw,slug])=>{if(lower.includes(kw)&&!concepts.find(c=>c.slug===slug)) concepts.push({type:'credential',label:slug,properties:{is_credential:true}});});
-  const knownProjects=['singular','cillop'];
-  knownProjects.forEach(p=>{if(lower.includes(p)&&!concepts.find(c=>c.label===p)) concepts.push({type:'project',label:p,properties:{is_project:true}});});
-  if(!concepts.length&&t.length>1){
-    const stop=/\b(benim|bana|nedir|nerede|nasıl|neden|kim|ne zaman|kiminle|ne yapmalıyım)\b/gi;
-    const topic=t.replace(stop,'').replace(/[?!.]+$/,'').trim();
-    if(topic.length>1) concepts.push({type:'concept',label:topic.slice(0,50)});
-  }
-  return concepts;
-}
-
-function buildEntityRelations(entities,question){
-  let selfEnt=S.universe.entities.find(e=>e.properties?.is_self);
-  if(!selfEnt){
-    selfEnt=mkEntity('person','ben','identity',{is_self:true});
-    spawnEntityNode(selfEnt,'identity');
-    ensureDomain('identity');
-    addLink(selfEnt.id,'domain_identity','belongs_to_domain');
-  }
   entities.forEach(ent=>{
-    const p=ent.properties||{};
-    if(p.is_role&&p.relation_to_self){
-      const rel=['anne','baba','nine','dede'].includes(p.relation_to_self)?'child_of':'related_to';
-      if(!S.universe.links.find(l=>l.from===selfEnt.id&&l.to===ent.id)) addLink(selfEnt.id,ent.id,rel);
-    } else if(ent.type==='project'){
-      if(!S.universe.links.find(l=>l.from===selfEnt.id&&l.to===ent.id)) addLink(selfEnt.id,ent.id,'works_on');
-    } else if(ent.type==='credential'){
-      if(!S.universe.links.find(l=>l.from===selfEnt.id&&l.to===ent.id)) addLink(selfEnt.id,ent.id,'owns');
+    const props = ent.properties||{};
+
+    // Family roles: ben --child_of--> anne/baba/nine/dede
+    if(props.is_role && props.relation_to_self){
+      const parentRoles = ['anne','baba','nine','dede'];
+      const rel = parentRoles.includes(props.relation_to_self) ? 'child_of' : 'related_to';
+      if(!S.universe.links.find(l=>l.from===selfEnt.id&&l.to===ent.id)){
+        addLink(selfEnt.id, ent.id, rel);
+      }
+    }
+
+    // Work: ben --works_at--> şirket
+    else if(ent.type==='organization' && props.is_role){
+      if(!S.universe.links.find(l=>l.from===selfEnt.id&&l.to===ent.id)){
+        addLink(selfEnt.id, ent.id, 'works_at');
+      }
+    }
+
+    // Project: ben --works_on--> proje
+    else if(ent.type==='project'){
+      if(!S.universe.links.find(l=>l.from===selfEnt.id&&l.to===ent.id)){
+        addLink(selfEnt.id, ent.id, 'works_on');
+      }
+    }
+
+    // Credential/docs: ben --owns--> şifre/iban/pasaport
+    else if(ent.type==='credential'){
+      if(!S.universe.links.find(l=>l.from===selfEnt.id&&l.to===ent.id)){
+        addLink(selfEnt.id, ent.id, 'owns');
+      }
+    }
+
+    // Health attribute: ben --has_attribute--> boy/kilo
+    else if(ent.type==='attribute'){
+      if(!S.universe.links.find(l=>l.from===selfEnt.id&&l.to===ent.id)){
+        addLink(selfEnt.id, ent.id, 'related_to');
+      }
     }
   });
 }
 
+// ── Family detection ────────────────────────────────────────────────────
 function detectFamily(text){
   const t=text.toLowerCase();
-  if(/\bkim\b/.test(t)) return 'identity';
-  if(/nedir/.test(t)) return 'knowledge';
-  if(/nerede/.test(t)) return 'docs';
-  if(/nasıl/.test(t)) return 'knowledge';
-  if(/yapmal/.test(t)) return 'projects';
-  if(/kiminle/.test(t)) return 'family';
-  return detectDomain(text);
+  if(/\bkim\b/.test(t))     return 'identity';
+  if(/nedir/.test(t))        return 'knowledge';
+  if(/nerede/.test(t))       return 'docs';
+  if(/ne zaman/.test(t))     return 'knowledge';
+  if(/nasıl/.test(t))        return 'knowledge';
+  if(/neden/.test(t))        return 'knowledge';
+  if(/yapmal/.test(t))       return 'projects';
+  if(/kiminle/.test(t))      return 'family';
+  if(/bana ne/.test(t))      return 'identity';
+  const dom=detectDomain(text);
+  return dom!=='knowledge'?dom:'knowledge';
 }
 
 function updateCounters(){
-  document.getElementById('nc').textContent=S.universe.entities.filter(e=>e.type!=='domain').length+' varlık';
+  document.getElementById('nc').textContent=S.universe.entities.length+' varlık';
   document.getElementById('qc').textContent=S.universe.questions.length+' soru';
 }
 
@@ -728,13 +1506,23 @@ function initStars(){
   function resize(){
     canvas.width=window.innerWidth;canvas.height=window.innerHeight;
     stars=[];
-    for(let i=0;i<260;i++) stars.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,r:Math.random()*.9+.15,a:Math.random()*.45+.04,speed:Math.random()*.0003+.0001,phase:Math.random()*Math.PI*2});
+    for(let i=0;i<260;i++){
+      stars.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,
+        r:Math.random()*.9+.15,a:Math.random()*.45+.04,
+        speed:Math.random()*.0003+.0001,phase:Math.random()*Math.PI*2});
+    }
   }
   resize();window.addEventListener('resize',resize);
   let t=0;
-  (function loop(){ctx.clearRect(0,0,canvas.width,canvas.height);t+=.6;
-    stars.forEach(s=>{const a=s.a*(0.5+0.5*Math.sin(t*s.speed*200+s.phase));ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fillStyle=`rgba(200,196,255,${a})`;ctx.fill();});
-    requestAnimationFrame(loop);})();
+  (function loop(){
+    ctx.clearRect(0,0,canvas.width,canvas.height); t+=.6;
+    stars.forEach(s=>{
+      const a=s.a*(0.5+0.5*Math.sin(t*s.speed*200+s.phase));
+      ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+      ctx.fillStyle=`rgba(200,196,255,${a})`;ctx.fill();
+    });
+    requestAnimationFrame(loop);
+  })();
 }
 
 // ══════════════════════════════════════════
@@ -742,408 +1530,622 @@ function initStars(){
 // ══════════════════════════════════════════
 const NS='http://www.w3.org/2000/svg';
 let svgEl,W,H;
+
 function svgMk(tag){return document.createElementNS(NS,tag);}
 
 function initCosmos(){
   svgEl=document.getElementById('cosmos');
-  W=window.innerWidth;H=window.innerHeight;
-  buildDefs();drawCore();animateCore();initInteraction();
-  window.addEventListener('resize',()=>{W=window.innerWidth;H=window.innerHeight;svgEl.innerHTML='';buildDefs();drawCore();animateCore();rerenderAll();});
+  W=window.innerWidth; H=window.innerHeight;
+  buildDefs();
+  drawOrbits();
+  drawCore();
+  animateCore();
+  initInteraction();
+  window.addEventListener('resize',()=>{
+    W=window.innerWidth;H=window.innerHeight;
+    svgEl.innerHTML='';
+    buildDefs();drawOrbits();drawCore();animateCore();
+    rerenderAll();
+  });
   requestAnimationFrame(physicsLoop);
 }
 
 function buildDefs(){
   const defs=svgMk('defs');
+  // Blur for nebulae
   const fb=svgMk('filter');fb.setAttribute('id','fblur');
-  const gb=svgMk('feGaussianBlur');gb.setAttribute('stdDeviation','35');fb.appendChild(gb);defs.appendChild(fb);
+  const gb=svgMk('feGaussianBlur');gb.setAttribute('stdDeviation','35');
+  fb.appendChild(gb);defs.appendChild(fb);
+  // Glow for nodes
   const fg=svgMk('filter');fg.setAttribute('id','fglow');fg.setAttribute('x','-50%');fg.setAttribute('y','-50%');fg.setAttribute('width','200%');fg.setAttribute('height','200%');
   const gg=svgMk('feGaussianBlur');gg.setAttribute('stdDeviation','5');gg.setAttribute('result','blur');
   const merge=svgMk('feMerge');
   const m1=svgMk('feMergeNode');m1.setAttribute('in','blur');
   const m2=svgMk('feMergeNode');m2.setAttribute('in','SourceGraphic');
-  merge.appendChild(m1);merge.appendChild(m2);fg.appendChild(gg);fg.appendChild(merge);defs.appendChild(fg);
+  merge.appendChild(m1);merge.appendChild(m2);
+  fg.appendChild(gg);fg.appendChild(merge);defs.appendChild(fg);
   svgEl.appendChild(defs);
-  [{x:W*.25,y:H*.3,rx:200,ry:140,c:'rgba(167,139,250,.025)'},{x:W*.75,y:H*.6,rx:240,ry:160,c:'rgba(96,165,250,.02)'},{x:W*.5,y:H*.15,rx:180,ry:110,c:'rgba(244,114,182,.018)'}].forEach(n=>{
-    const e=svgMk('ellipse');e.setAttribute('cx',n.x);e.setAttribute('cy',n.y);e.setAttribute('rx',n.rx);e.setAttribute('ry',n.ry);e.setAttribute('fill',n.c);e.setAttribute('filter','url(#fblur)');svgEl.appendChild(e);
+
+  // Nebulae
+  [
+    {x:W*.25,y:H*.3,rx:200,ry:140,color:'rgba(167,139,250,.025)'},
+    {x:W*.75,y:H*.6,rx:240,ry:160,color:'rgba(96,165,250,.02)'},
+    {x:W*.5, y:H*.15,rx:180,ry:110,color:'rgba(244,114,182,.018)'},
+  ].forEach(n=>{
+    const e=svgMk('ellipse');
+    e.setAttribute('cx',n.x);e.setAttribute('cy',n.y);
+    e.setAttribute('rx',n.rx);e.setAttribute('ry',n.ry);
+    e.setAttribute('fill',n.color);e.setAttribute('filter','url(#fblur)');
+    svgEl.appendChild(e);
   });
+}
+
+function drawOrbits(){
+  // Orbit halkaları kaldırıldı — domain'ler sabit konumda olduğu için
+  // Bunun yerine ince bir background grid çiz
+  const gridSpacing = 120;
+  const gridAlpha = '0.012';
+  for(let x=0; x<W; x+=gridSpacing){
+    const line=svgMk('line');line.setAttribute('x1',x);line.setAttribute('y1',0);
+    line.setAttribute('x2',x);line.setAttribute('y2',H);
+    line.setAttribute('stroke',`rgba(167,139,250,${gridAlpha})`);line.setAttribute('stroke-width','.3');
+    svgEl.appendChild(line);
+  }
+  for(let y=0; y<H; y+=gridSpacing){
+    const line=svgMk('line');line.setAttribute('x1',0);line.setAttribute('y1',y);
+    line.setAttribute('x2',W);line.setAttribute('y2',y);
+    line.setAttribute('stroke',`rgba(167,139,250,${gridAlpha})`);line.setAttribute('stroke-width','.3');
+    svgEl.appendChild(line);
+  }
 }
 
 function drawCore(){
   const g=svgMk('g');g.id='coreG';
-  [85,60,38].forEach((r,i)=>{const h=svgMk('circle');h.setAttribute('cx',W/2);h.setAttribute('cy',H/2);h.setAttribute('r',r);h.setAttribute('fill','none');h.setAttribute('stroke','rgba(167,139,250,'+(0.06-i*.015)+')');h.setAttribute('stroke-width','1');g.appendChild(h);});
-  const inn=svgMk('circle');inn.setAttribute('cx',W/2);inn.setAttribute('cy',H/2);inn.setAttribute('r','45');inn.setAttribute('fill','rgba(167,139,250,.07)');g.appendChild(inn);
-  const out=svgMk('circle');out.setAttribute('cx',W/2);out.setAttribute('cy',H/2);out.setAttribute('r','24');out.setAttribute('fill','none');out.setAttribute('stroke','rgba(167,139,250,.35)');out.setAttribute('stroke-width','.5');g.appendChild(out);
-  const dot=svgMk('circle');dot.setAttribute('cx',W/2);dot.setAttribute('cy',H/2);dot.setAttribute('r','3.2');dot.setAttribute('fill','var(--core)');g.appendChild(dot);
-  const pulse=svgMk('circle');pulse.setAttribute('cx',W/2);pulse.setAttribute('cy',H/2);pulse.setAttribute('r','24');pulse.setAttribute('fill','none');pulse.setAttribute('stroke','var(--core)');pulse.setAttribute('stroke-width','.4');pulse.setAttribute('opacity','0');pulse.id='pulseRing';g.appendChild(pulse);
-  const lbl=svgMk('text');lbl.setAttribute('x',W/2);lbl.setAttribute('y',H/2+40);lbl.setAttribute('text-anchor','middle');lbl.setAttribute('fill','rgba(167,139,250,.22)');lbl.setAttribute('font-size','6');lbl.setAttribute('font-family','DM Mono,monospace');lbl.setAttribute('letter-spacing','4');lbl.textContent='SINGULAR';g.appendChild(lbl);
+  // Halos
+  [85,60,38].forEach((r,i)=>{
+    const h=svgMk('circle');h.setAttribute('cx',W/2);h.setAttribute('cy',H/2);
+    h.setAttribute('r',r);h.setAttribute('fill','none');
+    h.setAttribute('stroke','rgba(167,139,250,'+(0.06-i*.015)+')');h.setAttribute('stroke-width','1');
+    g.appendChild(h);
+  });
+  const inn=svgMk('circle');inn.setAttribute('cx',W/2);inn.setAttribute('cy',H/2);
+  inn.setAttribute('r','45');inn.setAttribute('fill','rgba(167,139,250,.07)');g.appendChild(inn);
+  const out=svgMk('circle');out.setAttribute('cx',W/2);out.setAttribute('cy',H/2);
+  out.setAttribute('r','24');out.setAttribute('fill','none');
+  out.setAttribute('stroke','rgba(167,139,250,.35)');out.setAttribute('stroke-width','.5');g.appendChild(out);
+  const dot=svgMk('circle');dot.setAttribute('cx',W/2);dot.setAttribute('cy',H/2);
+  dot.setAttribute('r','3.2');dot.setAttribute('fill','var(--core)');g.appendChild(dot);
+  const pulse=svgMk('circle');pulse.setAttribute('cx',W/2);pulse.setAttribute('cy',H/2);
+  pulse.setAttribute('r','24');pulse.setAttribute('fill','none');
+  pulse.setAttribute('stroke','var(--core)');pulse.setAttribute('stroke-width','.4');
+  pulse.setAttribute('opacity','0');pulse.id='pulseRing';g.appendChild(pulse);
+  const lbl=svgMk('text');lbl.setAttribute('x',W/2);lbl.setAttribute('y',H/2+40);
+  lbl.setAttribute('text-anchor','middle');lbl.setAttribute('fill','rgba(167,139,250,.22)');
+  lbl.setAttribute('font-size','6');lbl.setAttribute('font-family','DM Mono,monospace');
+  lbl.setAttribute('letter-spacing','4');lbl.textContent='SINGULAR';g.appendChild(lbl);
   g.style.cursor='pointer';g.onclick=()=>openPanelCore();
   svgEl.appendChild(g);
 }
+
 function animateCore(){
   const r_el=document.getElementById('pulseRing');if(!r_el)return;
   let r=24,op=.4;
-  (function step(){r+=.2;op-=.004;if(r>70){r=24;op=.4;}r_el.setAttribute('r',r);r_el.setAttribute('opacity',op);requestAnimationFrame(step);})();
+  (function step(){r+=.2;op-=.004;if(r>70){r=24;op=.4;}
+    r_el.setAttribute('r',r);r_el.setAttribute('opacity',op);requestAnimationFrame(step);})();
 }
 
 // ══════════════════════════════════════════
-// ZOOM PROJECTION — the key rendering logic
-// Zoom level determines what gets rendered
+// SEMANTIC PHYSICS ENGINE
+// İlişki tipi = kuvvet. Anlam = hareket.
 // ══════════════════════════════════════════
-function computeZoomLevel(scale){
-  if(scale < 0.5) return 1;   // domains only
-  if(scale < 1.3) return 2;   // + entities
-  if(scale < 2.5) return 3;   // + questions
-  return 4;                    // full detail
-}
 
-// ── Focused domain — which domain is currently centered on screen ────
-function getViewCenter() {
-  // World coords of screen center
-  return { x: -S.vpX + (W/2)/S.vpS, y: -S.vpY + (H/2)/S.vpS };
-}
-
-function getNearestDomain() {
-  const c = getViewCenter();
-  let nearest = null, minD = Infinity;
-  S.nodes.filter(n=>n.kind==='domain').forEach(n=>{
-    const d = Math.hypot(n.x-c.x, n.y-c.y);
-    if(d < minD){ minD=d; nearest=n; }
-  });
-  return nearest;
-}
-
-function updateZoomProjection(){
-  const newLevel = computeZoomLevel(S.vpS);
-  S.zoomLevel = newLevel;
-
-  const labels = {1:'galaksi',2:'sistem',3:'detay',4:'detay'};
-  document.getElementById('zoom-level-text').textContent = `zoom ${newLevel}`;
-  document.getElementById('zoom-indicator').textContent = labels[newLevel]||'';
-
-  // ── DOMAIN YILDIZLARI — her zaman görünür, zoom'a göre scale compensate ─
-  svgEl.querySelectorAll('.g-domain').forEach(g=>{
-    g.style.display='';
-    // Zoom 1'de domain yıldızları küçülmesin — scale inverse uygula
-    if(newLevel === 1){
-      const compensation = Math.max(1, 1/S.vpS);
-      g.setAttribute('data-comp', compensation);
-      const nid = g.getAttribute('data-nid');
-      const node = S.nodes.find(n=>n.id===nid);
-      if(node){
-        g.setAttribute('transform', `translate(${node.x},${node.y}) scale(${compensation})`);
-      }
-    } else {
-      const nid = g.getAttribute('data-nid');
-      const node = S.nodes.find(n=>n.id===nid);
-      if(node) g.setAttribute('transform', `translate(${node.x},${node.y})`);
-    }
-  });
-
-  if(newLevel === 1){
-    // Zoom 1: sadece domain yıldızları, hiçbir entity/soru/link görünmez
-    svgEl.querySelectorAll('.g-entity,.g-question').forEach(g=>{ g.style.display='none'; });
-    svgEl.querySelectorAll('.g-link').forEach(l=>{ l.style.display='none'; });
-    // Domain label'ları büyüt — zoom kompansasyonu ile daha büyük görünür
-    svgEl.querySelectorAll('.g-domain text').forEach(t=>{
-      t.setAttribute('font-size','9');t.setAttribute('opacity','1');
-      t.setAttribute('y','32');
-    });
-
-  } else if(newLevel === 2){
-    // Zoom 2: aktif domain'in entity'leri görünür, diğerleri gizli
-    const focusDomain = getNearestDomain();
-    const focusDomainId = focusDomain?.ref?.slug;
-
-    svgEl.querySelectorAll('.g-entity').forEach(g=>{
-      const nid = g.getAttribute('data-nid');
-      const ent = S.universe.entities.find(e=>e.id===nid);
-      const show = !focusDomainId || ent?.domain===focusDomainId || ent?.properties?.is_self;
-      g.style.display = show ? '' : 'none';
-    });
-    svgEl.querySelectorAll('.g-question').forEach(g=>{ g.style.display='none'; });
-    svgEl.querySelectorAll('.g-link').forEach(l=>{
-      const rel=l.getAttribute('data-rel');
-      l.style.display = rel==='belongs_to_domain' ? '' : 'none';
-    });
-    // Domain labels normale döner
-    svgEl.querySelectorAll('.g-domain text').forEach(t=>{
-      t.setAttribute('font-size','8.5');t.setAttribute('opacity','0.7');
-    });
-
-  } else {
-    // Zoom 3-4: her şey görünür
-    svgEl.querySelectorAll('.g-entity,.g-question').forEach(g=>{ g.style.display=''; });
-    svgEl.querySelectorAll('.g-link').forEach(l=>{ l.style.display=''; });
-    svgEl.querySelectorAll('.g-domain text').forEach(t=>{
-      t.setAttribute('font-size','8.5');t.setAttribute('opacity','0.7');
-    });
-  }
-
-  // Entity label'ları zoom 2+ göster
-  svgEl.querySelectorAll('.g-entity text').forEach(t=>{
-    t.style.display = newLevel >= 2 ? '' : 'none';
-  });
-  svgEl.querySelectorAll('.g-question text').forEach(t=>{
-    t.style.display = newLevel >= 3 ? '' : 'none';
-  });
-}
-
-// ══════════════════════════════════════════
-// SEMANTIC PHYSICS
-// ══════════════════════════════════════════
-const REL_SPRING={
-  belongs_to_domain:{k:.08,restLen:90},
-  child_of:{k:.05,restLen:85},parent_of:{k:.05,restLen:85},
-  fills_role:{k:.055,restLen:70},is_a:{k:.04,restLen:75},
-  part_of:{k:.035,restLen:105},works_at:{k:.03,restLen:110},
-  works_on:{k:.03,restLen:115},lives_in:{k:.025,restLen:120},
-  owns:{k:.025,restLen:130},likes:{k:.02,restLen:140},
-  related_to:{k:.015,restLen:165},mentions:{k:.007,restLen:210},
-  asks_about:{k:.01,restLen:115},answered_by:{k:.045,restLen:55},
-  has_property:{k:.04,restLen:80},
+// Relation weights: ne kadar güçlü çekim üretir
+// [REL_SPRING_BLOCK — moved to ONTOLOGY layer]
+// Node kütlesi: domain yıldızları ağır, savrulmaz
+const NODE_MASS = {
+  domain   : 12,
+  entity   : 3,
+  question : 2,
+  answer   : 1.5,
+  credential: 2.5,
 };
-const NODE_MASS={domain:12,entity:3,question:2,credential:2.5};
-const REPEL_STRENGTH=2800,DAMP=0.78,MAX_SPEED=3.5;
+
+// Global repulsion: tüm node'lar birbirini iter
+const REPEL_STRENGTH = 2800;
+const REPEL_MIN      = 30;   // bu mesafenin altında maximum iter
+const DAMP           = 0.78;
+const MAX_SPEED      = 3.5;
+// Domain'ler merkez çekiminden muaf — kendi anlam ağırlıklarıyla durur
+const CENTER_PULL    = 0.004;
+// Domain anchor: domain yıldızları ekrana bağlı kalır (merkezden fazla kaçmaz)
+const DOMAIN_ANCHOR  = 0.012;
 
 function physicsLoop(){
-  if(!svgEl||!S.nodes.length){requestAnimationFrame(physicsLoop);return;}
-  S.nodes.forEach(n=>{
-    if(n.pinned||n.dragging)return;
-    const mass=NODE_MASS[n.kind]||2;
-    S.universe.links.filter(l=>l.from===n.id||l.to===n.id).forEach(link=>{
-      const otherId=link.from===n.id?link.to:link.from;
-      const other=S.nodes.find(x=>x.id===otherId);
-      if(!other)return;
-      const spring=REL_SPRING[link.relation];if(!spring)return;
-      const dx=other.x-n.x,dy=other.y-n.y;
-      const dist=Math.sqrt(dx*dx+dy*dy)||1;
-      const f=(dist-spring.restLen)*spring.k/mass;
-      n.vx+=dx/dist*f;n.vy+=dy/dist*f;
+  if(!svgEl||!S.nodes.length){ requestAnimationFrame(physicsLoop); return; }
+
+  const cx = W/2, cy = H/2;
+
+  S.nodes.forEach(n => {
+    if(n.pinned || n.dragging) return;
+    const mass = NODE_MASS[n.kind] || 2;
+
+    // 1. SEMANTIC SPRING FORCES — ilişkilerden doğan kuvvetler
+    const links = S.universe.links.filter(l => l.from === n.id || l.to === n.id);
+    links.forEach(link => {
+      const otherId = link.from === n.id ? link.to : link.from;
+      const other = S.nodes.find(x => x.id === otherId);
+      if(!other) return;
+
+      const spring = REL_SPRING[link.relation];
+      if(!spring) return;
+
+      const dx = other.x - n.x, dy = other.y - n.y;
+      const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+      const stretch = dist - spring.restLen;  // ne kadar gerildi
+
+      // Spring force: F = k * stretch (Hooke yasası)
+      const fx = (dx/dist) * spring.k * stretch / mass;
+      const fy = (dy/dist) * spring.k * stretch / mass;
+      n.vx += fx;
+      n.vy += fy;
     });
-    S.nodes.forEach(m=>{
-      if(m===n)return;
-      const ex=n.x-m.x,ey=n.y-m.y;
-      const ed=Math.sqrt(ex*ex+ey*ey)||1;
-      if(ed<240){const f=REPEL_STRENGTH/(ed*ed*mass);n.vx+=ex/ed*f;n.vy+=ey/ed*f;}
+
+    // 2. GLOBAL REPULSION — tüm node çiftleri birbirini iter
+    S.nodes.forEach(m => {
+      if(m === n) return;
+      const ex = n.x - m.x, ey = n.y - m.y;
+      const ed = Math.sqrt(ex*ex + ey*ey) || 1;
+      const minD = REPEL_MIN;
+      if(ed < 240){
+        const f = REPEL_STRENGTH / (ed * ed * mass);
+        n.vx += (ex/ed) * f;
+        n.vy += (ey/ed) * f;
+      }
     });
-    if(n.kind!=='domain'&&!S.universe.links.find(l=>l.from===n.id||l.to===n.id)){
-      const dn=S.nodes.filter(x=>x.kind==='domain');
-      if(dn.length){let near=dn[0],nd=99999;dn.forEach(d=>{const dd=Math.hypot(n.x-d.x,n.y-d.y);if(dd<nd){nd=dd;near=d;}});n.vx+=(near.x-n.x)*.006;n.vy+=(near.y-n.y)*.006;}
+
+    // 3. Bağlantısız node'lar en yakın domain'e çekilir (uçmayı engeller)
+    if(n.kind !== 'domain' && links.length === 0){
+      // En yakın domain'i bul
+      const domNodes = S.nodes.filter(x=>x.kind==='domain');
+      if(domNodes.length){
+        let nearest = domNodes[0], nearDist = 99999;
+        domNodes.forEach(d=>{
+          const dd=Math.hypot(n.x-d.x,n.y-d.y);
+          if(dd<nearDist){nearDist=dd;nearest=d;}
+        });
+        n.vx += (nearest.x - n.x) * 0.006;
+        n.vy += (nearest.y - n.y) * 0.006;
+      }
     }
-    n.vx*=DAMP;n.vy*=DAMP;
-    const spd=Math.sqrt(n.vx*n.vx+n.vy*n.vy);
-    if(spd>MAX_SPEED){n.vx=n.vx/spd*MAX_SPEED;n.vy=n.vy/spd*MAX_SPEED;}
-    n.x+=n.vx;n.y+=n.vy;
+
+    // 4. Domain pinned — fizik loop üstte zaten skip eder
+    // (domain'ler DOMAIN_POSITIONS'ta sabit durur)
+
+    // 5. Damping + speed cap
+    n.vx *= DAMP; n.vy *= DAMP;
+    const spd = Math.sqrt(n.vx*n.vx + n.vy*n.vy);
+    if(spd > MAX_SPEED){ n.vx = n.vx/spd * MAX_SPEED; n.vy = n.vy/spd * MAX_SPEED; }
+
+    n.x += n.vx; n.y += n.vy;
   });
+
+  // Update link visual opacity based on relation strength (visual feedback)
+  updateLinkOpacity();
+  updateDomainSize();
   updateNodePositions();
-  // Zoom projection only when panning (not every physics tick)
   requestAnimationFrame(physicsLoop);
+}
+
+// Link görsel güncelleme — güçlü ilişkiler daha parlak
+function updateLinkOpacity(){
+  svgEl.querySelectorAll('.g-link').forEach(line => {
+    const rel = line.getAttribute('data-rel');
+    const spring = REL_SPRING[rel];
+    if(!spring) return;
+    const opacity = Math.min(0.65, spring.k * 9 + 0.05);
+    line.setAttribute('opacity', opacity);
+  });
+}
+
+// Domain yıldızı büyümesi — entity yoğunluğuna göre
+let _dgt = 0;
+function updateDomainSize(){
+  _dgt++;
+  if(_dgt % 90 !== 0) return;
+  Object.keys(S.universe.domains).forEach(domId=>{
+    const entCount = S.universe.entities.filter(e=>e.domain===domId&&e.type!=='domain').length;
+    const g = svgEl?.querySelector(`[data-nid="domain_${domId}"]`);
+    if(!g) return;
+    const newR = Math.min(30, 13 + entCount * 1.6);
+    const cfg = DOMAINS[domId];
+    const circles = g.querySelectorAll('circle');
+    [[newR+14,0.03],[newR+7,0.055],[newR,0.09]].forEach(([r,a],i)=>{
+      if(!circles[i]) return;
+      circles[i].setAttribute('r',r);
+      if(cfg) circles[i].setAttribute('fill', hexAlpha(cfg.color, Math.min(0.25, a + entCount*0.012)));
+    });
+  });
 }
 
 function updateNodePositions(){
   S.nodes.forEach(n=>{
     const g=svgEl.querySelector(`[data-nid="${n.id}"]`);
-    if(g){
-      // Domain nodes at zoom 1 have scale compensation — don't override
-      if(n.kind==='domain' && S.zoomLevel===1){
-        const comp = Math.max(1, 1/S.vpS);
-        g.setAttribute('transform',`translate(${n.x},${n.y}) scale(${comp})`);
-      } else {
-        g.setAttribute('transform',`translate(${n.x},${n.y})`);
-      }
-    }
+    if(g) g.setAttribute('transform',`translate(${n.x},${n.y})`);
+    // links
     svgEl.querySelectorAll(`[data-lf="${n.id}"]`).forEach(l=>{l.setAttribute('x1',n.x);l.setAttribute('y1',n.y);});
     svgEl.querySelectorAll(`[data-lt="${n.id}"]`).forEach(l=>{l.setAttribute('x2',n.x);l.setAttribute('y2',n.y);});
   });
 }
 
-// ══════════════════════════════════════════
-// DOMAIN POSITIONS
-// ══════════════════════════════════════════
-const DOMAIN_POSITIONS={
-  identity:[.5,.18],family:[.18,.3],work:[.82,.3],projects:[.85,.55],
-  places:[.15,.55],finance:[.8,.78],health:[.2,.78],media:[.5,.85],
-  memory:[.35,.2],knowledge:[.65,.2],docs:[.5,.5],
+// ── SPAWN NODES ─────────────────────────────────────────────────────
+function getNodeColor(kind,domainOrId){
+  if(kind==='domain'){
+    const cfg=DOMAINS[domainOrId]||DOMAINS.knowledge;
+    return cfg.color;
+  }
+  return '#e2e0f0';
+}
+
+// Domain index → evenly spaced angles so stars spread out
+// Domain'lerin ekrandaki sabit pozisyonları — tüm ontology domainleri kapsanır
+const DOMAIN_POSITIONS = {
+  identity:    [0.50, 0.16],  // üst merkez — BEN
+  family:      [0.16, 0.28],  // sol üst
+  work:        [0.84, 0.28],  // sağ üst
+  contacts:    [0.12, 0.50],  // sol
+  projects:    [0.88, 0.50],  // sağ
+  places:      [0.14, 0.70],  // sol alt
+  finance:     [0.86, 0.70],  // sağ alt
+  health:      [0.22, 0.84],  // sol alt köşe
+  media:       [0.78, 0.84],  // sağ alt köşe
+  memory:      [0.36, 0.84],  // alt sol-orta
+  preferences: [0.64, 0.84],  // alt sağ-orta
+  knowledge:   [0.68, 0.18],  // üst sağ
+  documents:   [0.32, 0.18],  // üst sol
+  credentials: [0.50, 0.90],  // alt merkez (hassas)
+  // aliases
+  docs:        [0.32, 0.18],
+  work:        [0.84, 0.28],
 };
+const DOMAIN_ORDER = Object.keys(DOMAIN_POSITIONS);
 
 function spawnDomainNode(ent){
   if(S.nodes.find(n=>n.id===ent.id))return;
   const cfg=DOMAINS[ent.slug]||DOMAINS.knowledge;
-  const pos=DOMAIN_POSITIONS[ent.slug];
-  const x=pos?pos[0]*W:W/2+(Math.random()-.5)*300;
-  const y=pos?pos[1]*H:H/2+(Math.random()-.5)*200;
+  // Sabit pozisyon — domain yıldızları ekrana yapışık durur
+  const pos = DOMAIN_POSITIONS[ent.slug];
+  const x = pos ? pos[0]*W : W/2 + (Math.random()-.5)*300;
+  const y = pos ? pos[1]*H : H/2 + (Math.random()-.5)*200;
+  // Domain'ler PINNED — fizik onları hareket ettirmez
   const node={id:ent.id,x,y,vx:0,vy:0,kind:'domain',ref:ent,pinned:true,dragging:false};
   S.nodes.push(node);
+
   const g=svgMk('g');g.setAttribute('class','g-domain');g.setAttribute('data-nid',ent.id);
   g.setAttribute('transform',`translate(${x},${y})`);g.style.opacity='0';
-  [28,20,13].forEach((r,i)=>{const c=svgMk('circle');c.setAttribute('r',r);c.setAttribute('fill',hexA(cfg.color,.06-i*.015));c.setAttribute('stroke',hexA(cfg.color,.15-i*.04));c.setAttribute('stroke-width','.5');g.appendChild(c);});
-  for(let i=0;i<6;i++){const a=i*(Math.PI/3);const l=svgMk('line');l.setAttribute('x1',Math.cos(a)*10);l.setAttribute('y1',Math.sin(a)*10);l.setAttribute('x2',Math.cos(a)*18);l.setAttribute('y2',Math.sin(a)*18);l.setAttribute('stroke',hexA(cfg.color,.18));l.setAttribute('stroke-width','.5');g.appendChild(l);}
-  const dot=svgMk('circle');dot.setAttribute('r','5');dot.setAttribute('fill',cfg.color);dot.setAttribute('filter','url(#fglow)');g.appendChild(dot);
-  const lbl=svgMk('text');lbl.setAttribute('y','28');lbl.setAttribute('text-anchor','middle');lbl.setAttribute('fill',hexA(cfg.color,.7));lbl.setAttribute('font-size','8.5');lbl.setAttribute('font-family','DM Mono,monospace');lbl.textContent=cfg.label;g.appendChild(lbl);
-  g.onclick=(e)=>{
-    if(node._drag)return;
-    // Zoom into this domain
-    const targetScale = 1.4;
-    if(S.vpS < 0.8){
-      // Animate zoom to domain
-      const dx = W/2 - node.x * targetScale;
-      const dy = H/2 - node.y * targetScale;
-      S.vpX = dx / targetScale;
-      S.vpY = dy / targetScale;
-      S.vpS = targetScale;
-      applyVP(); updateZoomProjection();
-    }
-    openPanelDomain(ent);
-  };
-  attachDrag(g,node);svgEl.appendChild(g);
+
+  // Domain star — multi-ring glow
+  [28,20,13].forEach((r,i)=>{
+    const c=svgMk('circle');c.setAttribute('r',r);
+    c.setAttribute('fill',hexAlpha(cfg.color,0.06-i*.015));
+    c.setAttribute('stroke',hexAlpha(cfg.color,0.15-i*.04));c.setAttribute('stroke-width','.5');
+    g.appendChild(c);
+  });
+  // Star burst rays
+  for(let i=0;i<6;i++){
+    const angle=i*(Math.PI/3);
+    const line=svgMk('line');
+    line.setAttribute('x1',Math.cos(angle)*10);line.setAttribute('y1',Math.sin(angle)*10);
+    line.setAttribute('x2',Math.cos(angle)*18);line.setAttribute('y2',Math.sin(angle)*18);
+    line.setAttribute('stroke',hexAlpha(cfg.color,.18));line.setAttribute('stroke-width','.5');
+    g.appendChild(line);
+  }
+  const dot=svgMk('circle');dot.setAttribute('r','5');dot.setAttribute('fill',cfg.color);
+  dot.setAttribute('filter','url(#fglow)');g.appendChild(dot);
+  const lbl=svgMk('text');lbl.setAttribute('y','28');lbl.setAttribute('text-anchor','middle');
+  lbl.setAttribute('fill',hexAlpha(cfg.color,.7));lbl.setAttribute('font-size','8.5');
+  lbl.setAttribute('font-family','DM Mono,monospace');lbl.setAttribute('letter-spacing','1');
+  lbl.textContent=cfg.label;g.appendChild(lbl);
+
+  g.addEventListener('mouseenter',()=>highlightDomain(ent.id,true));
+  g.addEventListener('mouseleave',()=>highlightDomain(ent.id,false));
+  g.onclick=(e)=>{if(node._drag)return;openPanelDomain(ent);};
+  attachDrag(g,node);
+  svgEl.appendChild(g);
   requestAnimationFrame(()=>{g.style.transition='opacity .8s';g.style.opacity='1';});
   if(S.nodes.length===1) document.getElementById('hint').style.opacity='0';
 }
 
-function spawnEntityNode(ent,domainId){
+function spawnEntityNode(ent, domainId){
   if(S.nodes.find(n=>n.id===ent.id))return;
-  const isSelf=ent.properties?.is_self;
-  const domNode=domainId?S.nodes.find(n=>n.id==='domain_'+domainId):null;
-  const a=Math.random()*Math.PI*2, spawnR=35+Math.random()*25;
-  const bx=isSelf?W/2:(domNode?domNode.x+spawnR*Math.cos(a):W/2+120*Math.cos(a));
-  const by=isSelf?H/2+60:(domNode?domNode.y+spawnR*Math.sin(a):H/2+120*Math.sin(a));
-  const node={id:ent.id,x:bx,y:by,vx:isSelf?0:(Math.random()-.5)*1.5,vy:isSelf?0:(Math.random()-.5)*1.5,kind:'entity',ref:ent,pinned:isSelf,dragging:false};
+  // 'ben/self' entity: merkeze yakın, hafifçe sabitlenmiş
+  const isSelf = ent.properties?.is_self || ent.slug==='ben' || ent.slug==='self';
+  let bx, by;
+  if(isSelf){
+    // 'ben' entity — tam merkeze yakın
+    bx = W/2; by = H/2 + 60;
+  } else {
+    // Domain yıldızının çok yakınına spawn et — spring hemen aktif olsun
+    const domNode = domainId ? S.nodes.find(n=>n.id==='domain_'+domainId) : null;
+    const spawnAngle = Math.random()*Math.PI*2;
+    const spawnR = 35 + Math.random()*25;  // çok yakın spawn, spring çeker
+    bx = domNode ? domNode.x + spawnR*Math.cos(spawnAngle) : W/2 + 120*Math.cos(spawnAngle);
+    by = domNode ? domNode.y + spawnR*Math.sin(spawnAngle) : H/2 + 120*Math.sin(spawnAngle);
+  }
+
+  const node={id:ent.id,x:bx,y:by,
+    vx:isSelf?0:(Math.random()-.5)*1.5,
+    vy:isSelf?0:(Math.random()-.5)*1.5,
+    kind:ent.type==='credential'?'credential':'entity',
+    ref:ent, pinned:isSelf, dragging:false};  // self is pinned at center
   S.nodes.push(node);
-  const isP=ent.type==='person',isC=ent.type==='credential';
-  const r=isP?10:(isC?7:8);
-  const color=isP?'#f0d9ff':(isC?'#60a5fa':'#c4c0e8');
+
+  const isCredential=ent.type==='credential';
+  const isPerson=ent.type==='person';
+  const r=isPerson?10:(isCredential?7:8);
+  const color=isPerson?'#f0d9ff':(isCredential?'#60a5fa':'#c4c0e8');
+  const fillAlpha=isPerson?.15:.1;
+
   const g=svgMk('g');g.setAttribute('class','g-entity');g.setAttribute('data-nid',ent.id);
   g.setAttribute('transform',`translate(${bx},${by})`);g.style.opacity='0';
-  const glow=svgMk('circle');glow.setAttribute('r',r+8);glow.setAttribute('fill',hexA(color,.05));glow.setAttribute('opacity','0');glow.setAttribute('class','node-glow');g.appendChild(glow);
-  const circ=svgMk('circle');circ.setAttribute('r',r);circ.setAttribute('fill',hexA(color,.15));circ.setAttribute('stroke',hexA(color,.5));circ.setAttribute('stroke-width','.6');g.appendChild(circ);
-  if(isP){const inner=svgMk('circle');inner.setAttribute('r','3');inner.setAttribute('fill',hexA(color,.4));g.appendChild(inner);}
-  const dot=svgMk('circle');dot.setAttribute('r','2');dot.setAttribute('fill',color);dot.setAttribute('opacity','.6');g.appendChild(dot);
-  const lbl=svgMk('text');lbl.setAttribute('y',r+12);lbl.setAttribute('text-anchor','middle');lbl.setAttribute('fill','rgba(221,218,240,.45)');lbl.setAttribute('font-size','8.5');lbl.setAttribute('font-family','DM Mono,monospace');
-  const raw=ent.label||'';lbl.textContent=raw.length>16?raw.slice(0,16)+'…':raw;g.appendChild(lbl);
-  // Hidden at zoom level 1 initially
-  if(S.zoomLevel < 2) g.style.display='none';
-  g.addEventListener('mouseenter',()=>glow.setAttribute('opacity','1'));
-  g.addEventListener('mouseleave',()=>glow.setAttribute('opacity','0'));
+
+  // Glow
+  const glow=svgMk('circle');glow.setAttribute('r',r+8);
+  glow.setAttribute('fill',hexAlpha(color,.05));glow.setAttribute('opacity','0');
+  glow.setAttribute('class','node-glow');g.appendChild(glow);
+
+  const circ=svgMk('circle');circ.setAttribute('r',r);
+  circ.setAttribute('fill',hexAlpha(color,fillAlpha));
+  circ.setAttribute('stroke',hexAlpha(color,.5));circ.setAttribute('stroke-width','.6');
+  g.appendChild(circ);
+
+  if(isPerson){
+    // Person silhouette hint
+    const inner=svgMk('circle');inner.setAttribute('r','3');inner.setAttribute('fill',hexAlpha(color,.4));
+    g.appendChild(inner);
+  }
+
+  const dot=svgMk('circle');dot.setAttribute('r','2');dot.setAttribute('fill',color);dot.setAttribute('opacity','.6');
+  g.appendChild(dot);
+
+  const lbl=svgMk('text');lbl.setAttribute('y',r+12);lbl.setAttribute('text-anchor','middle');
+  lbl.setAttribute('fill','rgba(221,218,240,.45)');lbl.setAttribute('font-size','8.5');
+  lbl.setAttribute('font-family','DM Mono,monospace');
+  const raw=ent.label||'';
+  lbl.textContent=raw.length>16?raw.slice(0,16)+'…':raw;
+  g.appendChild(lbl);
+
+  g.addEventListener('mouseenter',()=>{glow.setAttribute('opacity','1');});
+  g.addEventListener('mouseleave',()=>{glow.setAttribute('opacity','0');});
   g.onclick=(e)=>{if(node._drag)return;openPanelEntity(ent.id);};
-  attachDrag(g,node);svgEl.appendChild(g);
+  attachDrag(g,node);
+  svgEl.appendChild(g);
   requestAnimationFrame(()=>{g.style.transition='opacity .7s';g.style.opacity='1';});
 }
 
-function spawnQuestionNode(q,domainId){
+function spawnQuestionNode(q, domainId){
   if(S.nodes.find(n=>n.id===q.id))return;
   const domNode=domainId?S.nodes.find(n=>n.id==='domain_'+domainId):null;
   const a=Math.random()*Math.PI*2;
   const bx=domNode?domNode.x+90*Math.cos(a):W/2+(180+Math.random()*60)*Math.cos(a);
   const by=domNode?domNode.y+90*Math.sin(a):H/2+(180+Math.random()*60)*Math.sin(a);
-  const node={id:q.id,x:bx,y:by,vx:(Math.random()-.5)*1.5,vy:(Math.random()-.5)*1.5,kind:'question',ref:q,pinned:false,dragging:false};
+
+  const node={id:q.id,x:bx,y:by,vx:(Math.random()-.5)*1.5,vy:(Math.random()-.5)*1.5,
+    kind:'question',ref:q,pinned:false,dragging:false};
   S.nodes.push(node);
+
   const g=svgMk('g');g.setAttribute('class','g-question');g.setAttribute('data-nid',q.id);
   g.setAttribute('transform',`translate(${bx},${by})`);g.style.opacity='0';
-  const circ=svgMk('circle');circ.setAttribute('r','8');circ.setAttribute('fill','rgba(96,165,250,.1)');circ.setAttribute('stroke','rgba(96,165,250,.5)');circ.setAttribute('stroke-width','.5');circ.setAttribute('stroke-dasharray','2 2');g.appendChild(circ);
-  if(q.status==='answered'){const adot=svgMk('circle');adot.setAttribute('r','3');adot.setAttribute('fill','#34d399');adot.setAttribute('opacity','.8');g.appendChild(adot);}
-  else{const dot=svgMk('circle');dot.setAttribute('r','2');dot.setAttribute('fill','#60a5fa');dot.setAttribute('opacity','.7');g.appendChild(dot);}
-  const lbl=svgMk('text');lbl.setAttribute('y','18');lbl.setAttribute('text-anchor','middle');lbl.setAttribute('fill','rgba(96,165,250,.45)');lbl.setAttribute('font-size','8');lbl.setAttribute('font-family','DM Mono,monospace');
-  const raw=q.text||'';lbl.textContent=raw.length>18?raw.slice(0,18)+'…':raw;g.appendChild(lbl);
-  // Hidden at zoom < 3
-  if(S.zoomLevel < 3) g.style.display='none';
+
+  const circ=svgMk('circle');circ.setAttribute('r','8');
+  circ.setAttribute('fill','rgba(96,165,250,.1)');
+  circ.setAttribute('stroke','rgba(96,165,250,.5)');circ.setAttribute('stroke-width','.5');
+  circ.setAttribute('stroke-dasharray','2 2');
+  g.appendChild(circ);
+
+  const dot=svgMk('circle');dot.setAttribute('r','2');dot.setAttribute('fill','#60a5fa');dot.setAttribute('opacity','.7');
+  g.appendChild(dot);
+
+  const lbl=svgMk('text');lbl.setAttribute('y','18');lbl.setAttribute('text-anchor','middle');
+  lbl.setAttribute('fill','rgba(96,165,250,.45)');lbl.setAttribute('font-size','8');
+  lbl.setAttribute('font-family','DM Mono,monospace');
+  const raw=q.text||'';
+  lbl.textContent=raw.length>18?raw.slice(0,18)+'…':raw;
+  g.appendChild(lbl);
+
   g.onclick=(e)=>{if(node._drag)return;openPanelQuestion(q.id);};
-  attachDrag(g,node);svgEl.appendChild(g);
+  attachDrag(g,node);
+  svgEl.appendChild(g);
   requestAnimationFrame(()=>{g.style.transition='opacity .6s';g.style.opacity='1';});
 }
 
-// ── LINK VISUAL ────────────────────────────────────────────────────────
-const LINK_STYLE={
-  belongs_to_domain:{s:'rgba(167,139,250,.2)',w:'.6',d:null},
-  child_of:{s:'rgba(244,114,182,.45)',w:'1.1',d:null},
-  parent_of:{s:'rgba(244,114,182,.45)',w:'1.1',d:null},
-  fills_role:{s:'rgba(244,114,182,.6)',w:'1.4',d:null},
-  is_a:{s:'rgba(163,230,53,.25)',w:'.6',d:'2 3'},
-  part_of:{s:'rgba(251,146,60,.22)',w:'.6',d:'3 3'},
-  works_at:{s:'rgba(251,146,60,.3)',w:'.7',d:null},
-  works_on:{s:'rgba(251,146,60,.25)',w:'.6',d:'2 3'},
-  lives_in:{s:'rgba(52,211,153,.25)',w:'.6',d:null},
-  owns:{s:'rgba(34,211,238,.2)',w:'.5',d:'3 4'},
-  likes:{s:'rgba(233,121,249,.2)',w:'.5',d:'2 4'},
-  related_to:{s:'rgba(148,163,184,.14)',w:'.5',d:'1 5'},
-  mentions:{s:'rgba(148,163,184,.07)',w:'.4',d:'1 7'},
-  asks_about:{s:'rgba(96,165,250,.18)',w:'.5',d:'3 4'},
-  answered_by:{s:'rgba(52,211,153,.35)',w:'.8',d:null},
-  has_property:{s:'rgba(167,139,250,.25)',w:'.6',d:'1 3'},
-};
+// ── DRAW LINK — relation-aware visual language
+// [LINK_STYLE_BLOCK — moved to ONTOLOGY layer]
+function drawLink(fromId, toId, relation){
+  const fn = S.nodes.find(n => n.id === fromId);
+  const tn = S.nodes.find(n => n.id === toId);
+  if(!fn || !tn) return;
+  const style = LINK_STYLE[relation] || { stroke:'rgba(167,139,250,.07)', width:'.4', dash:null };
+  const line = svgMk('line');
+  line.setAttribute('x1', fn.x); line.setAttribute('y1', fn.y);
+  line.setAttribute('x2', tn.x); line.setAttribute('y2', tn.y);
+  line.setAttribute('data-lf', fromId); line.setAttribute('data-lt', toId);
+  line.setAttribute('data-rel', relation);
+  line.setAttribute('stroke', style.stroke);
+  line.setAttribute('stroke-width', style.width);
+  if(style.dash) line.setAttribute('stroke-dasharray', style.dash);
+  line.setAttribute('class', 'g-link');
+  const firstNode = svgEl.querySelector('.g-domain,.g-entity,.g-question');
+  firstNode ? svgEl.insertBefore(line, firstNode) : svgEl.appendChild(line);
+}
 
-function drawLink(fromId,toId,relation){
-  const fn=S.nodes.find(n=>n.id===fromId);
-  const tn=S.nodes.find(n=>n.id===toId);
-  if(!fn||!tn)return;
-  const style=LINK_STYLE[relation]||{s:'rgba(167,139,250,.07)',w:'.4',d:null};
-  const line=svgMk('line');
-  line.setAttribute('x1',fn.x);line.setAttribute('y1',fn.y);
-  line.setAttribute('x2',tn.x);line.setAttribute('y2',tn.y);
-  line.setAttribute('data-lf',fromId);line.setAttribute('data-lt',toId);
-  line.setAttribute('data-rel',relation);
-  line.setAttribute('stroke',style.s);line.setAttribute('stroke-width',style.w);
-  if(style.d) line.setAttribute('stroke-dasharray',style.d);
-  line.setAttribute('class','g-link');
-  // Visibility based on zoom
-  if(relation==='belongs_to_domain'&&S.zoomLevel<2) line.style.display='none';
-  if((relation==='asks_about'||relation==='answered_by')&&S.zoomLevel<3) line.style.display='none';
-  const firstNode=svgEl.querySelector('.g-domain,.g-entity,.g-question');
-  firstNode?svgEl.insertBefore(line,firstNode):svgEl.appendChild(line);
+function highlightDomain(domId,on){
+  svgEl.querySelectorAll(`.g-entity`).forEach(g=>{
+    const eid=g.getAttribute('data-nid');
+    const ent=S.universe.entities.find(e=>e.id===eid);
+    if(ent&&ent.domain===domId.replace('domain_','')){
+      g.style.opacity=on?'1':'';
+    }
+  });
+}
+
+function hexAlpha(hex,alpha){
+  const r=parseInt(hex.slice(1,3),16);
+  const g=parseInt(hex.slice(3,5),16);
+  const b=parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${alpha})`;
 }
 
 // ── DRAG ────────────────────────────────────────────────────────────
 function attachDrag(g,node){
   g.addEventListener('mousedown',e=>{
-    e.stopPropagation();node.dragging=true;node._drag=false;
-    node._wasPinned=node.pinned;node.pinned=false;
-    const pt=toSVGPoint(e);S.dragNode={node,ox:pt.x-node.x,oy:pt.y-node.y};
+    e.stopPropagation();
+    node.dragging=true; node._drag=false;
+    node._wasPinned = node.pinned;
+    node.pinned = false;  // drag sırasında hareket etsin
+    const pt=toSVGPoint(e);
+    S.dragNode={node,ox:pt.x-node.x,oy:pt.y-node.y};
   });
 }
 
+// ── INTERACTION ─────────────────────────────────────────────────────
 function initInteraction(){
   svgEl.addEventListener('mousedown',e=>{
-    if(e.target.closest('.g-domain,.g-entity,.g-question'))return;
-    S.panning=true;S.panSX=e.clientX;S.panSY=e.clientY;S.panOX=S.vpX;S.panOY=S.vpY;svgEl.classList.add('panning');
+    if(e.target.closest('.g-domain,.g-entity,.g-question')) return;
+    S.panning=true;S.panSX=e.clientX;S.panSY=e.clientY;
+    S.panOX=S.vpX;S.panOY=S.vpY;svgEl.classList.add('panning');
   });
   window.addEventListener('mousemove',e=>{
-    if(S.dragNode){const{node,ox,oy}=S.dragNode;const pt=toSVGPoint(e);node.x=pt.x-ox;node.y=pt.y-oy;node.vx=0;node.vy=0;node._drag=true;}
-    else if(S.panning){S.vpX=S.panOX+(e.clientX-S.panSX)/S.vpS;S.vpY=S.panOY+(e.clientY-S.panSY)/S.vpS;applyVP();}
+    if(S.dragNode){
+      const {node,ox,oy}=S.dragNode;
+      const pt=toSVGPoint(e);
+      node.x=pt.x-ox;node.y=pt.y-oy;
+      node.vx=0;node.vy=0;node._drag=true;
+    } else if(S.panning){
+      S.vpX=S.panOX+(e.clientX-S.panSX)/S.vpS;
+      S.vpY=S.panOY+(e.clientY-S.panSY)/S.vpS;
+      applyVP();
+    }
   });
   window.addEventListener('mouseup',()=>{
-    if(S.dragNode){const n=S.dragNode.node;n.dragging=false;if(n.kind==='domain'&&n._wasPinned){n.pinned=true;n.vx=0;n.vy=0;}S.dragNode=null;}
-    S.panning=false;svgEl.classList.remove('panning');
+    if(S.dragNode){
+      const n = S.dragNode.node;
+      n.dragging = false;
+      // Domain node: yeni drag pozisyonunu kaydet
+      if(n.kind === 'domain' && n._wasPinned){
+        // Yeni pozisyona pin'le
+        n.pinned = true;
+        n.vx = 0; n.vy = 0;
+      }
+      S.dragNode = null;
+    }
+    S.panning=false; svgEl.classList.remove('panning');
   });
   svgEl.addEventListener('wheel',e=>{
     e.preventDefault();
     const f=e.deltaY<0?1.12:.9;
     const pt=toSVGPoint(e);
-    S.vpX=(S.vpX-pt.x)*f+pt.x;S.vpY=(S.vpY-pt.y)*f+pt.y;
-    S.vpS=Math.max(.15,Math.min(5,S.vpS*f));
+    S.vpX=(S.vpX-pt.x)*f+pt.x;
+    S.vpY=(S.vpY-pt.y)*f+pt.y;
+    S.vpS=Math.max(.2,Math.min(5,S.vpS*f));
     applyVP();
-    requestAnimationFrame(updateZoomProjection);
   },{passive:false});
+  // Touch
   let ltx=0,lty=0;
   svgEl.addEventListener('touchstart',e=>{if(e.touches.length===1){ltx=e.touches[0].clientX;lty=e.touches[0].clientY;}});
-  svgEl.addEventListener('touchmove',e=>{if(e.touches.length===1){e.preventDefault();S.vpX+=(e.touches[0].clientX-ltx)/S.vpS;S.vpY+=(e.touches[0].clientY-lty)/S.vpS;ltx=e.touches[0].clientX;lty=e.touches[0].clientY;applyVP();}},{passive:false});
+  svgEl.addEventListener('touchmove',e=>{
+    if(e.touches.length===1){e.preventDefault();
+      S.vpX+=(e.touches[0].clientX-ltx)/S.vpS;S.vpY+=(e.touches[0].clientY-lty)/S.vpS;
+      ltx=e.touches[0].clientX;lty=e.touches[0].clientY;applyVP();}
+  },{passive:false});
 }
 
-function toSVGPoint(e){const rect=svgEl.getBoundingClientRect();return{x:(e.clientX-rect.left)/S.vpS-S.vpX,y:(e.clientY-rect.top)/S.vpS-S.vpY};}
-function applyVP(){svgEl.setAttribute('viewBox',`${-S.vpX} ${-S.vpY} ${W/S.vpS} ${H/S.vpS}`);}
-function zoomBy(f){S.vpX=(S.vpX-W/2/S.vpS)*f+W/2/S.vpS;S.vpY=(S.vpY-H/2/S.vpS)*f+H/2/S.vpS;S.vpS=Math.max(.15,Math.min(5,S.vpS*f));applyVP();requestAnimationFrame(updateZoomProjection);}
-function resetView(){S.vpX=0;S.vpY=0;S.vpS=1;svgEl.removeAttribute('viewBox');S.zoomLevel=1;requestAnimationFrame(updateZoomProjection);}
+function toSVGPoint(e){
+  const rect=svgEl.getBoundingClientRect();
+  return{x:(e.clientX-rect.left)/S.vpS-S.vpX,y:(e.clientY-rect.top)/S.vpS-S.vpY};
+}
+
+// ══════════════════════════════════════════
+// ZOOM PROJECTION — zoom seviyesine göre node görünürlüğü
+// zoom < 0.5  → sadece domain yıldızları
+// zoom 0.5-1  → domain + önemli entity'ler
+// zoom 1-2    → tümü
+// zoom > 2    → yakın odak, diğerleri solar
+// ══════════════════════════════════════════
+function applyVP(){
+  svgEl.setAttribute('viewBox',`${-S.vpX} ${-S.vpY} ${W/S.vpS} ${H/S.vpS}`);
+  applyZoomProjection();
+}
+
+function applyZoomProjection(){
+  const z = S.vpS;
+  const zoomLevel =
+    z < 0.45 ? 1 :  // galaxy: sadece domain yıldızları
+    z < 0.85 ? 2 :  // system: domain + ana entity'ler
+    z < 1.6  ? 3 :  // orbit:  soru node'ları da görünür
+               4;   // card:   her şey, link'ler güçlü
+
+  // Update zoom level indicator
+  const zLabels = {1:'galaksi',2:'sistem',3:'yörünge',4:'kart'};
+  const zEl = document.getElementById('zoom-level');
+  if(zEl) zEl.textContent = zLabels[zoomLevel]||'';
+
+  svgEl.querySelectorAll('.g-domain').forEach(g => {
+    g.style.opacity = '1';
+    g.style.pointerEvents = 'all';
+  });
+  svgEl.querySelectorAll('.g-entity').forEach(g => {
+    const nid = g.getAttribute('data-nid');
+    const ent = S.universe.entities.find(e=>e.id===nid);
+    const isImportant = ent?.properties?.is_self || ent?.entityClass==='real';
+    const visible = zoomLevel >= 2 || (zoomLevel >= 1 && isImportant);
+    g.style.opacity = visible ? '1' : '0';
+    g.style.pointerEvents = visible ? 'all' : 'none';
+  });
+  svgEl.querySelectorAll('.g-question').forEach(g => {
+    const visible = zoomLevel >= 3;
+    g.style.opacity = visible ? '1' : '0';
+    g.style.pointerEvents = visible ? 'all' : 'none';
+  });
+  svgEl.querySelectorAll('.g-link').forEach(l => {
+    const rel = l.getAttribute('data-rel');
+    // family/strong links always visible, weak links only at zoom 3+
+    const strong = ['child_of','parent_of','fills_role','belongs_to_domain','spouse_of'].includes(rel);
+    const visible = zoomLevel >= 3 || (zoomLevel >= 2 && strong);
+    l.style.opacity = visible ? '' : '0';
+  });
+}
+
+function zoomBy(f){
+  S.vpX=(S.vpX-W/2/S.vpS)*f+W/2/S.vpS;
+  S.vpY=(S.vpY-H/2/S.vpS)*f+H/2/S.vpS;
+  S.vpS=Math.max(.2,Math.min(5,S.vpS*f));applyVP();
+}
+
+function resetView(){S.vpX=0;S.vpY=0;S.vpS=1;svgEl.removeAttribute('viewBox');applyZoomProjection();}
 
 function rerenderAll(){
   S.nodes=[];
-  svgEl.querySelectorAll('.g-domain,.g-entity,.g-question,.g-link').forEach(el=>el.remove());
-  Object.values(S.universe.domains||{}).forEach(did=>{const ent=S.universe.entities.find(e=>e.id===did);if(ent)spawnDomainNode(ent);});
-  S.universe.entities.filter(e=>e.type!=='domain').forEach(e=>spawnEntityNode(e,e.domain));
-  S.universe.questions.forEach(q=>spawnQuestionNode(q,detectDomain(q.text)));
+  document.querySelectorAll('.g-domain,.g-entity,.g-question,.g-link').forEach(el=>el.remove());
+  Object.values(S.universe.domains).forEach(did=>{
+    const ent=S.universe.entities.find(e=>e.id===did);
+    if(ent) spawnDomainNode(ent);
+  });
+  S.universe.entities.filter(e=>e.type!=='domain').forEach(e=>{
+    spawnEntityNode(e,e.domain);
+  });
+  S.universe.questions.forEach(q=>{
+    const dom=detectDomain(q.text);
+    spawnQuestionNode(q,dom);
+  });
   S.universe.links.forEach(l=>drawLink(l.from,l.to,l.relation));
 }
 
 function renderExisting(){
   if(!S.universe)return;
-  Object.values(S.universe.domains||{}).forEach(did=>{const ent=S.universe.entities.find(e=>e.id===did);if(ent)spawnDomainNode(ent);});
+  Object.values(S.universe.domains).forEach(did=>{
+    const ent=S.universe.entities.find(e=>e.id===did);
+    if(ent) spawnDomainNode(ent);
+  });
   S.universe.entities.filter(e=>e.type!=='domain').forEach(e=>spawnEntityNode(e,e.domain));
   S.universe.questions.forEach(q=>spawnQuestionNode(q,detectDomain(q.text)));
   S.universe.links.forEach(l=>drawLink(l.from,l.to,l.relation));
@@ -1153,263 +2155,294 @@ function renderExisting(){
 // ══════════════════════════════════════════
 // INPUT HANDLER
 // ══════════════════════════════════════════
-function handleInput(){
-  const field=document.getElementById('input-field');
-  const raw=field.value.trim();if(!raw)return;
 
-  // 1. Try statement parse first
-  const stResult = tryParseStatement(raw);
-  if(stResult.handled){
-    field.value='';hideSug();
-    document.getElementById('mpill').className='mpill mp-s';
-    document.getElementById('mpill').textContent='İFADE';
-    document.getElementById('ibctx').textContent='kaydedildi → '+raw.slice(0,40);
-    updateCounters();saveUniverse();
-    setTimeout(()=>{document.getElementById('mpill').className='mpill mp-idle';document.getElementById('mpill').textContent='GİRİŞ';document.getElementById('ibctx').textContent='ne sormak ya da hatırlamak istiyorsun?';},2000);
-    return;
+// ══════════════════════════════════════════
+// STATEMENT PARSER — ontology_seed.json statement_patterns
+// "annemin adı Ayşe" → {prop:'name', domain:'family', role:'anne', value:'Ayşe'}
+// ══════════════════════════════════════════
+function parseStatement(text){
+  const t = text.trim().toLowerCase();
+
+  for(const pat of STATEMENT_PATTERNS){
+    // Pattern içindeki X'i regex'e çevir
+    const regexStr = pat.pattern
+      .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')  // escape
+      .replace('x', '(.+)')   // X → capture group (lowercase match)
+      .replace('y', '(.+)');  // Y → second capture
+    try{
+      const m = t.match(new RegExp(regexStr, 'i'));
+      if(m){
+        return {
+          matched: true,
+          prop:    pat.prop,
+          domain:  pat.domain,
+          role:    pat.role || null,
+          self:    pat.self || false,
+          value:   m[1]?.trim() || null,
+          value2:  m[2]?.trim() || null,
+          raw:     text
+        };
+      }
+    } catch(e){}
   }
 
-  // 2. Question
-  if(raw.endsWith('?')){
-    field.value='';hideSug();
-    document.getElementById('mpill').className='mpill mp-q';
-    document.getElementById('mpill').textContent='SORU';
+  // Family role pattern — "annemin adı Ayşe", "babam Mehmet" etc.
+  // Combine with ontology family_roles
+  for(const [alias, canonical] of Object.entries(FAMILY_ROLES)){
+    if(alias.length < 3) continue;
+    // "annem X", "annemin adı X", "babam X"
+    const roleRe = new RegExp(`^${alias.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}\\s+(?:adı\\s+|ismi\\s+)?(.+)$`, 'i');
+    const m = text.trim().match(roleRe);
+    if(m){
+      return {matched:true, prop:'name', domain:'family', role:canonical,
+        self:false, value:m[1].trim(), raw:text};
+    }
+  }
+
+  return {matched:false};
+}
+
+// ── Determine input type ──────────────────────────────────────────────
+function classifyInput(text){
+  const t = text.trim();
+
+  // 1. Soru (? ile bitiyor)
+  if(t.endsWith('?')) return 'question';
+
+  // 2. Statement — ontology pattern eşleşmesi
+  const parsed = parseStatement(t);
+  if(parsed.matched) return 'statement';
+
+  // 3. Karar
+  if(/(karar verdim|yapacağım|planım|hedefim|kesinleştirdim)/i.test(t)) return 'decision';
+
+  // 4. Kısa tek kelime / isim → seed
+  return 'seed';
+}
+
+function handleInput(){
+  const field=document.getElementById('input-field');
+  const raw=field.value.trim(); if(!raw)return;
+  const inputType = classifyInput(raw);
+
+  // ── SORU
+  if(inputType === 'question'){
+    field.value=''; hideSug();
     const fam=detectFamily(raw);
     const q=mkQuestion({text:raw,family:fam});
     bigBang(raw,q);
-    updateCounters();saveUniverse();
-    openFacetPanel(q);
+    updateCounters(); saveUniverse();
+    openFacetPanel(q); return;
+  }
+
+  // ── STATEMENT — "annemin adı Ayşe", "mailim x@y", "İstanbul'da yaşıyorum"
+  if(inputType === 'statement'){
+    field.value=''; hideSug();
+    processStatement(raw);
     return;
   }
 
-  // 3. Decision
-  if(/(karar verdim|yapacağım|planım|hedefim)/i.test(raw)){
-    field.value='';hideSug();
+  // ── KARAR
+  if(inputType === 'decision'){
+    field.value=''; hideSug();
     rawEntry(raw,'decision',null,null);
     const ent=mkEntity('decision',raw.slice(0,60),'projects');
     spawnEntityNode(ent,'projects');
-    ensureDomain('projects');addLink(ent.id,'domain_projects','belongs_to_domain');
-    saveUniverse();updateCounters();return;
+    ensureDomain('projects');
+    addLink(ent.id,'domain_projects','belongs_to_domain');
+    saveUniverse(); updateCounters(); return;
   }
 
-  // 4. Seed → suggestion layer
+  // ── SEED → öneri katmanı
   showSugLayer(raw);
 }
 
-// ══════════════════════════════════════════
-// INPUT INTENT DETECTION
-// ══════════════════════════════════════════
-function detectInputType(text){
-  const t = text.trim();
-  const lower = t.toLowerCase();
+// Statement'ı işle ve graph'ı güncelle
+function processStatement(text){
+  const parsed = parseStatement(text);
+  rawEntry(text, 'statement', null, null);
 
-  // Date: dd.mm.yyyy or dd/mm/yyyy
-  if(/^\d{1,2}[./]\d{1,2}([./]\d{2,4})?$/.test(t)) return 'date';
+  if(!parsed.matched || !parsed.value){
+    // Pattern eşleşmedi — seed olarak işle
+    showSugLayer(text); return;
+  }
 
-  // Time: hh:mm
-  if(/^\d{1,2}:\d{2}$/.test(t)) return 'time';
+  const domainId = parsed.domain || detectDomain(text);
+  ensureDomain(domainId);
 
-  // Year alone
-  if(/^\d{4}$/.test(t) && parseInt(t)>1900 && parseInt(t)<2100) return 'year';
+  // Self property — "adım X", "mailim X"
+  if(parsed.self){
+    let selfEnt = S.universe.entities.find(e=>e.properties?.is_self);
+    if(!selfEnt){
+      selfEnt = mkEntity('person','ben','identity',{is_self:true});
+      ensureDomain('identity');
+      spawnEntityNode(selfEnt,'identity');
+      addLink(selfEnt.id,'domain_identity','belongs_to_domain');
+    }
+    // Prop'u entity'e ekle
+    selfEnt.properties[parsed.prop] = parsed.value;
+    // Cosmos'ta self node label'ını güncelle — isim geldiyse
+    if(parsed.prop === 'name'){
+      selfEnt.label = parsed.value;
+      S.universe.profile.name = parsed.value;
+      const gLbl = svgEl?.querySelector(`[data-nid="${selfEnt.id}"] text`);
+      if(gLbl) gLbl.textContent = parsed.value.slice(0,16);
+    }
+    // Credential entity — şifre, mail, telefon
+    if(['email','phone','password','username'].includes(parsed.prop)){
+      const credEnt = mkEntity('credential', parsed.prop, domainId, {value:parsed.value, prop:parsed.prop});
+      if(!S.nodes.find(n=>n.id===credEnt.id)){
+        spawnEntityNode(credEnt, domainId);
+        addLink(selfEnt.id, credEnt.id, 'owns');
+        addLink(credEnt.id, 'domain_'+domainId, 'belongs_to_domain');
+      } else {
+        credEnt.properties.value = parsed.value;
+        credEnt.properties.filled = true;
+      }
+    }
+    // Status feedback
+    setInputModeHint('✓ kaydedildi', 'mp-a');
+    setTimeout(()=>setInputModeHint('ne sormak ya da hatırlamak istiyorsun?','mp-idle'),1800);
+    saveUniverse(); updateCounters(); return;
+  }
 
-  // Looks like a credential/account (contains @ or known service names)
-  if(t.includes('@') && t.includes('.')) return 'email';
-  const credServices=['gmail','hotmail','yahoo','proton','icloud','outlook','netflix','spotify','amazon','github','instagram','twitter','facebook','linkedin','tiktok','youtube'];
-  if(credServices.some(s=>lower.includes(s))) return 'credential';
+  // Role property — "annemin adı X", "babam X"
+  if(parsed.role){
+    const canonical = parsed.role;
+    // Role entity'yi bul ya da yarat
+    let roleEnt = S.universe.entities.find(e=>e.slug===canonical&&e.properties?.is_role);
+    if(!roleEnt){
+      roleEnt = mkEntity('person', canonical, domainId, {is_role:true, relation_to_self:canonical});
+      spawnEntityNode(roleEnt, domainId);
+      addLink(roleEnt.id, 'domain_'+domainId, 'belongs_to_domain');
+      buildEntityRelations([roleEnt], null);
+    }
+    // Somut kişiyi materialize et
+    if(parsed.prop === 'name'){
+      materializeRole(roleEnt.id, parsed.value, domainId);
+    } else {
+      roleEnt.properties[parsed.prop] = parsed.value;
+    }
+    setInputModeHint(`✓ ${canonical} → ${parsed.value}`, 'mp-a');
+    setTimeout(()=>setInputModeHint('ne sormak ya da hatırlamak istiyorsun?','mp-idle'),2000);
+    saveUniverse(); updateCounters(); return;
+  }
 
-  // URL
-  if(/^https?:\/\/|^www\./.test(t)) return 'url';
-
-  // Phone number
-  if(/^[\+\d\s\-()]{7,15}$/.test(t) && /\d{5,}/.test(t)) return 'phone';
-
-  // Place — Turkish cities/towns, capitalized, or known place indicators
-  const placeKw=['şehir','ilçe','köy','mahalle','cadde','sokak','bulvar','istanbul','ankara','izmir','maraş','elbistan','kahramanmaraş'];
-  if(placeKw.some(k=>lower.includes(k))) return 'place';
-
-  // Person — capitalized name, 2-15 chars, no spaces or one space (first+last)
-  if(/^[A-ZÇĞİÖŞÜ][a-züğışöçA-ZÇĞİÖŞÜ]+(\s[A-ZÇĞİÖŞÜ][a-züğışöçA-ZÇĞİÖŞÜ]+)?$/.test(t) && t.length>=2 && t.length<=25) return 'person';
-
-  // Project — known project names or project-like words
-  const projKw=['proje','uygulama','site','platform','sistem','app','startup'];
-  if(projKw.some(k=>lower.includes(k))) return 'project';
-
-  // Document/file
-  const docKw=['sözleşme','belge','dosya','diploma','sertifika','pasaport','ehliyet','kimlik'];
-  if(docKw.some(k=>lower.includes(k))) return 'document';
-
-  // Short fact (1-3 words, no verb) → likely a seed/fact
-  const wordCount = t.split(/\s+/).length;
-  if(wordCount <= 3 && !/[?!]/.test(t)) return 'fact';
-
-  return 'concept';
+  // Generic statement — keyword bulundu ama role/self değil
+  bigBang(text, null);
+  saveUniverse(); updateCounters();
 }
 
-// Type-specific suggestion packs
-const SUGGESTION_PACKS = {
-  person: (t) => [
-    {text:`${t} kim?`, fam:'identity', icon:'?'},
-    {text:`${t} benimle nasıl tanışık?`, fam:'family', icon:'↔'},
-    {text:`${t} nerede yaşıyor?`, fam:'places', icon:'◉'},
-    {text:`${t} ne iş yapıyor?`, fam:'work', icon:'◆'},
-    {text:`${t} ne zaman doğdu?`, fam:'identity', icon:'◈'},
-    {text:`${t} telefonu nedir?`, fam:'contacts', icon:'#'},
-  ],
-  place: (t) => [
-    {text:`${t} nerede?`, fam:'places', icon:'◉'},
-    {text:`${t} ile ilgili anım nedir?`, fam:'memory', icon:'◈'},
-    {text:`${t} kim yaşıyor?`, fam:'family', icon:'@'},
-    {text:`${t}'a ne zaman gittim?`, fam:'memory', icon:'◈'},
-    {text:`${t} neden önemli benim için?`, fam:'identity', icon:'?'},
-  ],
-  date: (t) => [
-    {text:`${t} tarihinde ne oldu?`, fam:'memory', icon:'◈'},
-    {text:`${t} kimin doğum günü?`, fam:'family', icon:'@'},
-    {text:`${t} hangi önemli olay?`, fam:'memory', icon:'◈'},
-    {text:`${t} tarihi neden önemli?`, fam:'knowledge', icon:'?'},
-  ],
-  year: (t) => [
-    {text:`${t} yılında ne oldu?`, fam:'memory', icon:'◈'},
-    {text:`${t} yılında neredeyim?`, fam:'places', icon:'◉'},
-    {text:`${t} yılında ne işteydim?`, fam:'work', icon:'◆'},
-  ],
-  time: (t) => [
-    {text:`${t} saatinde ne yaparım genellikle?`, fam:'preferences', icon:'◈'},
-    {text:`${t} ile ilgili ne hatırlıyorum?`, fam:'memory', icon:'◈'},
-  ],
-  project: (t) => [
-    {text:`${t} nedir?`, fam:'projects', icon:'?'},
-    {text:`${t} ne aşamada?`, fam:'projects', icon:'→'},
-    {text:`${t} için sonraki adım nedir?`, fam:'projects', icon:'◆'},
-    {text:`${t} kimlerle ilgili?`, fam:'projects', icon:'@'},
-    {text:`${t} neden önemli?`, fam:'projects', icon:'?'},
-  ],
-  credential: (t) => [
-    {text:`${t} hesabı nerede?`, fam:'credentials', icon:'⬡'},
-    {text:`${t} kullanıcı adım nedir?`, fam:'credentials', icon:'⬡'},
-    {text:`${t} şifresi nerede saklı?`, fam:'credentials', icon:'⬡'},
-    {text:`${t} ne için kullanıyorum?`, fam:'knowledge', icon:'?'},
-  ],
-  url: (t) => [
-    {text:`${t} nedir?`, fam:'docs', icon:'?'},
-    {text:`${t} ne için kullanıyorum?`, fam:'docs', icon:'?'},
-    {text:`${t} hangi hesaba ait?`, fam:'credentials', icon:'⬡'},
-  ],
-  email: (t) => [
-    {text:`${t} hangi platformda?`, fam:'credentials', icon:'⬡'},
-    {text:`${t} ne için kullanıyorum?`, fam:'credentials', icon:'⬡'},
-    {text:`${t} şifresi nerede?`, fam:'credentials', icon:'⬡'},
-  ],
-  phone: (t) => [
-    {text:`${t} kimin numarası?`, fam:'contacts', icon:'@'},
-    {text:`${t} hangi operatör?`, fam:'knowledge', icon:'?'},
-  ],
-  document: (t) => [
-    {text:`${t} nerede saklı?`, fam:'docs', icon:'□'},
-    {text:`${t} ne zaman alındı?`, fam:'docs', icon:'◈'},
-    {text:`${t} ne için gerekli?`, fam:'knowledge', icon:'?'},
-    {text:`${t} son geçerlilik tarihi?`, fam:'docs', icon:'◈'},
-  ],
-  fact: (t) => [
-    {text:`${t} nedir?`, fam:'knowledge', icon:'?'},
-    {text:`${t} benim için ne ifade ediyor?`, fam:'identity', icon:'?'},
-    {text:`${t} ile ilgili ne biliyorum?`, fam:'knowledge', icon:'?'},
-  ],
-  concept: (t) => [
-    {text:`${t} nedir?`, fam:'knowledge', icon:'?'},
-    {text:`${t} nerede?`, fam:'places', icon:'◉'},
-    {text:`${t} benimle ilgisi nedir?`, fam:'identity', icon:'?'},
-    {text:`${t} hakkında ne yapmalıyım?`, fam:'projects', icon:'◆'},
-  ],
-};
+function setInputModeHint(text, pillClass){
+  const pill = document.getElementById('mpill');
+  const ctx  = document.getElementById('ibctx');
+  if(pill){ pill.textContent='✓'; pill.className='mpill '+pillClass; }
+  if(ctx)  ctx.textContent = text;
+}
 
-// Type labels for display
-const TYPE_LABELS = {
-  person:'kişi', place:'yer', date:'tarih', year:'yıl', time:'saat',
-  project:'proje', credential:'hesap', email:'e-posta', phone:'telefon',
-  document:'belge', fact:'bilgi', url:'link', concept:'kavram',
-};
 
 // ══════════════════════════════════════════
-// SUGGESTION LAYER — intent-aware
+// SUGGESTION LAYER
 // ══════════════════════════════════════════
 function showSugLayer(topic){
-  const inputType = detectInputType(topic);
-  const typeLabel = TYPE_LABELS[inputType] || 'kavram';
-  const pack = SUGGESTION_PACKS[inputType] || SUGGESTION_PACKS.concept;
-  const sugs = pack(topic);
+  const isPerson=/^[A-ZÇĞİÖŞÜ][a-züğışöçA-ZÇĞİÖŞÜ]+$/.test(topic)&&topic.length>=3;
+  const sugs=isPerson?[
+    {text:`${topic} kim?`,tid:'kim',ctx:'bu'},
+    {text:`${topic} ile ilişkim ne?`,tid:'kiminle',ctx:'benim'},
+    {text:`${topic} neden önemli?`,tid:'neden',ctx:'benim'},
+  ]:[
+    {text:`${topic} nedir?`,tid:'nedir',ctx:'—'},
+    {text:`${topic} nerede?`,tid:'nerede',ctx:'benim'},
+    {text:`${topic} hakkında ne yapmalıyım?`,tid:'yapmalı',ctx:'—'},
+    {text:`${topic} neden önemli?`,tid:'neden',ctx:'benim'},
+  ];
 
   document.getElementById('suglbl').innerHTML=
-    `<span style="opacity:.5">"${topic}"</span> <span style="color:var(--core);opacity:.7;font-size:.45rem;letter-spacing:.2em">${typeLabel}</span> → nasıl bir soru?`;
+    `<span style="opacity:.6">"${topic}"</span> → nasıl bir soru?`;
+  const opts=document.getElementById('sugopts'); opts.innerHTML='';
 
-  const opts=document.getElementById('sugopts');opts.innerHTML='';
-
-  // Top 4 suggestions
-  sugs.slice(0,4).forEach(s=>{
+  sugs.forEach(s=>{
     const btn=document.createElement('button');btn.className='sug-opt';
-    btn.innerHTML=`<span class="sug-arr">${s.icon||'→'}</span><span>${s.text}</span>`;
+    btn.innerHTML=`<span class="sug-arr">→</span><span>${s.text}</span>`;
     btn.onclick=()=>{
-      hideSug();document.getElementById('input-field').value='';
-      const q=mkQuestion({text:s.text,family:s.fam});
-      bigBang(s.text,q);updateCounters();saveUniverse();openFacetPanel(q);
+      hideSug(); document.getElementById('input-field').value='';
+      const fam=Q_TEMPLATES.find(t=>t.id===s.tid)?.family||'knowledge';
+      const q=mkQuestion({text:s.text,template:s.tid,topic,context:s.ctx,family:fam});
+      bigBang(s.text,q);
+      updateCounters(); saveUniverse(); openFacetPanel(q);
     };
     opts.appendChild(btn);
   });
 
-  // More options if pack has >4
-  if(sugs.length > 4){
-    const more=document.createElement('button');more.className='sug-opt';
-    more.style.cssText='opacity:.5;font-size:.6rem;';
-    more.innerHTML=`<span class="sug-arr">…</span><span>daha fazla soru</span>`;
-    more.onclick=()=>{
-      more.remove();
-      sugs.slice(4).forEach(s=>{
-        const btn=document.createElement('button');btn.className='sug-opt';
-        btn.innerHTML=`<span class="sug-arr">${s.icon||'→'}</span><span>${s.text}</span>`;
-        btn.onclick=()=>{hideSug();document.getElementById('input-field').value='';const q=mkQuestion({text:s.text,family:s.fam});bigBang(s.text,q);updateCounters();saveUniverse();openFacetPanel(q);};
-        opts.appendChild(btn);
-      });
-    };
-    opts.appendChild(more);
-  }
-
-  // Direct save — FIRST for fact/date/time types, LAST for others
-  const directFirst = ['date','time','year','phone','email','url'].includes(inputType);
-  const stmt=document.createElement('button');stmt.className='sug-opt';
-  stmt.innerHTML=`<span class="sug-arr">✦</span><span>"${topic}" → direkt kaydet</span>`;
-  stmt.onclick=()=>{
-    hideSug();document.getElementById('input-field').value='';
-    const domId=detectDomainForType(inputType,topic);
-    ensureDomain(domId);
-    const entType = inputType==='person'?'person':inputType==='place'?'place':inputType==='date'||inputType==='year'?'event':inputType==='credential'||inputType==='email'?'credential':'concept';
-    const ent=mkEntity(entType,topic,domId);
-    spawnEntityNode(ent,domId);
-    addLink(ent.id,'domain_'+domId,'belongs_to_domain');
-    rawEntry(topic,'seed',null,null);saveUniverse();updateCounters();
-  };
-  if(directFirst) opts.insertBefore(stmt, opts.firstChild);
-  else opts.appendChild(stmt);
+  const comp=document.createElement('button');comp.className='sug-opt comp-opt';
+  comp.innerHTML=`<span class="sug-arr">✦</span><span>Soruyu kendin kur…</span>`;
+  comp.onclick=()=>{hideSug();openComposer(topic);};
+  opts.appendChild(comp);
 
   document.getElementById('sug-layer').classList.add('on');
 }
-
-function detectDomainForType(inputType, text){
-  const map = {
-    person:'family', place:'places', date:'memory', year:'memory',
-    time:'knowledge', project:'projects', credential:'credentials',
-    email:'credentials', phone:'contacts', document:'docs',
-    url:'docs', fact:'knowledge', concept:'knowledge',
-  };
-  return map[inputType] || detectDomain(text);
-}
-
 function hideSug(){document.getElementById('sug-layer').classList.remove('on');}
+
+// ══════════════════════════════════════════
+// COMPOSER
+// ══════════════════════════════════════════
+function openComposer(topic){
+  S.cTopic=topic||''; S.cCtx='—'; S.cTmpl='nedir';
+  buildComposerUI();
+  document.getElementById('q-composer').classList.add('on');
+  updateComposerPreview();
+}
+function buildComposerUI(){
+  const slots=document.getElementById('qcslots'); slots.innerHTML='';
+  slots.appendChild(mkChipSlot('Bağlam','ctx-c',Q_CONTEXTS,S.cCtx,v=>{S.cCtx=v;updateComposerPreview();}));
+  const tw=document.createElement('div');
+  const tl=document.createElement('div');tl.className='slot-lbl';tl.textContent='Konu';
+  const ti=document.createElement('input');ti.className='topic-inp';
+  ti.value=S.cTopic;ti.placeholder='aile, arşiv, proje…';
+  ti.oninput=()=>{S.cTopic=ti.value;updateComposerPreview();};
+  tw.appendChild(tl);tw.appendChild(ti);slots.appendChild(tw);
+  slots.appendChild(mkChipSlot('Soru Tipi','tmpl-c',Q_TEMPLATES.map(t=>t.label),
+    Q_TEMPLATES.find(t=>t.id===S.cTmpl)?.label||'nedir',
+    v=>{const f=Q_TEMPLATES.find(t=>t.label===v);if(f){S.cTmpl=f.id;updateComposerPreview();}}
+  ));
+}
+function mkChipSlot(label,cls,opts,sel,cb){
+  const w=document.createElement('div');
+  const l=document.createElement('div');l.className='slot-lbl';l.textContent=label;w.appendChild(l);
+  const row=document.createElement('div');row.className='chip-row';
+  opts.forEach(o=>{
+    const c=document.createElement('span');c.className='chip '+cls+(o===sel?' sel':'');
+    c.textContent=o;
+    c.onclick=()=>{row.querySelectorAll('.chip').forEach(x=>x.classList.remove('sel'));c.classList.add('sel');cb(o);};
+    row.appendChild(c);
+  });
+  w.appendChild(row);return w;
+}
+function updateComposerPreview(){
+  const tmpl=Q_TEMPLATES.find(t=>t.id===S.cTmpl)||Q_TEMPLATES[1];
+  const ctx=(!S.cCtx||S.cCtx==='—')?'':S.cCtx+' ';
+  document.getElementById('qcprev').textContent=(ctx+(S.cTopic||'…')+' '+tmpl.suffix).trim();
+}
+function confirmComposer(){
+  const tmpl=Q_TEMPLATES.find(t=>t.id===S.cTmpl)||Q_TEMPLATES[1];
+  const ctx=(!S.cCtx||S.cCtx==='—')?'':S.cCtx+' ';
+  const text=(ctx+(S.cTopic||'konu')+' '+tmpl.suffix).trim();
+  document.getElementById('q-composer').classList.remove('on');
+  document.getElementById('input-field').value='';
+  const q=mkQuestion({text,template:S.cTmpl,topic:S.cTopic,context:S.cCtx,family:tmpl.family});
+  bigBang(text,q); updateCounters(); saveUniverse(); openFacetPanel(q);
+}
+function resetComposer(){
+  document.getElementById('q-composer').classList.remove('on');
+  document.getElementById('facet-panel').classList.remove('on');
+  hideSug();
+}
 
 // ══════════════════════════════════════════
 // FACET PANEL
 // ══════════════════════════════════════════
 function openFacetPanel(q){
-  S.fQ=q;S.fInputs={};
+  S.fQ=q; S.fInputs={};
   const fam=q.family||'knowledge';
   const facets=FAMILY_FACETS[fam]||FAMILY_FACETS.knowledge;
   const existing=S.universe.answers.filter(a=>a.question_id===q.id);
@@ -1420,268 +2453,257 @@ function openFacetPanel(q){
     const row=document.createElement('div');row.className='fp-row'+(ex?' filled':'');
     const key=document.createElement('div');key.className='fp-key';key.textContent=f;row.appendChild(key);
     if(ex){const v=document.createElement('div');v.className='fp-val';v.textContent=ex.value;row.appendChild(v);}
-    else{const inp=document.createElement('input');inp.className='fp-inp';inp.placeholder=f+'…';inp.oninput=()=>{S.fInputs[f]=inp.value;};inp.onkeydown=e=>{if(e.key==='Enter')saveFacets();};row.appendChild(inp);}
+    else{
+      const inp=document.createElement('input');inp.className='fp-inp';inp.placeholder=f+'…';
+      inp.oninput=()=>{S.fInputs[f]=inp.value;};
+      inp.onkeydown=e=>{if(e.key==='Enter')saveFacets();};
+      row.appendChild(inp);
+    }
     list.appendChild(row);
   });
   document.getElementById('facet-panel').classList.add('on');
   setTimeout(()=>{const fi=list.querySelector('input');if(fi)fi.focus();},60);
 }
-
 function saveFacets(){
-  const q=S.fQ;if(!q)return;
-  const primaryLink=S.universe.links.find(l=>l.from===q.id&&l.relation==='asks_about'&&!l.to.startsWith('domain_'));
-  const primaryEnt=primaryLink?S.universe.entities.find(e=>e.id===primaryLink.to):null;
-  let saved=0;
-  Object.entries(S.fInputs).forEach(([facet,value])=>{
-    const v=value.trim();if(!v)return;
-    mkAnswer(q.id,facet,v);saved++;
-    const selfEnt=S.universe.entities.find(e=>e.properties?.is_self);
-    if(facet==='isim'&&primaryEnt?.properties?.is_role){
-      materializeRole(primaryEnt.id,v,q.family);
-    } else if(facet==='adres / link'&&v.length>1){
-      const placeEnt=mkEntity('place',v.slice(0,40),q.family||'places',{is_place:true});
-      spawnEntityNode(placeEnt,'places');ensureDomain('places');addLink(placeEnt.id,'domain_places','belongs_to_domain');
-      if(selfEnt&&!S.universe.links.find(l=>l.from===selfEnt.id&&l.to===placeEnt.id)) addLink(selfEnt.id,placeEnt.id,'lives_in');
-    } else if(v.length<60&&v.length>1&&!['tanım','örnek','notlar','önemi'].includes(facet)){
-      const ansEnt=mkEntity('answer_value',v.slice(0,40),q.family,{is_answer:true,for_facet:facet});
-      if(!S.nodes.find(n=>n.id===ansEnt.id)){
-        spawnEntityNode(ansEnt,q.family);
-        if(!S.universe.links.find(l=>l.from===q.id&&l.to===ansEnt.id)) addLink(q.id,ansEnt.id,'answered_by');
+  const q = S.fQ; if(!q) return;
+  let saved = 0;
+
+  // Find the primary entity this question asks about
+  const primaryLink = S.universe.links.find(l => l.from===q.id && l.relation==='asks_about' && l.to!==('domain_'+q.family));
+  const primaryEnt = primaryLink ? S.universe.entities.find(e=>e.id===primaryLink.to) : null;
+
+  Object.entries(S.fInputs).forEach(([facet, value])=>{
+    const v = value.trim(); if(!v) return;
+    mkAnswer(q.id, facet, v);
+    saved++;
+
+    // ── CEVAPTAN DÜNYA KURMA ──────────────────────────────
+    const selfEnt = S.universe.entities.find(e=>e.properties?.is_self);
+
+    // A) İSİM cevabı: role entity somut kişiye dönüşür
+    if(facet === 'isim' && primaryEnt && primaryEnt.properties?.is_role){
+      materializeRole(primaryEnt.id, v, q.family);
+    }
+
+    // B) İLİŞKİ TÜRÜ cevabı: yeni relation tipi ekle
+    else if(facet === 'ilişki türü' && primaryEnt && selfEnt){
+      if(!S.universe.links.find(l=>l.from===selfEnt.id&&l.to===primaryEnt.id&&l.relation==='related_to')){
+        addLink(selfEnt.id, primaryEnt.id, 'related_to');
+      }
+    }
+
+    // C) ADRES / KONUM cevabı: place entity oluştur
+    else if((facet==='adres / link' || facet==='ev' || facet==='ofis') && v.length>1){
+      const placeEnt = mkEntity('place', v.slice(0,40), q.family||'places', {is_place:true, answer_from:q.id});
+      if(!S.nodes.find(n=>n.id===placeEnt.id)){
+        spawnEntityNode(placeEnt, 'places');
+        ensureDomain('places');
+        addLink(placeEnt.id,'domain_places','belongs_to_domain');
+      }
+      if(selfEnt && !S.universe.links.find(l=>l.from===selfEnt.id&&l.to===placeEnt.id)){
+        addLink(selfEnt.id, placeEnt.id, 'lives_in');
+      }
+    }
+
+    // D) NUMARA / ŞİFRE cevabı: credential entity zenginleştir
+    else if((facet==='şifre / anahtar'||facet==='notlar') && primaryEnt?.type==='credential'){
+      primaryEnt.properties.value = v; // değeri sakla (görünmez)
+      primaryEnt.properties.filled = true;
+      // Düğümü dolu olarak işaretle
+      const gCirc = svgEl?.querySelector(`[data-nid="${primaryEnt.id}"] circle`);
+      if(gCirc) gCirc.setAttribute('fill','rgba(96,165,250,.25)');
+    }
+
+    // E) GENEL: cevap varlığı oluştur ve question'a bağla
+    else if(v.length > 1 && !['tanım','örnek','notlar','önemi','ilerleme'].includes(facet)){
+      // Uzun değer değil, kısa entity-like cevaplar için node
+      if(v.length < 60 && !/^\d+$/.test(v)){
+        const ansEnt = mkEntity('answer_value', v.slice(0,40), q.family, {is_answer:true, for_facet:facet, answer_from:q.id});
+        if(!S.nodes.find(n=>n.id===ansEnt.id)){
+          spawnEntityNode(ansEnt, q.family);
+          if(!S.universe.links.find(l=>l.from===q.id&&l.to===ansEnt.id)){
+            addLink(q.id, ansEnt.id, 'answered_by');
+          }
+        }
       }
     }
   });
-  if(saved>0){updateCounters();saveUniverse();}
+
+  if(saved > 0){ updateCounters(); saveUniverse(); }
   document.getElementById('facet-panel').classList.remove('on');
-  S.fQ=null;S.fInputs={};hideSug();
-  if(q) openPanelQuestion(q.id);
+  S.fQ=null; S.fInputs={};
+  resetComposer();
+  openPanelQuestion(q.id);
 }
-function skipFacets(){document.getElementById('facet-panel').classList.remove('on');S.fQ=null;hideSug();}
+function skipFacets(){
+  document.getElementById('facet-panel').classList.remove('on');
+  S.fQ=null;resetComposer();
+}
 
 // ══════════════════════════════════════════
-// CARD SYSTEM — rich panel rendering
+// DETAIL PANEL
 // ══════════════════════════════════════════
+function setBadge(t,cls){const b=document.getElementById('pbadge');b.textContent=t;b.className='pbadge '+cls;}
+function pSec(lbl,txt){
+  const s=document.createElement('div');s.className='psec';
+  const l=document.createElement('div');l.className='plbl';l.textContent=lbl;
+  const p=document.createElement('div');p.className='ptxt';p.textContent=txt;
+  s.appendChild(l);s.appendChild(p);return s;
+}
+function pHr(){const h=document.createElement('hr');h.className='phr';return h;}
+
 function openPanelCore(){
-  const u=S.universe;
-  const content=document.getElementById('panel-content');
-  content.innerHTML='';
-
-  // Header
-  const header=mkCardHeader({domainColor:'#a78bfa',domainLabel:'evren',typeLabel:'sistem',title:'SINGULAR',subtitle:u.meta?.created_at?'oluşturuldu: '+new Date(u.meta.created_at).toLocaleDateString('tr-TR'):'—'});
-  content.appendChild(header);
-
-  // Stats
-  const body=document.createElement('div');body.className='card-body';
-  const statGrid=document.createElement('div');statGrid.className='core-stat';
-  [{n:u.entities.filter(e=>e.type!=='domain').length,l:'varlık'},{n:u.questions.length,l:'soru'},{n:u.answers.length,l:'cevap'},{n:Object.keys(u.domains).length,l:'domain'}].forEach(s=>{
-    const c=document.createElement('div');c.className='cstat';
-    const num=document.createElement('div');num.className='cstat-num';num.textContent=s.n;
-    const lbl=document.createElement('div');lbl.className='cstat-lbl';lbl.textContent=s.l;
-    c.appendChild(num);c.appendChild(lbl);statGrid.appendChild(c);
-  });
-  body.appendChild(mkSection('İstatistik',statGrid));
-
-  // Active domains
-  const doms=Object.keys(u.domains);
-  if(doms.length){
-    const chips=document.createElement('div');chips.className='domain-chips';
-    doms.forEach(d=>{
-      const cfg=DOMAINS[d];if(!cfg)return;
-      const chip=document.createElement('span');chip.className='domain-chip';
-      chip.textContent=cfg.label;chip.style.cssText=`background:${hexA(cfg.color,.1)};color:${hexA(cfg.color,.8)};border:.5px solid ${hexA(cfg.color,.2)}`;
-      chip.onclick=()=>{const ent=u.entities.find(e=>e.slug===d&&e.type==='domain');if(ent)openPanelDomain(ent);};
-      chips.appendChild(chip);
+  setBadge('evren','pb-core');
+  document.getElementById('ptitle').textContent='Senin evrenin';
+  document.getElementById('pmeta').textContent=
+    S.universe.meta?.created_at?new Date(S.universe.meta.created_at).toLocaleString('tr-TR'):'—';
+  const body=document.getElementById('pbody');body.innerHTML='';
+  body.appendChild(pSec('İstatistik',
+    `${Object.keys(S.universe.domains).length} domain · ${S.universe.entities.filter(e=>e.type!=='domain').length} varlık · ${S.universe.questions.length} soru · ${S.universe.answers.length} cevap`));
+  // Domain list
+  const domainList=Object.keys(S.universe.domains);
+  if(domainList.length){
+    const sec=document.createElement('div');sec.className='psec';
+    const lbl=document.createElement('div');lbl.className='plbl';lbl.textContent='Aktif Domainler';
+    const row=document.createElement('div');row.className='p-tags';
+    domainList.forEach(d=>{
+      const cfg=DOMAINS[d];
+      const tag=document.createElement('span');tag.className='p-tag';
+      tag.textContent=cfg?.label||d;tag.style.borderColor=hexAlpha(cfg?.color||'#fff',.3);
+      tag.style.color=hexAlpha(cfg?.color||'#fff',.7);
+      row.appendChild(tag);
     });
-    body.appendChild(mkSection('Aktif Alanlar',chips));
+    sec.appendChild(lbl);sec.appendChild(row);body.appendChild(sec);
   }
-  content.appendChild(body);
-  openPanel();
+  document.getElementById('panel').classList.add('open');
 }
 
 function openPanelDomain(ent){
   const cfg=DOMAINS[ent.slug]||DOMAINS.knowledge;
-  const content=document.getElementById('panel-content');content.innerHTML='';
-  const header=mkCardHeader({domainColor:cfg.color,domainLabel:'alan',typeLabel:'domain',title:cfg.label,subtitle:ent.created_at?new Date(ent.created_at).toLocaleDateString('tr-TR'):'—'});
-  content.appendChild(header);
-  const body=document.createElement('div');body.className='card-body';
+  setBadge('domain','pb-domain');
+  document.getElementById('ptitle').textContent=cfg.label;
+  document.getElementById('ptitle').dataset.eid=ent.id;
+  document.getElementById('pmeta').textContent=new Date(ent.created_at).toLocaleString('tr-TR');
+  const body=document.getElementById('pbody');body.innerHTML='';
+  // Entities in this domain
   const ents=S.universe.entities.filter(e=>e.domain===ent.slug&&e.type!=='domain');
   if(ents.length){
-    const rl=document.createElement('div');rl.className='rel-list';
+    const sec=document.createElement('div');sec.className='psec';
+    const lbl=document.createElement('div');lbl.className='plbl';lbl.textContent='Varlıklar';
+    const list=document.createElement('div');list.className='p-answers';
     ents.forEach(e=>{
-      const item=mkRelItem(e.type,'→',e.label,()=>openPanelEntity(e.id));
-      rl.appendChild(item);
+      const item=document.createElement('div');item.className='p-ans';
+      item.innerHTML=`<strong>${e.type}</strong>${e.label}`;
+      item.style.cursor='pointer';item.onclick=()=>openPanelEntity(e.id);
+      list.appendChild(item);
     });
-    body.appendChild(mkSection('Varlıklar ('+ents.length+')',rl));
+    sec.appendChild(lbl);sec.appendChild(list);body.appendChild(sec);
   }
-  const qs=S.universe.questions.filter(q=>q.family===ent.slug);
-  if(qs.length){
-    const rl=document.createElement('div');rl.className='rel-list';
-    qs.forEach(q=>{const item=mkRelItem(q.status==='answered'?'✓':'?','→',q.text.slice(0,40),()=>openPanelQuestion(q.id));rl.appendChild(item);});
-    body.appendChild(mkSection('Sorular ('+qs.length+')',rl));
-  }
-  const actions=document.createElement('div');actions.className='card-actions';
-  const addQ=document.createElement('button');addQ.className='card-action primary';addQ.textContent='+ Soru sor';
-  addQ.onclick=()=>{closePanel();document.getElementById('input-field').value='';document.getElementById('input-field').placeholder=cfg.label+' hakkında bir soru…';document.getElementById('input-field').focus();};
-  actions.appendChild(addQ);body.appendChild(actions);
-  content.appendChild(body);openPanel();
+  document.getElementById('panel').classList.add('open');
 }
 
 function openPanelEntity(entId){
   const ent=S.universe.entities.find(e=>e.id===entId);if(!ent)return;
-  const cfg=DOMAINS[ent.domain]||DOMAINS.knowledge;
-  const content=document.getElementById('panel-content');content.innerHTML='';
+  setBadge(ent.type,ent.type==='domain'?'pb-domain':'pb-entity');
+  document.getElementById('ptitle').textContent=ent.label;
+  document.getElementById('ptitle').dataset.eid=ent.id;
+  document.getElementById('pmeta').textContent=new Date(ent.created_at).toLocaleString('tr-TR')+(ent.domain?` · ${DOMAINS[ent.domain]?.label||ent.domain}`:'');
+  const body=document.getElementById('pbody');body.innerHTML='';
 
-  // Card type → person/credential/project/concept
-  const cardType = ent.type==='person'?'kişi':ent.type==='credential'?'belge':ent.type==='project'?'proje':ent.type==='answer_value'?'cevap':'kavram';
-  const header=mkCardHeader({domainColor:cfg.color,domainLabel:cfg.label,typeLabel:cardType,title:ent.label,subtitle:new Date(ent.created_at).toLocaleDateString('tr-TR')});
-  content.appendChild(header);
-
-  const body=document.createElement('div');body.className='card-body';
-
-  // Properties from answers
-  const answeredQs=S.universe.questions.filter(q=>S.universe.links.some(l=>l.from===q.id&&l.to===entId)&&S.universe.answers.some(a=>a.question_id===q.id));
-  if(answeredQs.length){
-    const props=document.createElement('div');
-    answeredQs.forEach(q=>{
-      const answers=S.universe.answers.filter(a=>a.question_id===q.id);
-      answers.forEach(a=>{props.appendChild(mkPropRow(a.facet,a.value));});
+  // Related questions
+  const qLinks=S.universe.links.filter(l=>l.to===entId&&l.relation==='asks_about');
+  if(qLinks.length){
+    const sec=document.createElement('div');sec.className='psec';
+    const lbl=document.createElement('div');lbl.className='plbl';lbl.textContent='Sorular';
+    const rl=document.createElement('div');rl.className='p-rels';
+    qLinks.forEach(lnk=>{
+      const q=S.universe.questions.find(x=>x.id===lnk.from);if(!q)return;
+      const item=document.createElement('div');item.className='p-rel';
+      item.innerHTML=`<span class="sug-arr">?</span><span>${q.text.slice(0,40)}</span>`;
+      item.onclick=()=>openPanelQuestion(q.id);
+      rl.appendChild(item);
     });
-    body.appendChild(mkSection('Bilgiler',props));
+    sec.appendChild(lbl);sec.appendChild(rl);body.appendChild(sec);body.appendChild(pHr());
   }
 
   // Relations
   const rels=S.universe.links.filter(l=>(l.from===entId||l.to===entId)&&l.relation!=='asks_about'&&l.relation!=='belongs_to_domain');
   if(rels.length){
-    const rl=document.createElement('div');rl.className='rel-list';
-    rels.slice(0,8).forEach(lnk=>{
+    const sec=document.createElement('div');sec.className='psec';
+    const lbl=document.createElement('div');lbl.className='plbl';lbl.textContent='İlişkiler';
+    const rl=document.createElement('div');rl.className='p-rels';
+    rels.forEach(lnk=>{
       const otherId=lnk.from===entId?lnk.to:lnk.from;
       const other=S.universe.entities.find(e=>e.id===otherId)||S.universe.questions.find(e=>e.id===otherId);
       if(!other)return;
-      const relLabel=(RELATION_TYPES[lnk.relation]||lnk.relation);
-      const otherLabel=other.label||other.text||'';
-      rl.appendChild(mkRelItem(relLabel,'→',otherLabel.slice(0,35),()=>{
-        if(other.text) openPanelQuestion(other.id); else openPanelEntity(other.id);
-      }));
+      const label=other.label||other.text||'';
+      const item=document.createElement('div');item.className='p-rel';
+      const relLabel=RELATION_TYPES[lnk.relation]||lnk.relation;
+      item.innerHTML=`<span class="rel-type">${relLabel}</span><span class="rel-arrow">→</span><span>${label.slice(0,30)}</span>`;
+      item.onclick=()=>openPanelEntity(otherId);
+      rl.appendChild(item);
     });
-    body.appendChild(mkSection('İlişkiler',rl));
+    sec.appendChild(lbl);sec.appendChild(rl);body.appendChild(sec);
   }
 
-  // Asking questions
-  const qLinks=S.universe.links.filter(l=>l.to===entId&&l.relation==='asks_about');
-  if(qLinks.length){
-    const rl=document.createElement('div');rl.className='rel-list';
-    qLinks.forEach(lnk=>{const q=S.universe.questions.find(x=>x.id===lnk.from);if(!q)return;rl.appendChild(mkRelItem(q.status==='answered'?'✓':'?','→',q.text.slice(0,38),()=>openPanelQuestion(q.id)));});
-    body.appendChild(mkSection('Sorular',rl));
-  }
-
-  const actions=document.createElement('div');actions.className='card-actions';
-  const addQ=document.createElement('button');addQ.className='card-action primary';addQ.textContent='+ Soru sor';
-  addQ.onclick=()=>{closePanel();document.getElementById('input-field').value=ent.label+' ';document.getElementById('input-field').focus();};
-  actions.appendChild(addQ);body.appendChild(actions);
-  content.appendChild(body);openPanel();
+  const btn=document.createElement('button');btn.className='p-btn';
+  btn.textContent='+ Soru sor';
+  btn.onclick=()=>{
+    closePanel();
+    document.getElementById('input-field').value=ent.label+' ';
+    document.getElementById('input-field').focus();
+  };
+  body.appendChild(btn);
+  document.getElementById('panel').classList.add('open');
 }
 
 function openPanelQuestion(qId){
   const q=S.universe.questions.find(x=>x.id===qId);if(!q)return;
   const answers=S.universe.answers.filter(a=>a.question_id===qId);
-  const cfg=DOMAINS[q.family]||DOMAINS.knowledge;
-  const content=document.getElementById('panel-content');content.innerHTML='';
-
-  const statusEl=document.createElement('span');
-  statusEl.className='q-status '+(q.status==='answered'?'q-answered':'q-open');
-  statusEl.innerHTML=`<span class="qdot ${q.status}"></span>${q.status==='answered'?'cevaplandı':'açık'}`;
-
-  const header=mkCardHeader({domainColor:cfg.color,domainLabel:cfg.label,typeLabel:'soru',title:q.text,subtitle:new Date(q.created_at).toLocaleDateString('tr-TR'),extra:statusEl});
-  content.appendChild(header);
-
-  const body=document.createElement('div');body.className='card-body';
+  setBadge('soru','pb-question');
+  const te=document.getElementById('ptitle');
+  te.innerHTML=`<span class="qdot ${q.status==='open'?'open':'answered'}"></span>${q.text}`;
+  te.dataset.eid=q.id;
+  document.getElementById('pmeta').textContent=new Date(q.created_at).toLocaleString('tr-TR')+(q.family?` · ${DOMAINS[q.family]?.label||q.family}`:'');
+  const body=document.getElementById('pbody');body.innerHTML='';
 
   if(answers.length){
-    const al=document.createElement('div');al.className='ans-list';
-    answers.forEach(a=>{
-      const item=document.createElement('div');item.className='ans-item';
-      const facetEl=document.createElement('div');facetEl.className='ans-facet';facetEl.textContent=a.facet;
-      const valEl=document.createElement('div');valEl.className='ans-val';valEl.textContent=a.value;
-      item.appendChild(facetEl);item.appendChild(valEl);al.appendChild(item);
-    });
-    body.appendChild(mkSection('Cevaplar',al));
+    const sec=document.createElement('div');sec.className='psec';
+    const lbl=document.createElement('div');lbl.className='plbl';lbl.textContent='Cevaplar';
+    const al=document.createElement('div');al.className='p-answers';
+    answers.forEach(a=>{const i=document.createElement('div');i.className='p-ans';i.innerHTML=`<strong>${a.facet}</strong>${a.value}`;al.appendChild(i);});
+    sec.appendChild(lbl);sec.appendChild(al);body.appendChild(sec);body.appendChild(pHr());
   }
 
-  // Linked entities
-  const entLinks=S.universe.links.filter(l=>l.from===qId&&(l.relation==='asks_about'||l.relation==='answered_by'));
-  if(entLinks.length){
-    const rl=document.createElement('div');rl.className='rel-list';
-    entLinks.forEach(lnk=>{
-      const e=S.universe.entities.find(x=>x.id===lnk.to);if(!e||e.type==='domain')return;
-      rl.appendChild(mkRelItem(RELATION_TYPES[lnk.relation]||lnk.relation,'→',e.label,()=>openPanelEntity(e.id)));
-    });
-    body.appendChild(mkSection('Bağlı Varlıklar',rl));
-  }
-
-  const actions=document.createElement('div');actions.className='card-actions';
-  const addA=document.createElement('button');addA.className='card-action primary';addA.textContent=q.status==='answered'?'Cevabı güncelle':'Cevap ekle';
-  addA.onclick=()=>{closePanel();openFacetPanel(q);};
-  actions.appendChild(addA);body.appendChild(actions);
-  content.appendChild(body);openPanel();
+  const btn=document.createElement('button');btn.className='p-btn';
+  btn.textContent='+ Cevap ekle';btn.onclick=()=>{closePanel();openFacetPanel(q);};
+  body.appendChild(btn);
+  document.getElementById('panel').classList.add('open');
 }
 
-// ── Card building helpers ───────────────────────────────────────────
-function mkCardHeader({domainColor,domainLabel,typeLabel,title,subtitle,extra}){
-  const header=document.createElement('div');header.className='card-header';
-  const domBar=document.createElement('div');domBar.className='card-domain-bar';
-  const dot=document.createElement('div');dot.className='card-domain-dot';dot.style.background=domainColor;
-  const dLbl=document.createElement('div');dLbl.className='card-domain-lbl';dLbl.textContent=domainLabel;
-  const tBadge=document.createElement('div');tBadge.className='card-type-badge';
-  tBadge.textContent=typeLabel;tBadge.style.cssText=`background:${hexA(domainColor,.1)};color:${hexA(domainColor,.7)}`;
-  domBar.appendChild(dot);domBar.appendChild(dLbl);domBar.appendChild(tBadge);
-  header.appendChild(domBar);
-  const titleEl=document.createElement('div');titleEl.className='card-title';titleEl.textContent=title;header.appendChild(titleEl);
-  if(subtitle){const sub=document.createElement('div');sub.className='card-subtitle';sub.textContent=subtitle;header.appendChild(sub);}
-  if(extra) header.appendChild(extra);
-  return header;
-}
-function mkSection(label,content){
-  const sec=document.createElement('div');sec.className='card-section';
-  const lbl=document.createElement('div');lbl.className='card-section-label';lbl.textContent=label;
-  sec.appendChild(lbl);sec.appendChild(content);return sec;
-}
-function mkPropRow(key,val){
-  const row=document.createElement('div');row.className='prop-row';
-  const k=document.createElement('div');k.className='prop-key';k.textContent=key;
-  const v=document.createElement('div');v.className='prop-val';v.textContent=val||'—';if(!val)v.classList.add('empty');
-  row.appendChild(k);row.appendChild(v);return row;
-}
-function mkRelItem(type,arrow,label,onClick){
-  const item=document.createElement('div');item.className='rel-item';
-  const t=document.createElement('div');t.className='rel-type';t.textContent=type;
-  const a=document.createElement('div');a.className='rel-arrow';a.textContent=arrow;
-  const l=document.createElement('div');l.className='rel-label';l.textContent=label;
-  item.appendChild(t);item.appendChild(a);item.appendChild(l);
-  if(onClick) item.onclick=onClick;
-  return item;
-}
-function openPanel(){document.getElementById('panel').classList.add('open');}
 function closePanel(){document.getElementById('panel').classList.remove('open');}
 
 // ══════════════════════════════════════════
 // KEYBOARD
 // ══════════════════════════════════════════
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){closePanel();document.getElementById('facet-panel').classList.remove('on');hideSug();}
+  if(e.key==='Escape'){resetComposer();closePanel();}
   if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();document.getElementById('input-field').focus();}
 });
 
 // ══════════════════════════════════════════
-// STORAGE
+// DRIVE / LOCAL
 // ══════════════════════════════════════════
 function connectGoogle(){
   if(!window.google){alert('Google Identity Services yüklenemedi.');return;}
   google.accounts.oauth2.initTokenClient({
     client_id:GOOGLE_CLIENT_ID,scope:DRIVE_SCOPE,
     callback:async resp=>{
-      if(resp.error)return;
+      if(resp.error){console.error(resp);return;}
       S.accessToken=resp.access_token;S.mode='google';
-      sessionStorage.setItem(AUTH_SESSION_KEY,resp.access_token);
-      sessionStorage.setItem(MODE_SESSION_KEY,'google');
+      // Token'ı ve modu session'a kaydet (refresh sonrası restore için)
+      sessionStorage.setItem(AUTH_SESSION_KEY, resp.access_token);
+      sessionStorage.setItem(MODE_SESSION_KEY, 'google');
       await initDrive();launchUniverse('Google Drive');
     }
   }).requestAccessToken();
@@ -1693,7 +2715,9 @@ async function initDrive(){
   else{S.driveFileId=f2;S.universe=migrateUniverse(await loadU(f2));}
   S.driveFileId=f2;
 }
-async function dReq(url,opts={}){const r=await fetch(url,{...opts,headers:{'Authorization':'Bearer '+S.accessToken,'Content-Type':'application/json',...(opts.headers||{})}});return r.json();}
+async function dReq(url,opts={}){
+  const r=await fetch(url,{...opts,headers:{'Authorization':'Bearer '+S.accessToken,'Content-Type':'application/json',...(opts.headers||{})}});return r.json();
+}
 async function findF(){const q=`name='${FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;const d=await dReq(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)`);return d.files?.[0]?.id||null;}
 async function createF(){const d=await dReq('https://www.googleapis.com/drive/v3/files',{method:'POST',body:JSON.stringify({name:FOLDER_NAME,mimeType:'application/vnd.google-apps.folder'})});return d.id;}
 async function findU(fid){const q=`name='${UNIVERSE_FILE}' and '${fid}' in parents and trashed=false`;const d=await dReq(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)`);return d.files?.[0]?.id||null;}
@@ -1701,19 +2725,23 @@ async function createU(fid){const form=new FormData();form.append('metadata',new
 async function loadU(fid){const r=await fetch(`https://www.googleapis.com/drive/v3/files/${fid}?alt=media`,{headers:{'Authorization':'Bearer '+S.accessToken}});return r.json();}
 async function saveUniverse(){
   S.universe.meta.updated_at=new Date().toISOString();
-  if(S.mode==='local'){localStorage.setItem('singular_universe',JSON.stringify(S.universe));return;}
+  if(S.mode==='local'){localStorage.setItem(SESSION_KEY,JSON.stringify(S.universe));return;}
   if(!S.driveFileId||!S.accessToken)return;
-  await fetch(`https://www.googleapis.com/upload/drive/v3/files/${S.driveFileId}?uploadType=media`,{method:'PATCH',headers:{'Authorization':'Bearer '+S.accessToken,'Content-Type':'application/json'},body:JSON.stringify(S.universe,null,2)});
+  await fetch(`https://www.googleapis.com/upload/drive/v3/files/${S.driveFileId}?uploadType=media`,{
+    method:'PATCH',headers:{'Authorization':'Bearer '+S.accessToken,'Content-Type':'application/json'},
+    body:JSON.stringify(S.universe,null,2)
+  });
 }
 function connectLocal(){
-  S.mode='local';sessionStorage.setItem(MODE_SESSION_KEY,'local');
-  try{S.universe=migrateUniverse(JSON.parse(localStorage.getItem('singular_universe')||'null'));}
+  S.mode='local';
+  sessionStorage.setItem(MODE_SESSION_KEY, 'local');
+  try{S.universe=migrateUniverse(JSON.parse(localStorage.getItem(SESSION_KEY)||'null'));}
   catch{S.universe=createUniverse();}
   launchUniverse('Yerel');
 }
 
 // ══════════════════════════════════════════
-// LAUNCH + SESSION RESTORE
+// LAUNCH
 // ══════════════════════════════════════════
 function launchUniverse(label){
   document.getElementById('boot').classList.add('out');
@@ -1722,68 +2750,91 @@ function launchUniverse(label){
     document.getElementById('universe').classList.add('active');
     document.getElementById('sdot').classList.add('on');
     document.getElementById('stext').textContent=label;
-    initStars();initCosmos();renderExisting();
-    setTimeout(updateZoomProjection,200);
+    initStars();
+    initCosmos();
+    renderExisting();
     document.getElementById('input-field').addEventListener('keydown',e=>{if(e.key==='Enter')handleInput();});
     document.getElementById('input-field').focus();
+    // Google token ~55dk sonra sona erer — 50dk'da silent refresh yap
     if(S.mode==='google') scheduleTokenRefresh();
   },900);
 }
 
+// ── SESSION RESTORE — sayfa yenilenince otomatik bağlan ──────────────
 async function tryRestoreSession(){
-  const mode=sessionStorage.getItem(MODE_SESSION_KEY);
-  if(!mode)return false;
-  if(mode==='local'){connectLocal();return true;}
-  if(mode==='google'){
-    const token=sessionStorage.getItem(AUTH_SESSION_KEY);
-    if(!token)return false;
+  const mode = sessionStorage.getItem(MODE_SESSION_KEY);
+  if(!mode) return false;  // ilk açılış, giriş gerekli
+
+  if(mode === 'local'){
+    connectLocal();
+    return true;
+  }
+
+  if(mode === 'google'){
+    const token = sessionStorage.getItem(AUTH_SESSION_KEY);
+    if(!token) return false;
+    // Token'ı doğrula — basit Drive isteği at
     try{
-      const res=await fetch('https://www.googleapis.com/drive/v3/about?fields=user',{headers:{'Authorization':'Bearer '+token}});
-      if(res.ok){S.accessToken=token;S.mode='google';await initDrive();launchUniverse('Google Drive');return true;}
-    }catch(e){}
-    sessionStorage.removeItem(AUTH_SESSION_KEY);sessionStorage.removeItem(MODE_SESSION_KEY);
+      const res = await fetch(
+        'https://www.googleapis.com/drive/v3/about?fields=user',
+        {headers:{'Authorization':'Bearer '+token}}
+      );
+      if(res.ok){
+        S.accessToken = token; S.mode = 'google';
+        await initDrive();
+        launchUniverse('Google Drive');
+        return true;
+      }
+    } catch(e){}
+    // Token geçersiz — sessionStorage temizle, boot ekranını göster
+    sessionStorage.removeItem(AUTH_SESSION_KEY);
+    sessionStorage.removeItem(MODE_SESSION_KEY);
     return false;
   }
   return false;
 }
 
+// Silent token refresh — Google token 60dk sonra sona erer
 function scheduleTokenRefresh(){
   setTimeout(()=>{
-    if(!window.google||S.mode!=='google')return;
-    google.accounts.oauth2.initTokenClient({client_id:GOOGLE_CLIENT_ID,scope:DRIVE_SCOPE,prompt:'',
-      callback:resp=>{if(resp.error)return;S.accessToken=resp.access_token;sessionStorage.setItem(AUTH_SESSION_KEY,resp.access_token);scheduleTokenRefresh();}
+    if(!window.google || S.mode!=='google') return;
+    google.accounts.oauth2.initTokenClient({
+      client_id:GOOGLE_CLIENT_ID, scope:DRIVE_SCOPE,
+      prompt:'',  // kullanıcıya gösterme — silent refresh
+      callback:resp=>{
+        if(resp.error) return;
+        S.accessToken = resp.access_token;
+        sessionStorage.setItem(AUTH_SESSION_KEY, resp.access_token);
+        scheduleTokenRefresh();  // bir sonraki refresh'i planla
+      }
     }).requestAccessToken({prompt:''});
-  },50*60*1000);
+  }, 50 * 60 * 1000);  // 50 dakika
 }
-
+// ── LOGOUT ───────────────────────────────────────────────────────────
 function logout(){
-  if(!confirm('Çıkış yapmak istediğine emin misin?'))return;
-  sessionStorage.removeItem(AUTH_SESSION_KEY);sessionStorage.removeItem(MODE_SESSION_KEY);
-  if(S.accessToken&&window.google) google.accounts.oauth2.revoke(S.accessToken,()=>{});
+  if(!confirm('Çıkış yapmak istediğine emin misin? Veriler kaydedilmiş durumda.')) return;
+  // Session temizle
+  sessionStorage.removeItem(AUTH_SESSION_KEY);
+  sessionStorage.removeItem(MODE_SESSION_KEY);
+  // Google token iptal et
+  if(S.accessToken && window.google){
+    google.accounts.oauth2.revoke(S.accessToken, ()=>{});
+  }
+  // State sıfırla
+  S.accessToken = null; S.mode = null; S.universe = null;
+  S.nodes = []; S.driveFileId = null; S.driveFolderId = null;
+  // Sayfayı yenile — temiz boot ekranı
   window.location.reload();
 }
 
-// ══════════════════════════════════════════
-// UTILS
-// ══════════════════════════════════════════
-function hexA(hex,alpha){
-  const r=parseInt(hex.slice(1,3),16);const g=parseInt(hex.slice(3,5),16);const b=parseInt(hex.slice(5,7),16);
-  return `rgba(${r},${g},${b},${alpha})`;
-}
-function slugify(s){
-  return s.toLowerCase().replace(/[ğüşıöçĞÜŞİÖÇ]/g,c=>({ğ:'g',ü:'u',ş:'s',ı:'i',ö:'o',ç:'c',Ğ:'g',Ü:'u',Ş:'s',İ:'i',Ö:'o',Ç:'c'}[c]||c)).replace(/[\s@]+/g,'_').replace(/[^a-z0-9_]/g,'');
-}
-
-// ── BOOT ─────────────────────────────────────────────────────────────
-(async()=>{
-  // 1. Load ontology — parser needs it before anything
-  await loadOntology();
-  DOMAINS        = buildDomains();
-  FAMILY_ROLES   = buildFamilyRoles();
-  RELATION_TYPES = buildRelationTypes();
-  // 2. Session restore or show boot
-  const restored=await tryRestoreSession();
-  if(!restored){const boot=document.getElementById('boot');if(boot){boot.style.opacity='1';boot.style.pointerEvents='all';}}
+// ── AUTO SESSION RESTORE — script tam yüklendikten sonra çalış ───────
+(async ()=>{
+  const restored = await tryRestoreSession();
+  if(!restored){
+    // Session yok veya token geçersiz — boot ekranını göster
+    const boot = document.getElementById('boot');
+    if(boot){ boot.style.opacity='1'; boot.style.pointerEvents='all'; }
+  }
 })();
 </script>
 </body>
