@@ -4384,7 +4384,8 @@ function processStatement(text){
     // İsim geldiyse — label güncelle + alias ekle + SLUG güncelleme
     if(parsed.prop === 'name'){
       const oldLabel = selfEnt.label;
-      const newName = parsed.value; // Büyük/küçük harf orijinalini koru
+      // Capitalize first letter — kullanıcı "cemo" yazsa da "Cemo" göster
+      const newName = parsed.value.charAt(0).toUpperCase() + parsed.value.slice(1);
       selfEnt.label = newName;
       selfEnt.type = 'person'; // Her zaman person
       S.universe.profile.name = newName;
@@ -4402,7 +4403,14 @@ function processStatement(text){
       // Cosmos node label güncelle
       const gLbl = svgEl?.querySelector(`[data-nid="${selfEnt.id}"] text`);
       if(gLbl) gLbl.textContent = newName.slice(0,16);
-      // Type badge güncelle varsa
+      // Self entity özel görünüm + pin
+      const gSelf = svgEl?.querySelector(`[data-nid="${selfEnt.id}"]`);
+      if(gSelf) gSelf.classList.add('is-self');
+      const selfNode = S.nodes.find(n=>n.id===selfEnt.id);
+      if(selfNode){ selfNode.pinned=true; selfNode.x=W/2; selfNode.y=H/2+70; }
+      // Welcome banner — ilk isim girişinde
+      const isFirstName = !oldLabel || oldLabel === 'ben';
+      if(isFirstName) showWelcomeBanner(newName);
       updateTodayPanel();
     }
     // Credential entity — şifre, mail, telefon
