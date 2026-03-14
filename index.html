@@ -564,28 +564,27 @@ function runSearch(query){
   const q = query.trim().toLowerCase();
   if(!q || !S.universe) return [];
   const results = [];
-  const MAX = 28;
+  const MAX = 30;
 
   // Score: exact=4, starts=3, word-start=2, contains=1
   function score(text, typeBonus){
+    if(!text) return 0;
     const t = text.toLowerCase();
     if(t === q) return 4 + typeBonus;
     if(t.startsWith(q)) return 3 + typeBonus;
-    // Word boundary match — "ali" matches "Saz Arkadaşı Ali"
     if(new RegExp('\\b'+q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).test(t)) return 2 + typeBonus;
     if(t.includes(q)) return 1 + typeBonus;
     return 0;
   }
 
   function highlight(text){
-    if(!q) return text;
+    if(!text||!q) return text||'';
     try{
       const re = new RegExp('('+q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')', 'gi');
       return text.replace(re, '<mark>$1</mark>');
     }catch(e){ return text; }
   }
 
-  // Context builder
   function entityContext(e){
     const domLabel = DOMAINS[e.domain]?.label||e.domain||'';
     const typeLabel = ONTOLOGY.entity_types?.[e.type]?.label||e.type||'';
@@ -609,19 +608,27 @@ function runSearch(query){
     });
   }
 
-  // Entities — second priority
+  // Entities + their answers inline
   if(SEARCH.filter==='all'||SEARCH.filter==='entity'){
-    S.universe.entities.filter(e=>e.type!=='domain').forEach(e=>{
+    S.universe.entities.filter(e=>e.type!=='domain'&&!e.properties?.deleted).forEach(e=>{
       const s = score(e.label, 5);
-      if(s>0){
-        const answers = S.universe.answers.filter(a=>a.question_id&&
-          S.universe.links.find(l=>l.from===e.id&&l.relation==='asks_about'&&
-          S.universe.questions.find(q=>q.id===l.to)));
+      // Ayrıca entity'nin cevaplarına da bak
+      const relQs = S.universe.questions.filter(q_=>
+        S.universe.links.some(l=>l.from===q_.id&&l.to===e.id&&l.relation==='asks_about')
+      );
+      const relAnswers = S.universe.answers.filter(a=>relQs.some(q_=>q_.id===a.question_id));
+      const answerMatch = relAnswers.some(a=>score(a.value, 0)>0);
+      const totalScore = s > 0 ? s : (answerMatch ? 1.5 : 0);
+      if(totalScore>0){
+        // Eşleşen cevapları context'e ekle
+        const matchedAns = relAnswers.filter(a=>score(a.value,0)>0).map(a=>a.value).slice(0,2);
+        const baseCtx = entityContext(e);
+        const ctx = matchedAns.length ? baseCtx + ' · ' + matchedAns.map(v=>`"${v.slice(0,15)}"`).join(', ') : baseCtx;
         results.push({
           type:'entity', id:e.id,
           label: highlight(e.label),
-          ctx: entityContext(e),
-          entType: e.type, score:s
+          ctx, entType: e.type, score:totalScore,
+          color: DOMAINS[e.domain]?.color
         });
       }
     });
@@ -634,27 +641,35 @@ function runSearch(query){
       if(s>0){
         const ansCount = S.universe.answers.filter(a=>a.question_id===q_.id).length;
         const domLabel = DOMAINS[q_.family]?.label||q_.family||'';
+        const statusDot = q_.status==='answered'?'●':'○';
         results.push({
           type:'question', id:q_.id,
           label: highlight(q_.text),
-          ctx: [domLabel, ansCount>0?ansCount+' cevap':'açık'].filter(Boolean).join(' · '),
+          ctx: `${statusDot} ${domLabel}${ansCount>0?' · '+ansCount+' cevap':''}`,
           score:s
         });
       }
     });
   }
 
-  // Answers
+  // Answers — doğrudan cevap araması, boost edilmiş skor
   if(SEARCH.filter==='all'||SEARCH.filter==='answer'){
     S.universe.answers.forEach(a=>{
-      const s = score(a.value, 0);
+      const s = score(a.value, 2); // +2 boost (was 0)
       if(s>0){
         const parentQ = S.universe.questions.find(q_=>q_.id===a.question_id);
+        // Cevabın ait olduğu entity'yi bul
+        const relEnt = parentQ ? S.universe.entities.find(e=>
+          S.universe.links.some(l=>l.from===parentQ.id&&l.to===e.id&&l.relation==='asks_about'&&e.type!=='domain')
+        ) : null;
+        const ctx = [
+          relEnt ? relEnt.label : null,
+          parentQ ? (a.facet || parentQ.text.slice(0,25)+'…') : null,
+        ].filter(Boolean).join(' → ');
         results.push({
           type:'answer', id:a.id, questionId:a.question_id,
           label: highlight(a.value),
-          ctx: (parentQ ? parentQ.text.slice(0,30)+'…' : a.facet)||'',
-          score:s
+          ctx, score:s
         });
       }
     });
@@ -672,58 +687,70 @@ function renderSearchResults(){
   SEARCH.results = results;
   const container = document.getElementById('search-results');
 
-  // Update count in input top area
   const countEl = document.getElementById('sb-count');
   if(countEl){
     countEl.textContent = query.trim() ? (results.length>0?results.length+' sonuç':'') : '';
   }
 
-  // Empty query — show recent or hint
+  // Empty query — cognitive insights + recent
   if(!query.trim()){
-    if(SEARCH_HISTORY.length){
-      container.innerHTML = '<div class="sr-section-lbl">Son aramalar</div>';
-      SEARCH_HISTORY.slice(-5).reverse().forEach(q=>{
+    container.innerHTML = '';
+
+    // Cognitive Loop insights — "ne eksik, ne yaklaşıyor"
+    const insights = cognitiveLoop();
+    if(insights.length){
+      const secLbl = document.createElement('div'); secLbl.className='sr-section-lbl';
+      secLbl.textContent = 'Cosmos özeti'; container.appendChild(secLbl);
+      insights.forEach(ins=>{
         const item=document.createElement('div');item.className='sr-item';
-        item.innerHTML=`<span class="sr-badge srb-entity" style="opacity:.5">geçmiş</span><span class="sr-main" style="color:var(--text-muted)">${q}</span>`;
-        item.onclick=()=>{ document.getElementById('search-input').value=q; renderSearchResults(); };
+        const urgColor = ins.urgency==='high'?'rgba(248,113,113,.8)':ins.urgency==='medium'?'rgba(251,146,60,.7)':'rgba(148,163,184,.5)';
+        const icon = ins.urgency==='high'?'⚡':ins.urgency==='medium'?'◈':'·';
+        item.innerHTML=`<span class="sr-badge srb-entity" style="background:transparent;color:${urgColor}">${icon}</span><span class="sr-main" style="color:${urgColor};font-size:.65rem">${ins.text}</span>`;
+        item.onclick=()=>{ _closeSearch(); ins.action?.(); };
         container.appendChild(item);
       });
+      if(SEARCH_HISTORY.length) container.appendChild(Object.assign(document.createElement('div'),{className:'sr-section-lbl',textContent:'Son aramalar'}));
+    } else if(SEARCH_HISTORY.length){
+      container.innerHTML = '<div class="sr-section-lbl">Son aramalar</div>';
     } else {
       container.innerHTML='<div class="sr-empty">yazmaya başla…</div>';
     }
+
+    SEARCH_HISTORY.slice(-5).reverse().forEach(q=>{
+      const item=document.createElement('div');item.className='sr-item';
+      item.innerHTML=`<span class="sr-badge srb-entity" style="opacity:.4">⟳</span><span class="sr-main" style="color:var(--text-muted)">${q}</span>`;
+      item.onclick=()=>{ document.getElementById('search-input').value=q; renderSearchResults(); };
+      container.appendChild(item);
+    });
     return;
   }
 
   // No results — action suggestions
   if(!results.length){
-    const q = query.trim();
+    const qv = query.trim();
     container.innerHTML = '';
     const noRes = document.createElement('div');
-    noRes.className = 'sr-empty';
-    noRes.style.paddingBottom = '.5rem';
-    noRes.textContent = '"'+q+'" için sonuç yok';
+    noRes.className = 'sr-empty'; noRes.style.paddingBottom = '.5rem';
+    noRes.textContent = '"'+qv+'" için sonuç yok';
     container.appendChild(noRes);
-
-    // Semantic-aware action suggestions
-    const seedT = detectSeedType(q);
+    const seedT = detectSeedType(qv);
     const actions = [];
-    if(seedT === 'place'){
-      actions.push({icon:'◉', text:`"${q}" yer olarak ekle`, action:()=>{ _closeSearch(); ensureDomain('places'); const e=mkEntity('place',q,'places',{is_place:true}); if(!S.nodes.find(n=>n.id===e.id)){spawnEntityNode(e,'places');addLink(e.id,'domain_places','belongs_to_domain');} saveUniverse();updateCounters(); }});
-      actions.push({icon:'?', text:`"${q}" nerede?`, action:()=>{ _closeSearch(); document.getElementById('input-field').value=q+' nerede?'; handleInput(); }});
-    } else if(seedT === 'person'){
-      actions.push({icon:'@', text:`"${q}" kişi olarak ekle`, action:()=>{ _closeSearch(); document.getElementById('input-field').value=q; document.getElementById('input-field').focus(); }});
-      actions.push({icon:'?', text:`"${q}" kim?`, action:()=>{ _closeSearch(); document.getElementById('input-field').value=q+' kim?'; handleInput(); }});
-    } else if(seedT === 'credential'){
-      actions.push({icon:'⬡', text:`"${q}" hesap olarak ekle`, action:()=>{ _closeSearch(); document.getElementById('input-field').value=q; document.getElementById('input-field').focus(); }});
+    if(seedT==='place'){
+      actions.push({icon:'◉', text:`"${qv}" yer olarak ekle`, action:()=>{ _closeSearch(); ensureDomain('places'); const e=mkEntity('place',qv,'places',{is_place:true}); if(!S.nodes.find(n=>n.id===e.id)){spawnEntityNode(e,'places');addLink(e.id,'domain_places','belongs_to_domain');} saveUniverse();updateCounters(); }});
+      actions.push({icon:'?', text:`"${qv}" nerede?`, action:()=>{ _closeSearch(); document.getElementById('input-field').value=qv+' nerede?'; handleInput(); }});
+    } else if(seedT==='person'){
+      actions.push({icon:'@', text:`"${qv}" kişi olarak ekle`, action:()=>{ _closeSearch(); document.getElementById('input-field').value=qv; document.getElementById('input-field').focus(); }});
+      actions.push({icon:'?', text:`"${qv}" kim?`, action:()=>{ _closeSearch(); document.getElementById('input-field').value=qv+' kim?'; handleInput(); }});
+    } else if(seedT==='credential'){
+      actions.push({icon:'⬡', text:`"${qv}" hesap olarak ekle`, action:()=>{ _closeSearch(); document.getElementById('input-field').value=qv; document.getElementById('input-field').focus(); }});
     } else {
-      actions.push({icon:'?', text:`"${q}" hakkında soru sor`, action:()=>{ _closeSearch(); document.getElementById('input-field').value=q+'?'; document.getElementById('input-field').focus(); }});
-      actions.push({icon:'⬡', text:`"${q}" varlık olarak ekle`, action:()=>{ _closeSearch(); document.getElementById('input-field').value=q; document.getElementById('input-field').focus(); }});
+      actions.push({icon:'?', text:`"${qv}" hakkında soru sor`, action:()=>{ _closeSearch(); document.getElementById('input-field').value=qv+'?'; document.getElementById('input-field').focus(); }});
+      actions.push({icon:'✦', text:`"${qv}" için soru kur`, action:()=>{ _closeSearch(); openComposer(qv); }});
     }
     actions.forEach(a=>{
       const item=document.createElement('div');item.className='sr-item';
       item.innerHTML=`<span class="sr-badge srb-question">${a.icon}</span><span class="sr-main" style="color:var(--text-muted)">${a.text}</span>`;
-      item.onclick=a.action;
-      container.appendChild(item);
+      item.onclick=a.action; container.appendChild(item);
     });
     return;
   }
