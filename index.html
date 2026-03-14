@@ -3658,20 +3658,33 @@ function spawnQuestionNode(q, domainId){
   const dot=svgMk('circle');dot.setAttribute('r','2');dot.setAttribute('fill','#60a5fa');dot.setAttribute('opacity','.7');
   g.appendChild(dot);
 
+  // Status dot — answered = yeşil, open = mavi
+  const statusDot=svgMk('circle');statusDot.setAttribute('r','3');
+  statusDot.setAttribute('cx','6');statusDot.setAttribute('cy','-6');
+  statusDot.setAttribute('fill',q.status==='answered'?'#34d399':'#f59e0b');
+  statusDot.setAttribute('opacity',q.status==='answered'?'0':'0.8'); // only show if open
+  g.appendChild(statusDot);
+
   const lbl=svgMk('text');lbl.setAttribute('y','18');lbl.setAttribute('text-anchor','middle');
-  lbl.setAttribute('fill','rgba(96,165,250,.45)');lbl.setAttribute('font-size','8');
+  const qColor = q.status==='answered' ? 'rgba(52,211,153,.45)' : 'rgba(96,165,250,.45)';
+  lbl.setAttribute('fill',qColor);lbl.setAttribute('font-size','8');
   lbl.setAttribute('font-family','DM Mono,monospace');
   const raw=q.text||'';
   lbl.textContent=raw.length>18?raw.slice(0,18)+'…':raw;
   g.appendChild(lbl);
 
+  // Invisible hit area — easier to click
+  const hit=svgMk('circle');hit.setAttribute('r','18');
+  hit.setAttribute('fill','transparent');hit.setAttribute('style','cursor:pointer;');
+  g.appendChild(hit);
+
   g.onclick=(e)=>{
     if(node._drag)return;
-    // Close facet panel if open, then show question panel
     document.getElementById('facet-panel')?.classList.remove('on');
     S.fQ=null;
     openPanelQuestion(q.id);
   };
+  g.style.cursor='pointer';
   attachDrag(g,node);
   svgEl.appendChild(g);
   requestAnimationFrame(()=>{g.style.transition='opacity .6s';g.style.opacity='1';});
@@ -4759,7 +4772,10 @@ function openPanelEntity(entId){
   const cfg=DOMAINS[ent.domain];
   const domColor=cfg?.color||'#94a3b8';
 
-  setBadge(ent.type,ent.type==='domain'?'pb-domain':'pb-entity');
+  // answer_value türü için daha açıklayıcı badge
+  const badgeType = ent.type==='answer_value' ? 'cevap' : ent.type;
+  const badgeClass = ent.type==='domain'?'pb-domain':(ent.type==='answer_value'?'pb-answer':'pb-entity');
+  setBadge(badgeType, badgeClass);
   const titleEl=document.getElementById('ptitle');
   titleEl.textContent=ent.label; titleEl.dataset.eid=ent.id;
   titleEl.style.borderLeft=`3px solid ${hexAlpha(domColor,.6)}`;
