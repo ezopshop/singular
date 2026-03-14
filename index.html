@@ -1605,6 +1605,7 @@ const S = {
   vpX:0, vpY:0, vpS:1,
   panning:false, panSX:0, panSY:0, panOX:0, panOY:0,
   dragNode:null,
+  _animFrame:null,  // active animation frame id
   // Composer
   cTopic:'', cCtx:'—', cTmpl:'nedir',
   // Facets
@@ -2564,11 +2565,20 @@ function initInteraction(){
   });
   svgEl.addEventListener('wheel',e=>{
     e.preventDefault();
-    const f=e.deltaY<0?1.12:.9;
-    const pt=toSVGPoint(e);
-    S.vpX=(S.vpX-pt.x)*f+pt.x;
-    S.vpY=(S.vpY-pt.y)*f+pt.y;
-    S.vpS=Math.max(.2,Math.min(5,S.vpS*f));
+    const f = e.deltaY < 0 ? 1.12 : 0.9;
+    const rect = svgEl.getBoundingClientRect();
+    // Cursor position in screen space
+    const screenX = e.clientX - rect.left;
+    const screenY = e.clientY - rect.top;
+    // Keep cursor's world position stable during zoom
+    // world = screen/scale - offset  →  offset = screen/scale - world
+    // After zoom: new_offset = screen/new_scale - world
+    const worldX = screenX / S.vpS - S.vpX;
+    const worldY = screenY / S.vpS - S.vpY;
+    const newScale = Math.max(0.2, Math.min(5, S.vpS * f));
+    S.vpX = screenX / newScale - worldX;
+    S.vpY = screenY / newScale - worldY;
+    S.vpS = newScale;
     applyVP();
   },{passive:false});
   // Touch
@@ -2581,9 +2591,31 @@ function initInteraction(){
   },{passive:false});
 }
 
+// Screen pixel → SVG world coordinate
 function toSVGPoint(e){
-  const rect=svgEl.getBoundingClientRect();
-  return{x:(e.clientX-rect.left)/S.vpS-S.vpX,y:(e.clientY-rect.top)/S.vpS-S.vpY};
+  const rect = svgEl.getBoundingClientRect();
+  // screen → world: divide by scale, then subtract offset
+  return {
+    x: (e.clientX - rect.left) / S.vpS - S.vpX,
+    y: (e.clientY - rect.top)  / S.vpS - S.vpY,
+  };
+}
+
+// Effective viewport center — accounts for open right panel
+function effectiveCenter(){
+  const panelOpen = document.getElementById('panel').classList.contains('open');
+  const panelW = panelOpen ? 360 : 0;  // panel width
+  const cx = (W - panelW) / 2;
+  const cy = H / 2;
+  return {cx, cy};
+}
+
+// World coordinate → current screen position
+function worldToScreen(wx, wy){
+  return {
+    sx: (wx + S.vpX) * S.vpS,
+    sy: (wy + S.vpY) * S.vpS,
+  };
 }
 
 // ══════════════════════════════════════════
@@ -2638,12 +2670,50 @@ function applyZoomProjection(){
 }
 
 function zoomBy(f){
-  S.vpX=(S.vpX-W/2/S.vpS)*f+W/2/S.vpS;
-  S.vpY=(S.vpY-H/2/S.vpS)*f+H/2/S.vpS;
-  S.vpS=Math.max(.2,Math.min(5,S.vpS*f));applyVP();
+  // Priority: focused entity → active domain → effective center
+  let anchorWorldX, anchorWorldY;
+
+  if(NAV?.focusedEntity){
+    const n = S.nodes.find(x=>x.id===NAV.focusedEntity);
+    if(n){ anchorWorldX = n.x; anchorWorldY = n.y; }
+  } else if(NAV?.focusedDomain){
+    const n = S.nodes.find(x=>x.id==='domain_'+NAV.focusedDomain);
+    if(n){ anchorWorldX = n.x; anchorWorldY = n.y; }
+  }
+
+  const {cx, cy} = effectiveCenter();
+
+  if(anchorWorldX != null){
+    // Anchor: keep world point at screen position (cx, cy)
+    const newScale = Math.max(0.2, Math.min(5, S.vpS * f));
+    S.vpX = cx / newScale - anchorWorldX;
+    S.vpY = cy / newScale - anchorWorldY;
+    S.vpS = newScale;
+  } else {
+    // No anchor: zoom around effective center
+    const worldCX = cx / S.vpS - S.vpX;
+    const worldCY = cy / S.vpS - S.vpY;
+    const newScale = Math.max(0.2, Math.min(5, S.vpS * f));
+    S.vpX = cx / newScale - worldCX;
+    S.vpY = cy / newScale - worldCY;
+    S.vpS = newScale;
+  }
+  applyVP();
 }
 
-function resetView(){S.vpX=0;S.vpY=0;S.vpS=1;svgEl.removeAttribute('viewBox');applyZoomProjection();}
+function resetView(){
+  // Animate back to showing the cosmos core in the effective center
+  const {cx, cy} = effectiveCenter();
+  const coreX = W/2, coreY = H/2;  // core is at canvas center
+  const targetScale = 1.0;
+  // offset so core ends up at effective center
+  const targetVpX = cx / targetScale - coreX;
+  const targetVpY = cy / targetScale - coreY;
+  animateViewport(targetVpX, targetVpY, targetScale, 400, ()=>{
+    clearFocus();
+    applyZoomProjection();
+  });
+}
 
 function rerenderAll(){
   S.nodes=[];
@@ -3797,52 +3867,65 @@ function focusDomain(domainId){
   const domNode = S.nodes.find(n=>n.id==='domain_'+domainId);
   if(!domNode) return;
   const cfg = DOMAINS[domainId]||DOMAINS.knowledge;
-
   NAV.focusedDomain = domainId;
   closePanel();
 
-  // Smooth zoom to domain position
-  const targetScale = 1.8;
-  const targetX = W/2/targetScale - domNode.x;
-  const targetY = H/2/targetScale - domNode.y;
-
-  animateViewport(targetX, targetY, targetScale, 600, ()=>{
-    // After zoom: highlight domain entities, dim others
+  zoomToWorld(domNode.x, domNode.y, 1.8, 550, ()=>{
     applyDomainFocus(domainId, cfg.color);
     openPanelDomain(S.universe.entities.find(e=>e.id==='domain_'+domainId));
   });
 }
 
-// Belirli entity'ye zoom
+// Belirli entity/node'a smooth zoom
 function focusEntity(entId){
-  const entNode = S.nodes.find(n=>n.id===entId);
-  if(!entNode) return;
+  const n = S.nodes.find(x=>x.id===entId);
+  if(!n) return;
   NAV.focusedEntity = entId;
-
-  animateViewport(
-    W/2/2.2 - entNode.x,
-    H/2/2.2 - entNode.y,
-    2.2, 500,
-    ()=>{ pulseNode(entId); }
-  );
+  zoomToNode(entId, 2.2, 480, ()=>{ pulseNode(entId); });
 }
 
-// Smooth viewport animation
-function animateViewport(targetX, targetY, targetScale, duration, onDone){
+// ══════════════════════════════════════════
+// UNIFIED ZOOM ENGINE
+// ══════════════════════════════════════════
+
+// Animate viewport to show world point (wx,wy) at effective screen center
+// This is the single source of truth for all programmatic zoom
+function zoomToWorld(wx, wy, targetScale, duration, onDone){
+  const {cx, cy} = effectiveCenter();
+  const targetVpX = cx / targetScale - wx;
+  const targetVpY = cy / targetScale - wy;
+  animateViewport(targetVpX, targetVpY, targetScale, duration, onDone);
+}
+
+// Animate viewport to show a node at effective screen center
+function zoomToNode(nodeId, targetScale, duration, onDone){
+  const n = S.nodes.find(x=>x.id===nodeId);
+  if(!n) return;
+  zoomToWorld(n.x, n.y, targetScale, duration||500, onDone);
+}
+
+// Low-level animated viewport transition (vpX, vpY, vpS)
+function animateViewport(targetVpX, targetVpY, targetScale, duration, onDone){
   const startX = S.vpX, startY = S.vpY, startS = S.vpS;
   const startTime = performance.now();
+  // Cancel any existing animation
+  if(S._animFrame) cancelAnimationFrame(S._animFrame);
 
   function step(now){
-    const t = Math.min((now - startTime)/duration, 1);
-    const ease = t<0.5 ? 2*t*t : -1+(4-2*t)*t; // easeInOut
-    S.vpX = startX + (targetX - startX)*ease;
-    S.vpY = startY + (targetY - startY)*ease;
-    S.vpS = startS + (targetScale - startS)*ease;
+    const t = Math.min((now - startTime) / duration, 1);
+    const ease = t < 0.5 ? 2*t*t : -1+(4-2*t)*t; // easeInOut
+    S.vpX = startX + (targetVpX - startX) * ease;
+    S.vpY = startY + (targetVpY - startY) * ease;
+    S.vpS = startS + (targetScale - startS) * ease;
     applyVP();
-    if(t < 1) requestAnimationFrame(step);
-    else if(onDone) onDone();
+    if(t < 1){
+      S._animFrame = requestAnimationFrame(step);
+    } else {
+      S._animFrame = null;
+      if(onDone) onDone();
+    }
   }
-  requestAnimationFrame(step);
+  S._animFrame = requestAnimationFrame(step);
 }
 
 // Domain focus — ilgili entity'leri öne çıkar, diğerlerini soldur
