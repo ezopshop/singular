@@ -1179,8 +1179,26 @@ function computeGuidance(){
       items.push({
         type:'profile_gap', priority:4,
         dot:'warn',
-        text:`${ent.label} için temel bilgi eksik`,
-        action:()=>{ focusEntity(ent.id); openPanelEntity(ent.id); }
+        text:`${ent.label} hakkında bilgi eksik → soru sor`,
+        action:()=>{
+          focusEntity(ent.id);
+          // Self entity için kim sorusu aç
+          const q = mkQuestion({
+            text: `${ent.label} kim?`,
+            family: 'family',
+            topic: ent.label,
+            context: 'bu'
+          });
+          if(q){
+            bigBang(`${ent.label} kim?`, q);
+            updateCounters(); saveUniverse();
+            setTimeout(()=>openFacetPanel(q), 500);
+          } else {
+            // Soru zaten var, panel aç
+            const existing = S.universe.questions.find(x=>x.text.toLowerCase()===`${ent.label} kim?`);
+            if(existing) setTimeout(()=>openFacetPanel(existing), 500);
+          }
+        }
       });
     }
   });
@@ -4253,12 +4271,25 @@ function processStatement(text){
     }
     // Prop'u entity'e ekle
     selfEnt.properties[parsed.prop] = parsed.value;
-    // Cosmos'ta self node label'ını güncelle — isim geldiyse
+    // İsim geldiyse — label güncelle + alias ekle + SLUG güncelleme
     if(parsed.prop === 'name'){
+      const oldLabel = selfEnt.label;
       selfEnt.label = parsed.value;
       S.universe.profile.name = parsed.value;
+      // ALIAS_INDEX güncelle — eski isim alias olarak ekle
+      if(oldLabel && oldLabel !== 'ben' && oldLabel !== parsed.value){
+        if(!selfEnt.properties.aliases) selfEnt.properties.aliases=[];
+        selfEnt.properties.aliases.push(oldLabel);
+        ALIAS_INDEX[oldLabel.toLowerCase()] = parsed.value;
+      }
+      // ALIAS_INDEX — yeni isim → self'e işaret etsin
+      ALIAS_INDEX[parsed.value.toLowerCase()] = parsed.value;
+      ENTITY_TYPE_MEMORY[parsed.value.toLowerCase()] = 'person';
+      // Cosmos node label güncelle
       const gLbl = svgEl?.querySelector(`[data-nid="${selfEnt.id}"] text`);
       if(gLbl) gLbl.textContent = parsed.value.slice(0,16);
+      // Profile panel güncelle
+      updateTodayPanel();
     }
     // Credential entity — şifre, mail, telefon
     if(['email','phone','password','username'].includes(parsed.prop)){
@@ -4586,6 +4617,37 @@ function learnEntityType(label, type){
 
 
 function showSugLayer(topic){
+  // Eğer topic self entity'nin ismi ise — özel davranış
+  const selfEnt = S.universe.entities.find(e=>e.properties?.is_self);
+  if(selfEnt && selfEnt.label.toLowerCase() === topic.toLowerCase()){
+    // Zaten ben → self soruları öner
+    const sugs = [
+      {text:`${topic} kim?`, tid:'kim', ctx:'bu'},
+      {text:`${topic} için sonraki hedef ne?`, tid:'yapmalı', ctx:'benim'},
+      {text:`${topic} neden önemli biri?`, tid:'neden', ctx:'benim'},
+    ];
+    document.getElementById('suglbl').innerHTML=
+      `<span style="color:var(--core);opacity:.8">Sen zaten bu evrende varsın ✦</span>`;
+    const opts=document.getElementById('sugopts'); opts.innerHTML='';
+    sugs.forEach(s=>{
+      const btn=document.createElement('button');btn.className='sug-opt';
+      btn.innerHTML=`<span class="sug-arr">→</span><span>${s.text}</span>`;
+      btn.onclick=()=>{
+        hideSug(); document.getElementById('input-field').value='';
+        const fam=Q_TEMPLATES.find(t=>t.id===s.tid)?.family||'knowledge';
+        const q=mkQuestion({text:s.text,template:s.tid,topic,context:s.ctx,family:fam});
+        bigBang(s.text,q);
+        updateCounters(); saveUniverse(); openFacetPanel(q);
+      };
+      opts.appendChild(btn);
+    });
+    // Direkt self panel aç
+    focusEntity(selfEnt.id);
+    setTimeout(()=>openPanelEntity(selfEnt.id), 400);
+    document.getElementById('sug-layer').classList.add('on');
+    return;
+  }
+
   const seedType = detectSeedType(topic);
 
   // Entity'yi domain'ine otomatik kaydet
