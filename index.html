@@ -203,6 +203,29 @@ canvas#stars{position:fixed;inset:0;pointer-events:none;z-index:0;}
 .tp-stat.new{color:#34d399;background:rgba(52,211,153,.08);}
 .tp-stat.total{color:var(--text-dim);}
 
+/* ══ GUIDANCE ENGINE ══ */
+#guidance-panel{
+  position:fixed;bottom:6rem;left:1.5rem;
+  font-family:'DM Mono',monospace;z-index:10;
+  max-width:220px;
+}
+.gp-time{font-size:1.05rem;color:var(--text);letter-spacing:.04em;line-height:1;}
+.gp-date{font-size:.5rem;color:var(--text-dim);letter-spacing:.12em;text-transform:uppercase;margin:.12rem 0 .5rem;}
+.gp-items{display:flex;flex-direction:column;gap:.3rem;}
+.gp-item{
+  display:flex;align-items:flex-start;gap:.4rem;
+  font-size:.55rem;color:var(--text-muted);line-height:1.5;
+  cursor:pointer;border-radius:5px;padding:.15rem .3rem;
+  transition:background .15s;
+}
+.gp-item:hover{background:rgba(167,139,250,.06);color:var(--text);}
+.gp-dot{flex-shrink:0;width:4px;height:4px;border-radius:50%;margin-top:.35rem;}
+.gp-dot.urgent{background:#f59e0b;}
+.gp-dot.info{background:#60a5fa;}
+.gp-dot.warn{background:#f97316;}
+.gp-dot.ok{background:#34d399;}
+.gp-dot.dim{background:var(--text-dim);}
+
 /* ══ EDIT CONTROLS ══ */
 .p-edit-input{
   width:100%;background:rgba(255,255,255,.03);border:.5px solid var(--border-hi);
@@ -353,7 +376,7 @@ canvas#stars{position:fixed;inset:0;pointer-events:none;z-index:0;}
   <div id="topright"><div id="nc">0 varlık</div><div id="qc">0 soru</div></div>
 
   <!-- TODAY PANEL -->
-  <div id="today-panel"></div>
+  <div id="guidance-panel"></div>
 
   <div id="legend">
     <div class="leg"><div class="ldot star" style="background:var(--core)"></div>domain (yıldız)</div>
@@ -1027,29 +1050,167 @@ function startTemporalEngine(){
   TC._interval = setInterval(updateTemporalContext, 60000); // every minute
 }
 
-// Today panel — sol altta zaman + açık sorular
+// ══════════════════════════════════════════
+// GUIDANCE ENGINE v1
+// Graph + zaman → proaktif bağlam önerileri
+// Read-only — graph veri yapısını değiştirmez
+// ══════════════════════════════════════════
+
+const GUIDANCE = {
+  items: [],
+  lastComputed: null,
+  _interval: null,
+};
+
+// Compute all guidance items from graph + temporal data
+function computeGuidance(){
+  if(!S.universe) return [];
+  const items = [];
+  const now = TC.now || new Date();
+  const todayStr = now.toISOString().slice(0,10);
+  const oneDayAgo = new Date(now - 86400000).toISOString();
+
+  // 1. UPCOMING DATES — highest priority
+  S.universe.links.filter(l=>['anniversary_of','due_on','happens_on'].includes(l.relation)).forEach(l=>{
+    const timeEnt = S.universe.entities.find(e=>e.id===l.to&&e.type==='time');
+    if(!timeEnt?.properties?.temporal_value) return;
+    const sourceEnt = S.universe.entities.find(e=>e.id===l.from)||S.universe.questions.find(q=>q.id===l.from);
+    if(!sourceEnt) return;
+    const val = timeEnt.properties.temporal_value;
+    // Parse date and compute days remaining (for annual events, use current year)
+    try{
+      const parts = val.split('-');
+      if(parts.length>=2){
+        let target = new Date(now.getFullYear(), parseInt(parts[1])-1, parseInt(parts[2]||1));
+        if(target < now) target.setFullYear(now.getFullYear()+1);
+        const daysLeft = Math.round((target-now)/(1000*60*60*24));
+        if(daysLeft >= 0 && daysLeft <= 30){
+          const label = sourceEnt.label||sourceEnt.text||'';
+          const relLabel = l.relation==='anniversary_of'?'yıldönümü':(l.relation==='due_on'?'son tarihi':'tarihi');
+          items.push({
+            type:'upcoming', priority:10-Math.min(daysLeft/3,9),
+            dot:'urgent',
+            text: daysLeft===0 ? `${label} ${relLabel} bugün!` :
+                  daysLeft===1 ? `${label} ${relLabel} yarın` :
+                  `${label} ${relLabel} ${daysLeft} gün sonra`,
+            action:()=>{ focusEntity(sourceEnt.id); if(sourceEnt.type)openPanelEntity(sourceEnt.id); else openPanelQuestion(sourceEnt.id); }
+          });
+        }
+      }
+    }catch(e){}
+  });
+
+  // 2. OPEN QUESTIONS — grouped by entity
+  const openQs = S.universe.questions.filter(q=>q.status==='open');
+  if(openQs.length > 0){
+    // Group by topic entity if possible
+    const grouped = {};
+    openQs.forEach(q=>{
+      const key = q.topic||'genel';
+      if(!grouped[key]) grouped[key]=[];
+      grouped[key].push(q);
+    });
+    Object.entries(grouped).slice(0,3).forEach(([topic,qs])=>{
+      const topicEnt = S.universe.entities.find(e=>e.label===topic);
+      items.push({
+        type:'open_questions', priority:6,
+        dot:'info',
+        text: topic==='genel'
+          ? `${qs.length} cevaplanmamış soru`
+          : `${topic} için ${qs.length} açık soru`,
+        action:()=>{
+          if(topicEnt){ focusEntity(topicEnt.id); openPanelEntity(topicEnt.id); }
+          else{ openSearch(); setTimeout(()=>{ document.getElementById('search-input').value=topic; renderSearchResults(); },100); }
+        }
+      });
+    });
+  }
+
+  // 3. PROFILE GAPS — person/project entities with missing key properties
+  const REQUIRED_PROPS = {
+    person:  ['isim','doğum tarihi'],
+    project: ['amaç','ne aşamada'],
+    place:   ['adres / link'],
+  };
+  S.universe.entities.filter(e=>e.type!=='domain'&&!e.properties?.deleted).forEach(ent=>{
+    const required = REQUIRED_PROPS[ent.type];
+    if(!required) return;
+    const answeredFacets = S.universe.answers
+      .filter(a=>S.universe.questions.some(q=>q.id===a.question_id&&(q.topic===ent.label||S.universe.links.some(l=>l.from===q.id&&l.to===ent.id))))
+      .map(a=>a.facet);
+    const missing = required.filter(r=>!answeredFacets.some(f=>f.toLowerCase().includes(r.toLowerCase())));
+    if(missing.length>0 && missing.length===required.length){ // only if ALL required missing
+      items.push({
+        type:'profile_gap', priority:4,
+        dot:'warn',
+        text:`${ent.label} için temel bilgi eksik`,
+        action:()=>{ focusEntity(ent.id); openPanelEntity(ent.id); }
+      });
+    }
+  });
+
+  // 4. STALE PROJECTS — not updated in 7+ days
+  const sevenDaysAgo = new Date(now - 7*86400000).toISOString();
+  S.universe.entities.filter(e=>e.type==='project'&&!e.properties?.deleted).forEach(proj=>{
+    const lastUpdate = proj.properties?.updated_at || proj.created_at;
+    if(lastUpdate < sevenDaysAgo){
+      const daysSince = Math.round((now-new Date(lastUpdate))/(1000*60*60*24));
+      items.push({
+        type:'stale_project', priority:3,
+        dot:'warn',
+        text:`${proj.label} ${daysSince} gündür güncellenmedi`,
+        action:()=>{ focusEntity(proj.id); openPanelEntity(proj.id); }
+      });
+    }
+  });
+
+  // 5. RECENT ACTIVITY — entities added today
+  const recentEnts = S.universe.entities.filter(e=>e.created_at>oneDayAgo&&e.type!=='domain'&&!e.properties?.deleted);
+  if(recentEnts.length>0){
+    items.push({
+      type:'recent', priority:1,
+      dot:'ok',
+      text:`Bugün ${recentEnts.length} yeni varlık eklendi`,
+      action:()=>{ openSearch(); setTimeout(()=>{ document.getElementById('search-input').value=''; renderSearchResults(); },100); }
+    });
+  }
+
+  // Sort by priority desc, cap at 4
+  items.sort((a,b)=>b.priority-a.priority);
+  GUIDANCE.items = items.slice(0,4);
+  GUIDANCE.lastComputed = now;
+  return GUIDANCE.items;
+}
+
 function updateTodayPanel(){
-  const el = document.getElementById('today-panel');
-  if(!el || !S.universe) return;
+  const el = document.getElementById('guidance-panel');
+  if(!el || !TC.now) return;
 
   const now = TC.now;
   const timeStr = now.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
-  const openQs  = S.universe.questions?.filter(q=>q.status==='open').length||0;
-  const totalEnts= S.universe.entities?.filter(e=>e.type!=='domain').length||0;
 
-  // Recent activity (last 24h)
-  const oneDayAgo = new Date(now - 86400000).toISOString();
-  const recentEnts = S.universe.entities?.filter(e=>e.created_at>oneDayAgo&&e.type!=='domain').length||0;
+  // Recompute guidance every 10 minutes or first time
+  const needsRecompute = !GUIDANCE.lastComputed ||
+    (now - GUIDANCE.lastComputed) > 10*60*1000;
+  if(needsRecompute) computeGuidance();
+
+  const items = GUIDANCE.items;
 
   el.innerHTML = `
-    <div class="tp-time">${timeStr}</div>
-    <div class="tp-date">${TC.weekday}, ${TC.month} ${now.getDate()}</div>
-    <div class="tp-stats">
-      ${openQs>0?`<span class="tp-stat open">${openQs} açık soru</span>`:''}
-      ${recentEnts>0?`<span class="tp-stat new">+${recentEnts} bugün</span>`:''}
-      <span class="tp-stat total">${totalEnts} varlık</span>
-    </div>
+    <div class="gp-time">${timeStr}</div>
+    <div class="gp-date">${TC.weekday}, ${TC.month} ${now.getDate()}</div>
+    ${items.length>0 ? '<div class="gp-items">'+items.map((item,i)=>`
+      <div class="gp-item" data-gi="${i}">
+        <div class="gp-dot ${item.dot}"></div>
+        <span>${item.text}</span>
+      </div>`).join('')+'</div>' : ''}
   `;
+
+  // Attach click handlers after render
+  el.querySelectorAll('.gp-item').forEach(el=>{
+    const i = parseInt(el.getAttribute('data-gi'));
+    el.onclick = items[i]?.action;
+  });
 }
 
 // Parse date strings from text input
@@ -2660,6 +2821,9 @@ function detectFamily(text){
 function updateCounters(){
   document.getElementById('nc').textContent=S.universe.entities.length+' varlık';
   document.getElementById('qc').textContent=S.universe.questions.length+' soru';
+  // Guidance recompute on graph change
+  if(GUIDANCE?.lastComputed) GUIDANCE.lastComputed=null;
+  updateTodayPanel();
 }
 
 // ══════════════════════════════════════════
