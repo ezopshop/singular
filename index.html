@@ -2462,6 +2462,8 @@ function detectSeedType(topic){
   const t = topic.toLowerCase().trim();
   // Bilinen yer adı?
   if(KNOWN_PLACES.has(t)) return 'place';
+  // Türk şehirlerine özgü son ekler — "-'da yaşıyorum" gibi
+  if(/(şehir|köy|mahalle|ilçe|kasaba)$/.test(t)) return 'place';
   // Çok kelimeli → kavram/proje
   if(topic.includes(' ')) return 'concept';
   // Büyük harf ile başlıyor, Türkçe isim karakterleri → kişi adayı
@@ -2481,6 +2483,13 @@ function showSugLayer(topic){
       {text:`${topic} neden önemli?`,  tid:'neden',  ctx:'benim'},
     ];
   } else if(seedType === 'place'){
+    // Yer entity'sini hemen places domain'ine kaydet
+    ensureDomain('places');
+    const placeEnt = mkEntity('place', topic, 'places', {is_place:true});
+    if(!S.nodes.find(n=>n.id===placeEnt.id)){
+      spawnEntityNode(placeEnt,'places');
+      addLink(placeEnt.id,'domain_places','belongs_to_domain');
+    }
     sugs = [
       {text:`${topic} nerede?`,                    tid:'nerede',  ctx:'—'},
       {text:`${topic} ile bağlantım ne?`,          tid:'kiminle', ctx:'benim'},
