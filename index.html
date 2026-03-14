@@ -881,7 +881,7 @@ function animateCore(){
 
 // Relation weights: ne kadar güçlü çekim üretir
 const REL_SPRING = {
-  belongs_to_domain : { k: 0.060, restLen: 120 },  // entity → domain yıldızı (en güçlü)
+  belongs_to_domain : { k: 0.080, restLen: 95  },  // entity → domain yıldızı (en güçlü, kısa mesafe)
   child_of          : { k: 0.050, restLen: 85  },  // ben → anne/baba (aile bağı)
   parent_of         : { k: 0.050, restLen: 85  },
   fills_role        : { k: 0.055, restLen: 70  },  // Ayşe → anne rolü (somut→rol)
@@ -962,18 +962,23 @@ function physicsLoop(){
       }
     });
 
-    // 3. CENTER PULL — domain'siz node'lar merkeze hafifçe çekilir
-    //    (bağlantısız node'ların uçmasını engeller)
+    // 3. Bağlantısız node'lar en yakın domain'e çekilir (uçmayı engeller)
     if(n.kind !== 'domain' && links.length === 0){
-      n.vx += (cx - n.x) * CENTER_PULL;
-      n.vy += (cy - n.y) * CENTER_PULL;
+      // En yakın domain'i bul
+      const domNodes = S.nodes.filter(x=>x.kind==='domain');
+      if(domNodes.length){
+        let nearest = domNodes[0], nearDist = 99999;
+        domNodes.forEach(d=>{
+          const dd=Math.hypot(n.x-d.x,n.y-d.y);
+          if(dd<nearDist){nearDist=dd;nearest=d;}
+        });
+        n.vx += (nearest.x - n.x) * 0.006;
+        n.vy += (nearest.y - n.y) * 0.006;
+      }
     }
 
-    // 4. DOMAIN ANCHOR — domain yıldızları çok fazla kaymasın
-    if(n.kind === 'domain'){
-      n.vx += (cx - n.x) * DOMAIN_ANCHOR;
-      n.vy += (cy - n.y) * DOMAIN_ANCHOR;
-    }
+    // 4. Domain pinned — fizik loop üstte zaten skip eder
+    // (domain'ler DOMAIN_POSITIONS'ta sabit durur)
 
     // 5. Damping + speed cap
     n.vx *= DAMP; n.vy *= DAMP;
@@ -1041,21 +1046,33 @@ function getNodeColor(kind,domainOrId){
 }
 
 // Domain index → evenly spaced angles so stars spread out
-const DOMAIN_ORDER = ['identity','family','work','projects','places','finance','health','media','memory','knowledge','docs'];
+// Domain'lerin ekrandaki sabit pozisyonları — merkezden uzak, ekrana yayılmış
+// Pozisyonlar W/H'nin oransal değerleri olarak tanımlanır
+const DOMAIN_POSITIONS = {
+  //        [cx_ratio, cy_ratio]  — ekranın hangi köşesinde
+  identity:  [0.5,  0.18],  // üst merkez
+  family:    [0.18, 0.30],  // sol üst
+  work:      [0.82, 0.30],  // sağ üst
+  projects:  [0.85, 0.55],  // sağ orta
+  places:    [0.15, 0.55],  // sol orta
+  finance:   [0.80, 0.78],  // sağ alt
+  health:    [0.20, 0.78],  // sol alt
+  media:     [0.50, 0.85],  // alt merkez
+  memory:    [0.35, 0.20],  // sol üst iç
+  knowledge: [0.65, 0.20],  // sağ üst iç
+  docs:      [0.50, 0.50],  // merkez yakını (gizli belgeler)
+};
+const DOMAIN_ORDER = Object.keys(DOMAIN_POSITIONS);
 
 function spawnDomainNode(ent){
   if(S.nodes.find(n=>n.id===ent.id))return;
   const cfg=DOMAINS[ent.slug]||DOMAINS.knowledge;
-  // Deterministic angle: each domain gets its own sector
-  const domainIdx = DOMAIN_ORDER.indexOf(ent.slug);
-  const totalDomains = DOMAIN_ORDER.length;
-  const baseAngle = domainIdx >= 0
-    ? (domainIdx / totalDomains) * Math.PI * 2 - Math.PI/2
-    : Math.random() * Math.PI * 2;
-  const r = 160 + (domainIdx % 3) * 30; // vary orbit slightly
-  const x = W/2 + r*Math.cos(baseAngle);
-  const y = H/2 + r*Math.sin(baseAngle);
-  const node={id:ent.id,x,y,vx:0,vy:0,kind:'domain',ref:ent,pinned:false,dragging:false};
+  // Sabit pozisyon — domain yıldızları ekrana yapışık durur
+  const pos = DOMAIN_POSITIONS[ent.slug];
+  const x = pos ? pos[0]*W : W/2 + (Math.random()-.5)*300;
+  const y = pos ? pos[1]*H : H/2 + (Math.random()-.5)*200;
+  // Domain'ler PINNED — fizik onları hareket ettirmez
+  const node={id:ent.id,x,y,vx:0,vy:0,kind:'domain',ref:ent,pinned:true,dragging:false};
   S.nodes.push(node);
 
   const g=svgMk('g');g.setAttribute('class','g-domain');g.setAttribute('data-nid',ent.id);
@@ -1099,14 +1116,15 @@ function spawnEntityNode(ent, domainId){
   const isSelf = ent.properties?.is_self || ent.slug==='ben' || ent.slug==='self';
   let bx, by;
   if(isSelf){
-    bx = W/2 + 40; by = H/2 + 40; // merkez yakını
+    // 'ben' entity — tam merkeze yakın
+    bx = W/2; by = H/2 + 60;
   } else {
-    // Spawn near domain star — semantic fizik oraya çekecek
+    // Domain yıldızının çok yakınına spawn et — spring hemen aktif olsun
     const domNode = domainId ? S.nodes.find(n=>n.id==='domain_'+domainId) : null;
     const spawnAngle = Math.random()*Math.PI*2;
-    const spawnR = 50 + Math.random()*40;
-    bx = domNode ? domNode.x + spawnR*Math.cos(spawnAngle) : W/2 + 150*Math.cos(spawnAngle);
-    by = domNode ? domNode.y + spawnR*Math.sin(spawnAngle) : H/2 + 150*Math.sin(spawnAngle);
+    const spawnR = 35 + Math.random()*25;  // çok yakın spawn, spring çeker
+    bx = domNode ? domNode.x + spawnR*Math.cos(spawnAngle) : W/2 + 120*Math.cos(spawnAngle);
+    by = domNode ? domNode.y + spawnR*Math.sin(spawnAngle) : H/2 + 120*Math.sin(spawnAngle);
   }
 
   const node={id:ent.id,x:bx,y:by,
