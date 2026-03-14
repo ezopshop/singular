@@ -618,11 +618,21 @@ function renderSearchResults(){
     noRes.textContent = '"'+q+'" için sonuç yok';
     container.appendChild(noRes);
 
-    // Action suggestions
-    const actions = [
-      {icon:'?', text:`"${q}" hakkında soru sor`, action:()=>{ _closeSearch(); document.getElementById('input-field').value=q+'?'; document.getElementById('input-field').focus(); }},
-      {icon:'⬡', text:`"${q}" varlık olarak ekle`, action:()=>{ _closeSearch(); document.getElementById('input-field').value=q; document.getElementById('input-field').focus(); }},
-    ];
+    // Semantic-aware action suggestions
+    const seedT = detectSeedType(q);
+    const actions = [];
+    if(seedT === 'place'){
+      actions.push({icon:'◉', text:`"${q}" yer olarak ekle`, action:()=>{ _closeSearch(); ensureDomain('places'); const e=mkEntity('place',q,'places',{is_place:true}); if(!S.nodes.find(n=>n.id===e.id)){spawnEntityNode(e,'places');addLink(e.id,'domain_places','belongs_to_domain');} saveUniverse();updateCounters(); }});
+      actions.push({icon:'?', text:`"${q}" nerede?`, action:()=>{ _closeSearch(); document.getElementById('input-field').value=q+' nerede?'; handleInput(); }});
+    } else if(seedT === 'person'){
+      actions.push({icon:'@', text:`"${q}" kişi olarak ekle`, action:()=>{ _closeSearch(); document.getElementById('input-field').value=q; document.getElementById('input-field').focus(); }});
+      actions.push({icon:'?', text:`"${q}" kim?`, action:()=>{ _closeSearch(); document.getElementById('input-field').value=q+' kim?'; handleInput(); }});
+    } else if(seedT === 'credential'){
+      actions.push({icon:'⬡', text:`"${q}" hesap olarak ekle`, action:()=>{ _closeSearch(); document.getElementById('input-field').value=q; document.getElementById('input-field').focus(); }});
+    } else {
+      actions.push({icon:'?', text:`"${q}" hakkında soru sor`, action:()=>{ _closeSearch(); document.getElementById('input-field').value=q+'?'; document.getElementById('input-field').focus(); }});
+      actions.push({icon:'⬡', text:`"${q}" varlık olarak ekle`, action:()=>{ _closeSearch(); document.getElementById('input-field').value=q; document.getElementById('input-field').focus(); }});
+    }
     actions.forEach(a=>{
       const item=document.createElement('div');item.className='sr-item';
       item.innerHTML=`<span class="sr-badge srb-question">${a.icon}</span><span class="sr-main" style="color:var(--text-muted)">${a.text}</span>`;
@@ -2886,64 +2896,244 @@ function setInputModeHint(text, pillClass){
 // SUGGESTION LAYER
 // ══════════════════════════════════════════
 // Bilinen yer adları — bunlar kişi değil
+// ══════════════════════════════════════════
+// SEMANTIC ROUTING ENGINE v2
+// Priority: date > url > known_place > known_project >
+//           family_role > credential_pattern > person_name > concept
+// ══════════════════════════════════════════
+
+// ── Static place dictionary (countries + major cities + TR provinces)
 const KNOWN_PLACES = new Set([
-  'adıyaman','adana','ankara','antalya','bursa','diyarbakır','edirne','erzurum',
-  'eskişehir','gaziantep','hatay','istanbul','izmir','kayseri','kocaeli','konya',
-  'malatya','manisa','mardin','mersin','muğla','ordu','samsun','şanlıurfa',
-  'trabzon','van','zonguldak','balıkesir','çanakkale','denizli','elazığ',
-  'giresun','ığdır','kahramanmaraş','kastamonu','kırıkkale','kırklareli',
-  'kırşehir','muş','nevşehir','niğde','rize','sakarya','sinop','sivas',
-  'tekirdağ','tokat','uşak','yozgat','aksaray','batman','bingöl','bitlis',
-  'çorum','düzce','hakkari','iğdır','karabük','karaman','kilis','osmaniye',
-  'şırnak','tunceli','yalova','amsterdam','berlin','london','paris','tokyo',
-  'new york','los angeles','dubai','moscow','beijing','istanbul',
+  // Ülkeler
+  'hollanda','türkiye','almanya','fransa','ingiltere','italya','ispanya',
+  'rusya','çin','japonya','abd','avustralya','kanada','brezilya','hindistan',
+  'meksika','arjantin','güney kore','endonezya','suudi arabistan','belçika',
+  'avusturya','isviçre','norveç','danimarka','İsveç','finlandiya','polonya',
+  'portekiz','yunanistan','romanya','macaristan','çekya','ukrayna','mısır',
+  'nijerya','kenya','etiyopya','güney afrika','fas','cezayir','tunus',
+  'irak','iran','suriye','suudi arabistan','birleşik arap emirlikleri',
+  'katar','kuveyt','ürdün','lübnan','pakistan','bangladeş','vietnam',
+  'tayland','malezya','singapur','yeni zelanda','arjantin','şili','peru',
+  'kolombiya','venezüela','küba','amsterdam','netherlands','germany',
+  'france','uk','spain','russia','china','japan','usa','australia',
+  'canada','brazil','india','mexico','argentina','south korea',
+  // TR İller
+  'adana','adıyaman','afyonkarahisar','ağrı','aksaray','amasya','ankara',
+  'antalya','ardahan','artvin','aydın','balıkesir','bartın','batman',
+  'bayburt','bilecik','bingöl','bitlis','bolu','burdur','bursa','çanakkale',
+  'çankırı','çorum','denizli','diyarbakır','düzce','edirne','elazığ',
+  'erzincan','erzurum','eskişehir','gaziantep','giresun','gümüşhane',
+  'hakkari','hatay','ığdır','ısparta','istanbul','izmir','karabük',
+  'karaman','kars','kastamonu','kayseri','kilis','kırıkkale','kırklareli',
+  'kırşehir','kocaeli','konya','kütahya','malatya','manisa','mardin',
+  'mersin','muğla','muş','nevşehir','niğde','ordu','osmaniye','rize',
+  'sakarya','samsun','siirt','sinop','sivas','şanlıurfa','şırnak',
+  'tekirdağ','tokat','trabzon','tunceli','uşak','van','yalova','yozgat',
+  'zonguldak',
+  // Dünya şehirleri
+  'amsterdam','berlin','londra','london','paris','tokyo','dubai','moscow',
+  'beijing','new york','los angeles','chicago','toronto','sydney','melbourne',
+  'madrid','roma','viyana','zürih','cenevre','stockholm','kopenhag',
+  'oslo','helsinki','varşova','prag','budapeşte','bükreş','atina',
+  'kahire','johannesburg','nairobi','lagos','casablanca','tunus',
+  'bağdat','tahran','riyad','dubai','doha','amman','beyrut',
+  'islamabad','mumbai','delhi','şanghay','pekin','seul','bangkok',
+  'kuala lumpur','singapur','jakarta','manila','hanoi',
+  // Türkiye ilçe ve bölge adları (sık kullanılanlar)
+  'maraş','kahramanmaraş','antep','gaziantep','urfa','şanlıurfa',
+  'hatay','iskenderun','antakya','mersin','adana','osmaniye',
+  'elazığ','malatya','tunceli','bingöl','muş','bitlis','van','hakkari',
 ]);
 
+// ── Known credential/service brands
+const KNOWN_CREDENTIALS = new Set([
+  'netflix','gmail','google','apple','microsoft','amazon','facebook',
+  'instagram','twitter','x','linkedin','github','gitlab','bitbucket',
+  'spotify','youtube','tiktok','whatsapp','telegram','slack','zoom',
+  'dropbox','notion','figma','adobe','cloudflare','aws','azure',
+  'paypal','stripe','shopify','wordpress','vercel','netlify',
+]);
+
+// ── Known project names (user-extendable)
+const KNOWN_PROJECTS = new Set([
+  'singular','cillop','cillop tools',
+]);
+
+// ── Learned type memory — runtime (Drive'a da kaydedilmeli ileride)
+const ENTITY_TYPE_MEMORY = {};  // slug → 'place'|'person'|'project'|'credential'|'concept'
+
+// Question family guardrails — which families are INVALID for each type
+const QUESTION_GUARDRAILS = {
+  place:      ['kim'],           // place + kim → INVALID
+  credential: ['kim','kiminle'], // credential + kim → INVALID
+  document:   ['kim','kiminle'], // document + kim → INVALID
+  date:       ['kim','kiminle'], // date + kim → INVALID
+  project:    [],                // project → all families OK
+  person:     [],                // person → all families OK
+  concept:    [],                // concept → all families OK
+};
+
+// Default fallback families per type (when invalid family detected)
+const TYPE_FALLBACK_FAMILY = {
+  place:      'nerede',
+  credential: 'nedir',
+  document:   'nerede',
+  date:       'nezaman',
+  project:    'nedir',
+  person:     'kim',
+  concept:    'nedir',
+};
+
+// Suggestion packs per entity type
+const SUGGESTION_PACKS = {
+  person: (topic) => [
+    {text:`${topic} kim?`,           tid:'kim',     ctx:'bu'},
+    {text:`${topic} ile ilişkim ne?`,tid:'kiminle', ctx:'benim'},
+    {text:`${topic} neden önemli?`,  tid:'neden',   ctx:'benim'},
+  ],
+  place: (topic) => [
+    {text:`${topic} nerede?`,                 tid:'nerede',  ctx:'—'},
+    {text:`${topic} ile bağlantım ne?`,       tid:'kiminle', ctx:'benim'},
+    {text:`${topic} neden önemli benim için?`,tid:'neden',   ctx:'benim'},
+    {text:`${topic} orada kim var?`,          tid:'kim',     ctx:'—'},
+  ],
+  project: (topic) => [
+    {text:`${topic} nedir?`,                 tid:'nedir',   ctx:'—'},
+    {text:`${topic} şu an ne aşamada?`,      tid:'nedir',   ctx:'—'},
+    {text:`${topic} neden önemli?`,          tid:'neden',   ctx:'benim'},
+    {text:`${topic} için sonraki adım ne?`,  tid:'yapmalı', ctx:'—'},
+  ],
+  credential: (topic) => [
+    {text:`${topic} hesabım nerede?`,        tid:'nerede',  ctx:'benim'},
+    {text:`${topic} şifremi nerede saklarım?`,tid:'nerede', ctx:'benim'},
+    {text:`${topic} benim için ne ifade ediyor?`,tid:'baname',ctx:'benim'},
+  ],
+  concept: (topic) => [
+    {text:`${topic} nedir?`,                 tid:'nedir',   ctx:'—'},
+    {text:`${topic} hakkında ne yapmalıyım?`,tid:'yapmalı', ctx:'—'},
+    {text:`${topic} neden önemli?`,          tid:'neden',   ctx:'benim'},
+  ],
+};
+
+// ── MAIN: Detect seed entity type (priority-ordered)
 function detectSeedType(topic){
   const t = topic.toLowerCase().trim();
-  // Bilinen yer adı?
+  const slug = t.replace(/[^a-züğışöçĞÜŞİÖÇ]/g,'');
+
+  // 0. Learned memory — highest priority
+  if(ENTITY_TYPE_MEMORY[slug]) return ENTITY_TYPE_MEMORY[slug];
+  if(ENTITY_TYPE_MEMORY[t])    return ENTITY_TYPE_MEMORY[t];
+
+  // 1. Previously saved entity with known type
+  const savedEnt = S.universe?.entities?.find(e=>
+    e.label.toLowerCase()===t && e.type !== 'concept' && e.type !== 'domain'
+  );
+  if(savedEnt){
+    ENTITY_TYPE_MEMORY[t] = savedEnt.type; // learn it
+    return savedEnt.type;
+  }
+
+  // 2. Date/year patterns
+  if(/^\d{4}$/.test(t)) return 'date';
+  if(/^\d{1,2}[.\/]\d{1,2}[.\/]\d{2,4}$/.test(t)) return 'date';
+
+  // 3. URL / email / phone
+  if(/^https?:\/\/|^www\.|@.*\./.test(t)) return 'credential';
+  if(/^[+]?\d[\d\s\-().]{7,}$/.test(t)) return 'credential';
+
+  // 4. Known places (countries + cities + provinces)
   if(KNOWN_PLACES.has(t)) return 'place';
-  // Türk şehirlerine özgü son ekler — "-'da yaşıyorum" gibi
-  if(/(şehir|köy|mahalle|ilçe|kasaba)$/.test(t)) return 'place';
-  // Çok kelimeli → kavram/proje
-  if(topic.includes(' ')) return 'concept';
-  // Büyük harf ile başlıyor, Türkçe isim karakterleri → kişi adayı
+  // Place suffix patterns
+  if(/(şehir|köy|mahalle|ilçe|kasaba|bölge|ülke)$/.test(t)) return 'place';
+
+  // 5. Known projects
+  if(KNOWN_PROJECTS.has(t)) return 'project';
+
+  // 6. Family roles already handled upstream, skip here
+
+  // 7. Known credential services
+  if(KNOWN_CREDENTIALS.has(t)) return 'credential';
+
+  // 8. Multi-word input → concept or project
+  if(topic.includes(' ')){
+    if(/tools|app|proje|platform|sistem|engine/.test(t)) return 'project';
+    return 'concept';
+  }
+
+  // 9. Proper name (capitalized, Turkish chars, no digits)
   const looksLikeName = /^[A-ZÇĞİÖŞÜ][a-züğışöçĞÜŞİÖÇ]{1,}$/.test(topic);
-  if(looksLikeName) return 'person';
-  // Küçük harf → kavram
+  if(looksLikeName){
+    // Extra check: does it look like a place even if not in list?
+    // Place-like endings: -stan, -land, -ia, -iye
+    if(/stan$|land$|ia$|iye$|istan$/i.test(topic)) return 'place';
+    return 'person';
+  }
+
+  // 10. Concept fallback
   return 'concept';
 }
 
+// ── Guardrail check: is this question family valid for entity type?
+function isValidQuestionFamily(entityType, familyId){
+  const invalid = QUESTION_GUARDRAILS[entityType] || [];
+  const tmpl = Q_TEMPLATES.find(t=>t.id===familyId);
+  const familyLabel = tmpl?.label || familyId;
+  return !invalid.some(inv => familyLabel.includes(inv) || familyId.includes(inv));
+}
+
+// ── Get valid suggestion pack with guardrails applied
+function getSuggestionPack(topic, entityType){
+  const packFn = SUGGESTION_PACKS[entityType] || SUGGESTION_PACKS.concept;
+  let sugs = packFn(topic);
+
+  // Apply guardrails — filter invalid suggestions
+  sugs = sugs.filter(s=>{
+    if(!isValidQuestionFamily(entityType, s.tid)){
+      console.debug(`Guardrail blocked: ${topic} (${entityType}) + ${s.tid}`);
+      return false;
+    }
+    return true;
+  });
+
+  return sugs;
+}
+
+// ── Learn type from user interaction (called after manual correction or confirmed selection)
+function learnEntityType(label, type){
+  const slug = label.toLowerCase().trim();
+  ENTITY_TYPE_MEMORY[slug] = type;
+}
+
+
 function showSugLayer(topic){
   const seedType = detectSeedType(topic);
-  let sugs;
-  if(seedType === 'person'){
-    sugs = [
-      {text:`${topic} kim?`,           tid:'kim',    ctx:'bu'},
-      {text:`${topic} ile ilişkim ne?`,tid:'kiminle',ctx:'benim'},
-      {text:`${topic} neden önemli?`,  tid:'neden',  ctx:'benim'},
-    ];
-  } else if(seedType === 'place'){
-    // Yer entity'sini hemen places domain'ine kaydet
+
+  // Entity'yi domain'ine otomatik kaydet
+  if(seedType === 'place'){
     ensureDomain('places');
     const placeEnt = mkEntity('place', topic, 'places', {is_place:true});
     if(!S.nodes.find(n=>n.id===placeEnt.id)){
       spawnEntityNode(placeEnt,'places');
       addLink(placeEnt.id,'domain_places','belongs_to_domain');
     }
-    sugs = [
-      {text:`${topic} nerede?`,                    tid:'nerede',  ctx:'—'},
-      {text:`${topic} ile bağlantım ne?`,          tid:'kiminle', ctx:'benim'},
-      {text:`${topic} hakkında ne biliyorum?`,     tid:'nedir',   ctx:'—'},
-      {text:`${topic} neden önemli benim için?`,   tid:'neden',   ctx:'benim'},
-    ];
-  } else {
-    sugs = [
-      {text:`${topic} nedir?`,                        tid:'nedir',   ctx:'—'},
-      {text:`${topic} hakkında ne yapmalıyım?`,       tid:'yapmalı', ctx:'—'},
-      {text:`${topic} neden önemli?`,                 tid:'neden',   ctx:'benim'},
-    ];
+  } else if(seedType === 'credential'){
+    ensureDomain('credentials');
+    const credEnt = mkEntity('credential', topic, 'credentials', {is_credential:true});
+    if(!S.nodes.find(n=>n.id===credEnt.id)){
+      spawnEntityNode(credEnt,'credentials');
+      addLink(credEnt.id,'domain_credentials','belongs_to_domain');
+    }
+  } else if(seedType === 'project'){
+    ensureDomain('projects');
+    const projEnt = mkEntity('project', topic, 'projects', {is_project:true});
+    if(!S.nodes.find(n=>n.id===projEnt.id)){
+      spawnEntityNode(projEnt,'projects');
+      addLink(projEnt.id,'domain_projects','belongs_to_domain');
+    }
   }
+
+  // Guardrail-filtered suggestion pack
+  const sugs = getSuggestionPack(topic, seedType);
 
   document.getElementById('suglbl').innerHTML=
     `<span style="opacity:.6">"${topic}"</span> → nasıl bir soru?`;
@@ -3323,6 +3513,34 @@ function openPanelEntity(entId){
   focusBtn.innerHTML='⊙ Odakla';
   focusBtn.onclick=()=>{ closePanel(); focusEntity(ent.id); };
   qa.appendChild(focusBtn);
+
+  // ── TYPE CORRECTION — inline dropdown
+  const typeTypes = ['person','place','project','credential','concept','event','document','organization'];
+  const typeBtn=document.createElement('button');typeBtn.className='p-qa-btn';
+  typeBtn.innerHTML=`⚙ Tür: ${ent.type}`;
+  typeBtn.title='Entity tipini değiştir';
+  typeBtn.onclick=()=>{
+    const sel=document.createElement('select');
+    sel.style.cssText='background:var(--bg2);color:var(--text);border:.5px solid var(--border-hi);border-radius:5px;font-family:DM Mono,monospace;font-size:.6rem;padding:.25rem .4rem;cursor:pointer;';
+    typeTypes.forEach(t=>{
+      const o=document.createElement('option');o.value=t;o.textContent=t;if(t===ent.type)o.selected=true;
+      sel.appendChild(o);
+    });
+    sel.onchange=()=>{
+      const newType=sel.value;
+      const newDomain={person:'family',place:'places',project:'projects',credential:'credentials',concept:'knowledge',event:'memory',document:'documents',organization:'work'}[newType]||ent.domain;
+      ent.type=newType; ent.domain=newDomain;
+      learnEntityType(ent.label, newType);
+      ensureDomain(newDomain);
+      if(!S.universe.links.find(l=>l.from===ent.id&&l.to==='domain_'+newDomain)){
+        addLink(ent.id,'domain_'+newDomain,'belongs_to_domain');
+      }
+      saveUniverse();
+      openPanelEntity(ent.id); // refresh panel
+    };
+    typeBtn.replaceWith(sel); sel.focus();
+  };
+  qa.appendChild(typeBtn);
 
   body.appendChild(qa);
   document.getElementById('panel').classList.add('open');
