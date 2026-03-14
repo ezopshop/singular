@@ -7,20 +7,18 @@
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Serif+Display:ital@0;1&display=swap');
-
 :root {
   --bg:#080810;--bg2:#0e0e1a;--bg3:#13131f;
   --core:#a78bfa;--core-glow:rgba(167,139,250,0.15);
   --text:#e2e0f0;--text-muted:#6b6880;--text-dim:#3a3850;
   --border:rgba(167,139,250,0.12);--border-bright:rgba(167,139,250,0.3);
-  /* node type colors */
-  --q:#60a5fa;--a:#34d399;--ent:#f472b6;--dec:#f59e0b;--ctx:#94a3b8;
-  --panel:rgba(10,10,20,0.98);
+  --q:#60a5fa;--a:#34d399;--ent:#f472b6;--dec:#f59e0b;
+  --panel:rgba(8,8,16,0.98);
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;height:100vh;overflow:hidden;}
 
-/* ── BOOT ─────────────────────────────── */
+/* BOOT */
 #boot{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg);z-index:100;transition:opacity .8s ease,transform .8s ease;}
 #boot.fade-out{opacity:0;transform:scale(1.04);pointer-events:none;}
 .boot-logo{font-family:'DM Serif Display',serif;font-size:3.5rem;letter-spacing:.3em;opacity:.9;margin-bottom:.25rem;}
@@ -34,108 +32,127 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;heig
 .btn-local:hover{color:var(--text);border-color:var(--text-muted);}
 .boot-note{font-size:.6rem;color:var(--text-dim);margin-top:1.25rem;line-height:1.7;}
 
-/* ── UNIVERSE ─────────────────────────── */
+/* UNIVERSE */
 #universe{position:fixed;inset:0;opacity:0;transition:opacity 1s ease;pointer-events:none;}
 #universe.active{opacity:1;pointer-events:all;}
 #cosmos{position:absolute;inset:0;width:100%;height:100%;}
-
-/* SVG node types */
 .orbit-ring{fill:none;stroke:rgba(167,139,250,.04);stroke-width:.5;}
 .core-outer{fill:none;stroke:var(--core);stroke-width:.5;opacity:.4;}
 .core-inner{fill:var(--core-glow);}
 .core-dot{fill:var(--core);}
 .core-pulse{fill:none;stroke:var(--core);stroke-width:.5;opacity:0;}
-
 .g-node{cursor:pointer;}
 .g-node text{font-family:'DM Mono',monospace;font-size:9px;fill:rgba(226,224,240,.5);pointer-events:none;}
 .g-link{fill:none;stroke-width:.5;}
 .g-link.core-link{stroke:rgba(167,139,250,.1);}
 .g-link.answer-link{stroke:rgba(52,211,153,.2);stroke-dasharray:3 3;}
-.g-link.entity-link{stroke:rgba(244,114,182,.15);stroke-dasharray:2 4;}
 
-/* ── STATUS BAR ───────────────────────── */
+/* STATUS */
 #status{position:fixed;top:1.5rem;left:1.5rem;display:flex;align-items:center;gap:.5rem;font-size:.6rem;letter-spacing:.15em;color:var(--text-dim);text-transform:uppercase;}
 .status-dot{width:5px;height:5px;border-radius:50%;background:var(--text-dim);transition:background .3s;}
 .status-dot.connected{background:#34d399;box-shadow:0 0 6px #34d399;}
-
 #topright{position:fixed;top:1.5rem;right:1.5rem;text-align:right;font-size:.6rem;letter-spacing:.1em;color:var(--text-dim);text-transform:uppercase;line-height:2;}
 
-/* ── LEGEND ───────────────────────────── */
-#legend{position:fixed;bottom:8.5rem;left:1.5rem;display:flex;flex-direction:column;gap:.35rem;opacity:.5;}
+/* LEGEND */
+#legend{position:fixed;bottom:9.5rem;left:1.5rem;display:flex;flex-direction:column;gap:.35rem;opacity:.4;}
 .legend-row{display:flex;align-items:center;gap:.5rem;font-size:.55rem;letter-spacing:.1em;color:var(--text-dim);}
 .legend-dot{width:7px;height:7px;border-radius:50%;}
 
-/* ── INPUT BAR ────────────────────────── */
-#input-bar{position:fixed;bottom:2.5rem;left:50%;transform:translateX(-50%);width:min(640px,92vw);background:var(--bg2);border:.5px solid var(--border-bright);border-radius:12px;overflow:hidden;box-shadow:0 0 40px rgba(167,139,250,.08);}
-.input-mode-hint{padding:.5rem 1.25rem .0rem;font-size:.55rem;letter-spacing:.2em;color:var(--text-dim);text-transform:uppercase;display:flex;align-items:center;gap:.5rem;}
-.input-mode-pill{display:inline-block;padding:.1rem .5rem;border-radius:10px;font-size:.5rem;letter-spacing:.15em;}
-.pill-q{background:rgba(96,165,250,.1);color:var(--q);}
-.pill-a{background:rgba(52,211,153,.1);color:var(--a);}
-.pill-ctx{background:rgba(148,163,184,.08);color:var(--ctx);}
+/* HINT */
+#hint{position:fixed;bottom:9rem;left:50%;transform:translateX(-50%);font-size:.62rem;letter-spacing:.2em;color:var(--text-dim);text-transform:uppercase;text-align:center;transition:opacity .5s;white-space:nowrap;pointer-events:none;}
+
+/* ══ COMPOSER ══ */
+#composer{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);width:min(660px,94vw);z-index:20;}
+
+/* Stage 1 – free input */
+#input-bar{background:var(--bg2);border:.5px solid var(--border-bright);border-radius:12px;overflow:hidden;box-shadow:0 0 40px rgba(167,139,250,.08);transition:border-color .2s;}
+#input-bar:focus-within{border-color:rgba(167,139,250,.45);}
+.input-top{display:flex;align-items:center;gap:.5rem;padding:.5rem 1rem .3rem;}
+.mode-chip{font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;padding:.2rem .55rem;border-radius:10px;}
+.mode-chip.q{background:rgba(96,165,250,.12);color:var(--q);}
+.mode-chip.a{background:rgba(52,211,153,.1);color:var(--a);}
+.mode-chip.def{background:rgba(167,139,250,.1);color:var(--core);}
+.ctx-label{font-size:.6rem;color:var(--text-dim);flex:1;letter-spacing:.04em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .input-row{display:flex;align-items:center;}
-#input-field{flex:1;padding:.85rem 1.25rem;background:transparent;border:none;outline:none;color:var(--text);font-family:'DM Mono',monospace;font-size:.78rem;letter-spacing:.03em;}
+#input-field{flex:1;padding:.8rem 1.2rem;background:transparent;border:none;outline:none;color:var(--text);font-family:'DM Mono',monospace;font-size:.8rem;letter-spacing:.03em;}
 #input-field::placeholder{color:var(--text-muted);}
-#input-send{padding:.75rem 1.25rem;background:transparent;border:none;border-left:.5px solid var(--border);color:var(--core);cursor:pointer;font-size:1rem;font-family:'DM Mono',monospace;transition:background .2s;}
+#input-send{padding:.7rem 1.2rem;background:transparent;border:none;border-left:.5px solid var(--border);color:var(--core);cursor:pointer;font-size:1rem;transition:background .2s;}
 #input-send:hover{background:var(--core-glow);}
 
-/* ── HINT / SUGGESTIONS ───────────────── */
-#hint{position:fixed;bottom:6rem;left:50%;transform:translateX(-50%);font-size:.62rem;letter-spacing:.2em;color:var(--text-dim);text-transform:uppercase;text-align:center;transition:opacity .5s;white-space:nowrap;pointer-events:none;}
-#suggestions{position:fixed;bottom:7.2rem;left:50%;transform:translateX(-50%);width:min(640px,92vw);display:flex;flex-wrap:wrap;gap:.4rem;justify-content:center;opacity:0;transition:opacity .4s;}
-#suggestions.visible{opacity:1;}
-.sug-btn{font-size:.62rem;padding:.3rem .7rem;background:transparent;border:.5px solid var(--border);border-radius:20px;color:var(--text-muted);cursor:pointer;font-family:'DM Mono',monospace;letter-spacing:.05em;transition:color .2s,border-color .2s,background .2s;}
-.sug-btn:hover{color:var(--text);border-color:var(--core);background:rgba(167,139,250,.06);}
+/* Stage 2 – suggestion layer */
+#sug-layer{margin-top:.45rem;display:none;}
+#sug-layer.on{display:block;}
+.sug-card{background:var(--bg2);border:.5px solid var(--border);border-radius:10px;padding:.85rem 1rem;}
+.sug-label{font-size:.55rem;letter-spacing:.2em;text-transform:uppercase;color:var(--text-dim);margin-bottom:.55rem;}
+.sug-opts{display:flex;flex-direction:column;gap:.3rem;}
+.sug-btn{font-size:.7rem;padding:.4rem .75rem;background:transparent;border:.5px solid var(--border);border-radius:6px;color:var(--text-muted);cursor:pointer;font-family:'DM Mono',monospace;text-align:left;transition:all .15s;display:flex;align-items:center;gap:.5rem;}
+.sug-btn:hover{color:var(--text);border-color:var(--q);background:rgba(96,165,250,.05);}
+.sug-arrow{color:var(--text-dim);font-size:.65rem;}
 
-/* ── PANEL ────────────────────────────── */
+/* Stage 3 – question composer */
+#q-composer{background:var(--bg2);border:.5px solid var(--border-bright);border-radius:10px;padding:1rem;margin-top:.45rem;display:none;}
+#q-composer.on{display:block;}
+.qc-title{font-size:.55rem;letter-spacing:.2em;text-transform:uppercase;color:var(--text-dim);margin-bottom:.65rem;}
+.qc-preview{font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.75rem;min-height:1.6rem;letter-spacing:.02em;}
+.qc-slots{display:flex;flex-direction:column;gap:.5rem;margin-bottom:.75rem;}
+.qc-slot-label{font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--text-dim);margin-bottom:.3rem;}
+.chip-row{display:flex;flex-wrap:wrap;gap:.3rem;padding:.4rem .5rem;background:rgba(255,255,255,.02);border:.5px solid var(--border);border-radius:6px;}
+.chip{padding:.25rem .65rem;border-radius:14px;font-size:.62rem;font-family:'DM Mono',monospace;cursor:pointer;border:.5px solid var(--border);color:var(--text-muted);transition:all .15s;}
+.chip.ctx{border-color:rgba(167,139,250,.2);color:rgba(167,139,250,.6);}
+.chip.tmpl{border-color:rgba(52,211,153,.2);color:rgba(52,211,153,.6);}
+.chip.sel{border-color:var(--core)!important;color:var(--core)!important;background:rgba(167,139,250,.06);}
+.chip.sel.tmpl{border-color:var(--a)!important;color:var(--a)!important;background:rgba(52,211,153,.05);}
+.topic-inp{background:transparent;border:none;border-bottom:.5px solid var(--border-bright);outline:none;color:var(--q);font-family:'DM Mono',monospace;font-size:.75rem;padding:.15rem .35rem;width:150px;letter-spacing:.04em;}
+.topic-inp::placeholder{color:var(--text-dim);}
+.qc-actions{display:flex;gap:.5rem;justify-content:flex-end;}
+.qc-btn{padding:.4rem .9rem;border-radius:7px;font-size:.62rem;font-family:'DM Mono',monospace;cursor:pointer;transition:all .15s;letter-spacing:.07em;}
+.qc-ok{background:rgba(52,211,153,.1);border:.5px solid rgba(52,211,153,.3);color:var(--a);}
+.qc-ok:hover{background:rgba(52,211,153,.18);}
+.qc-cancel{background:transparent;border:.5px solid var(--border);color:var(--text-muted);}
+.qc-cancel:hover{color:var(--text);}
+
+/* Stage 4 – facet panel */
+#facet-panel{background:var(--bg2);border:.5px solid rgba(52,211,153,.2);border-radius:10px;padding:1rem;margin-top:.45rem;display:none;}
+#facet-panel.on{display:block;}
+.fp-q{font-family:'DM Serif Display',serif;font-size:1rem;color:var(--text);margin-bottom:.75rem;line-height:1.5;}
+.fp-list{display:flex;flex-direction:column;gap:.3rem;}
+.fp-row{display:flex;align-items:center;gap:.6rem;padding:.4rem .6rem;border:.5px solid var(--border);border-radius:7px;transition:border-color .15s;}
+.fp-row:focus-within{border-color:var(--a);}
+.fp-row.has-val{border-color:rgba(52,211,153,.25);background:rgba(52,211,153,.02);}
+.fp-key{font-size:.55rem;letter-spacing:.12em;text-transform:uppercase;color:var(--text-dim);min-width:90px;}
+.fp-inp{background:transparent;border:none;outline:none;color:var(--a);font-family:'DM Mono',monospace;font-size:.7rem;flex:1;letter-spacing:.02em;}
+.fp-inp::placeholder{color:var(--text-dim);}
+.fp-val{font-size:.7rem;color:var(--text);flex:1;}
+.fp-actions{display:flex;gap:.5rem;justify-content:space-between;margin-top:.75rem;align-items:center;}
+.fp-skip{font-size:.6rem;color:var(--text-dim);background:transparent;border:none;cursor:pointer;font-family:'DM Mono',monospace;}
+.fp-skip:hover{color:var(--text-muted);}
+
+/* PANEL */
 #panel{position:fixed;top:50%;right:-400px;transform:translateY(-50%);width:360px;max-height:78vh;background:var(--panel);border:.5px solid var(--border-bright);border-radius:12px;padding:1.5rem;transition:right .4s cubic-bezier(.16,1,.3,1);overflow-y:auto;z-index:50;}
 #panel.open{right:1.5rem;}
 .panel-close{position:absolute;top:1rem;right:1rem;background:transparent;border:none;color:var(--text-muted);cursor:pointer;font-size:.9rem;font-family:'DM Mono',monospace;}
 .panel-close:hover{color:var(--text);}
-.panel-type-badge{display:inline-block;font-size:.5rem;letter-spacing:.3em;text-transform:uppercase;padding:.25rem .6rem;border-radius:4px;margin-bottom:.75rem;}
-.badge-question{background:rgba(96,165,250,.12);color:var(--q);}
-.badge-answer{background:rgba(52,211,153,.12);color:var(--a);}
-.badge-entity{background:rgba(244,114,182,.12);color:var(--ent);}
-.badge-decision{background:rgba(245,158,11,.12);color:var(--dec);}
-.badge-context{background:rgba(148,163,184,.08);color:var(--ctx);}
-.badge-core{background:rgba(167,139,250,.12);color:var(--core);}
-.panel-title{font-family:'DM Serif Display',serif;font-size:1.05rem;color:var(--text);margin-bottom:.75rem;line-height:1.5;}
-.panel-meta{font-size:.58rem;color:var(--text-dim);margin-bottom:1rem;letter-spacing:.08em;}
-.panel-section{margin-bottom:1rem;}
-.panel-label{font-size:.55rem;letter-spacing:.25em;text-transform:uppercase;color:var(--text-muted);margin-bottom:.4rem;}
-.panel-body-text{font-size:.68rem;color:var(--text-muted);line-height:1.7;}
-.panel-divider{border:none;border-top:.5px solid var(--border);margin:.75rem 0;}
-
-/* Facets */
-.facet-list{display:flex;flex-direction:column;gap:.35rem;margin-top:.25rem;}
-.facet-item{display:flex;gap:.6rem;align-items:flex-start;padding:.45rem .6rem;border:.5px solid var(--border);border-radius:6px;}
-.facet-key{font-size:.55rem;letter-spacing:.1em;color:var(--text-dim);text-transform:uppercase;min-width:70px;padding-top:.05rem;}
-.facet-val{font-size:.68rem;color:var(--text);flex:1;line-height:1.5;}
-.facet-val.empty{color:var(--text-dim);font-style:italic;}
-.facet-val input{background:transparent;border:none;outline:none;color:var(--text);font-family:'DM Mono',monospace;font-size:.68rem;width:100%;letter-spacing:.02em;}
-.facet-val input::placeholder{color:var(--text-dim);}
-
-/* Answers inline */
-.answer-list{display:flex;flex-direction:column;gap:.4rem;margin-top:.25rem;}
-.answer-item{padding:.45rem .6rem;border:.5px solid rgba(52,211,153,.15);border-radius:6px;font-size:.68rem;color:var(--text-muted);line-height:1.5;}
-.answer-item strong{color:var(--a);font-weight:400;}
-
-/* Action buttons */
-.panel-actions{display:flex;flex-direction:column;gap:.35rem;margin-top:.25rem;}
-.panel-action-btn{font-size:.62rem;padding:.35rem .7rem;background:transparent;border:.5px solid var(--border);border-radius:6px;color:var(--text-muted);cursor:pointer;font-family:'DM Mono',monospace;text-align:left;transition:color .2s,border-color .2s;}
-.panel-action-btn:hover{color:var(--text);border-color:var(--core);}
-.panel-answer-btn{border-color:rgba(52,211,153,.2);color:var(--a);}
-.panel-answer-btn:hover{border-color:var(--a);background:rgba(52,211,153,.04);}
-
-/* Tags */
-.tag-row{display:flex;flex-wrap:wrap;gap:.35rem;}
-.tag-pill{font-size:.58rem;padding:.2rem .55rem;border:.5px solid var(--border-bright);border-radius:4px;color:var(--core);}
-
-/* Family badge */
-.family-badge{display:inline-block;font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;padding:.15rem .5rem;border-radius:10px;background:rgba(96,165,250,.08);color:var(--q);margin-left:.5rem;}
-
-/* Question status */
-.q-status{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:.4rem;vertical-align:middle;}
-.q-open{background:var(--q);box-shadow:0 0 5px var(--q);}
-.q-answered{background:var(--a);box-shadow:0 0 5px var(--a);}
+.p-badge{display:inline-block;font-size:.5rem;letter-spacing:.3em;text-transform:uppercase;padding:.25rem .6rem;border-radius:4px;margin-bottom:.75rem;}
+.pb-q{background:rgba(96,165,250,.12);color:var(--q);}
+.pb-e{background:rgba(244,114,182,.12);color:var(--ent);}
+.pb-d{background:rgba(245,158,11,.12);color:var(--dec);}
+.pb-core{background:rgba(167,139,250,.12);color:var(--core);}
+.p-title{font-family:'DM Serif Display',serif;font-size:1.05rem;color:var(--text);margin-bottom:.6rem;line-height:1.5;}
+.p-meta{font-size:.58rem;color:var(--text-dim);margin-bottom:1rem;letter-spacing:.08em;}
+.p-section{margin-bottom:.9rem;}
+.p-label{font-size:.55rem;letter-spacing:.25em;text-transform:uppercase;color:var(--text-muted);margin-bottom:.4rem;}
+.p-text{font-size:.68rem;color:var(--text-muted);line-height:1.7;}
+.p-divider{border:none;border-top:.5px solid var(--border);margin:.7rem 0;}
+.p-answers{display:flex;flex-direction:column;gap:.3rem;}
+.p-ans{padding:.4rem .6rem;border:.5px solid rgba(52,211,153,.15);border-radius:6px;font-size:.68rem;color:var(--text-muted);}
+.p-ans strong{color:var(--a);font-weight:400;margin-right:.35rem;}
+.p-btn{width:100%;font-size:.62rem;padding:.4rem .75rem;background:transparent;border:.5px solid var(--border);border-radius:6px;color:var(--text-muted);cursor:pointer;font-family:'DM Mono',monospace;text-align:left;transition:color .2s,border-color .2s;margin-top:.3rem;}
+.p-btn:hover{color:var(--text);border-color:var(--core);}
+.p-tags{display:flex;flex-wrap:wrap;gap:.3rem;}
+.p-tag{font-size:.55rem;padding:.18rem .5rem;border:.5px solid var(--border-bright);border-radius:4px;color:var(--core);}
+.qdot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:.4rem;vertical-align:middle;}
+.qdot.open{background:var(--q);box-shadow:0 0 4px var(--q);}
+.qdot.answered{background:var(--a);box-shadow:0 0 4px var(--a);}
 
 ::-webkit-scrollbar{width:3px;}
 ::-webkit-scrollbar-track{background:transparent;}
@@ -151,11 +168,11 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;heig
   <div class="boot-card">
     <div class="boot-card-title">Evrenini nerede saklayalım?</div>
     <button class="btn-google" onclick="connectGoogle()">
-      <svg viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+      <svg viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
       Google Drive ile bağlan
     </button>
     <button class="btn-local" onclick="connectLocal()">Yerel cihazda sakla</button>
-    <div class="boot-note">Google Drive: universe.json Drive'ında güvenli saklanır.<br>Yerel: Veri yalnızca bu tarayıcıda kalır.</div>
+    <div class="boot-note">Google Drive: universe.json güvenli saklanır.<br>Yerel: Veri yalnızca bu tarayıcıda kalır.</div>
   </div>
 </div>
 
@@ -173,945 +190,721 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;heig
     <div id="answer-count">0 cevap</div>
   </div>
 
-  <!-- Node legend -->
   <div id="legend">
     <div class="legend-row"><div class="legend-dot" style="background:var(--q)"></div>soru</div>
-    <div class="legend-row"><div class="legend-dot" style="background:var(--a)"></div>cevap</div>
     <div class="legend-row"><div class="legend-dot" style="background:var(--ent)"></div>varlık</div>
     <div class="legend-row"><div class="legend-dot" style="background:var(--dec)"></div>karar</div>
   </div>
 
-  <div id="hint">Kendine bir soru sor</div>
+  <div id="hint">bir kişi, konu veya soru yaz</div>
 
-  <div id="suggestions"></div>
+  <!-- COMPOSER -->
+  <div id="composer">
 
-  <div id="input-bar">
-    <div class="input-mode-hint" id="mode-hint">
-      <span class="input-mode-pill pill-ctx" id="mode-pill">MOD</span>
-      <span id="mode-label">ne sormak istiyorsun?</span>
+    <!-- Stage 1: Free Input -->
+    <div id="input-bar">
+      <div class="input-top">
+        <span class="mode-chip def" id="mode-chip">GİRİŞ</span>
+        <span class="ctx-label" id="ctx-label">ne sormak ya da hatırlamak istiyorsun?</span>
+      </div>
+      <div class="input-row">
+        <input id="input-field" type="text" placeholder="bir kişi, yer, konu, soru…" autocomplete="off"/>
+        <button id="input-send" onclick="handleFreeInput()">→</button>
+      </div>
     </div>
-    <div class="input-row">
-      <input id="input-field" type="text" placeholder="Bir soru sor, bir cevap ver, bir karar yaz…" autocomplete="off"/>
-      <button id="input-send" onclick="handleInput()">→</button>
-    </div>
-  </div>
 
+    <!-- Stage 2: Suggestion Layer -->
+    <div id="sug-layer">
+      <div class="sug-card">
+        <div class="sug-label" id="sug-label">Bu ne olabilir?</div>
+        <div class="sug-opts" id="sug-opts"></div>
+      </div>
+    </div>
+
+    <!-- Stage 3: Question Composer -->
+    <div id="q-composer">
+      <div class="qc-title">Soruyu Kur</div>
+      <div class="qc-preview" id="qc-preview">—</div>
+      <div class="qc-slots" id="qc-slots"></div>
+      <div class="qc-actions">
+        <button class="qc-btn qc-cancel" onclick="resetComposer()">iptal</button>
+        <button class="qc-btn qc-ok" onclick="confirmComposer()">soruyu kaydet →</button>
+      </div>
+    </div>
+
+    <!-- Stage 4: Facet Answer Panel -->
+    <div id="facet-panel">
+      <div class="fp-q" id="fp-q">—</div>
+      <div class="fp-list" id="fp-list"></div>
+      <div class="fp-actions">
+        <button class="fp-skip" onclick="skipFacets()">şimdi değil →</button>
+        <button class="qc-btn qc-ok" onclick="saveFacets()">kaydet</button>
+      </div>
+    </div>
+
+  </div><!-- /COMPOSER -->
+
+  <!-- Detail Panel -->
   <div id="panel">
     <button class="panel-close" onclick="closePanel()">✕</button>
-    <div class="panel-type-badge badge-answer" id="panel-badge">entry</div>
-    <div class="panel-title" id="panel-title">—</div>
-    <div class="panel-meta" id="panel-meta">—</div>
-    <div id="panel-body"></div>
+    <div class="p-badge pb-q" id="p-badge">soru</div>
+    <div class="p-title" id="p-title">—</div>
+    <div class="p-meta" id="p-meta">—</div>
+    <div id="p-body"></div>
   </div>
 </div>
 
 <script>
-// ══════════════════════════════════════
+'use strict';
+
+// ═══════════════════════════════════════════
 // CONFIG
-// ══════════════════════════════════════
+// ═══════════════════════════════════════════
 const GOOGLE_CLIENT_ID = '557723915441-q49en6uqqkqm9s5fie14ejm6cak9eo6r.apps.googleusercontent.com';
-// API calls go through Cloudflare Worker proxy (OPENROUTER_API_KEY is secret on Worker)
-const AI_PROXY_URL = 'https://broad-limit-fea7.ezopshop.workers.dev/chat';
-const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
-const UNIVERSE_FILENAME = 'universe.json';
-const FOLDER_NAME = 'SINGULAR';
-const SESSION_KEY = 'singular_session';
+const AI_PROXY_URL     = 'https://broad-limit-fea7.ezopshop.workers.dev/chat';
+const DRIVE_SCOPE      = 'https://www.googleapis.com/auth/drive.file';
+const UNIVERSE_FILE    = 'universe.json';
+const FOLDER_NAME      = 'SINGULAR';
+const SESSION_KEY      = 'singular_session';
 
-// ══════════════════════════════════════
-// QUESTION FAMILIES
-// ══════════════════════════════════════
-const QUESTION_FAMILIES = {
-  identity:     { label: 'kimlik',    patterns: [/ben kim/i, /kim olduğ/i, /ben neyim/i, /ismim/i, /adım/i] },
-  relationship: { label: 'ilişki',    patterns: [/ailem/i, /annem/i, /babam/i, /kardeş/i, /arkadaş/i, /biri kim/i, /kim kim/i] },
-  definition:   { label: 'tanım',     patterns: [/nedir\?/i, / nedir/i, /ne demek/i, /anlamı ne/i] },
-  access:       { label: 'erişim',    patterns: [/şifre/i, /nerede/i, /nasıl ulaş/i, /arşiv/i, /hesap/i, /link/i] },
-  memory:       { label: 'hafıza',    patterns: [/ne olmuştu/i, /geçmişte/i, /hatırlıyor musun/i, /ne zaman/i, /oldu/i] },
-  direction:    { label: 'yön',       patterns: [/ne yapmalı/i, /ne istiyorum/i, /nasıl yapabilirim/i, /plan/i, /hedef/i, /önce ne/i] },
-  state:        { label: 'durum',     patterns: [/şu an/i, /neredeyim/i, /ne oluyor/i, /bugün/i, /durumum/i] }
-};
+// ═══════════════════════════════════════════
+// QUESTION GRAMMAR
+// ═══════════════════════════════════════════
+const Q_TEMPLATES = [
+  {id:'kim',      label:'kim',            family:'identity',   suffix:'kim?'},
+  {id:'nedir',    label:'nedir',          family:'definition', suffix:'nedir?'},
+  {id:'nerede',   label:'nerede',         family:'location',   suffix:'nerede?'},
+  {id:'nezaman',  label:'ne zaman',       family:'time',       suffix:'ne zaman?'},
+  {id:'nasil',    label:'nasıl',          family:'method',     suffix:'nasıl?'},
+  {id:'neden',    label:'neden',          family:'cause',      suffix:'neden önemli?'},
+  {id:'yapmalı',  label:'ne yapmalıyım',  family:'decision',   suffix:'ne yapmalıyım?'},
+  {id:'kiminle',  label:'kiminle',        family:'relation',   suffix:'kiminle?'},
+  {id:'baname',   label:'bana ne',        family:'value',      suffix:'bana ne ifade ediyor?'},
+];
 
-// FACETS per family
+const Q_CONTEXTS = ['benim','bu','o','biz','—'];
+
 const FAMILY_FACETS = {
-  identity:     ['isim','köken','roller','değerler','hedef','beni tanımlayan'],
-  relationship: ['kişi','ilişki türü','nasıl tanıştık','önemli anlar'],
-  definition:   ['tanım','örnek','ilişkili kavramlar','önemi'],
-  access:       ['konum/link','şifre/anahtar','notlar'],
-  memory:       ['ne oldu','ne zaman','kimler vardı','sonuç'],
-  direction:    ['seçenekler','engeller','karar','ilk adım'],
-  state:        ['şu anki durum','nedeni','hissettiklerim','sonraki adım']
+  identity:   ['isim','köken','roller','değerler','hedef'],
+  definition: ['tanım','örnek','ilişkili kavramlar','önemi'],
+  location:   ['adres / link','nasıl ulaşırım','notlar'],
+  time:       ['tarih','tekrar eder mi','notlar'],
+  method:     ['adımlar','gereksinimler','notlar'],
+  cause:      ['sebep','etkisi','önemi'],
+  decision:   ['seçenekler','engeller','karar','ilk adım'],
+  relation:   ['kişi / grup','ilişki türü','notlar'],
+  value:      ['neden önemli','bağlantısı','notlar'],
 };
 
-// ══════════════════════════════════════
+// ═══════════════════════════════════════════
 // STATE
-// ══════════════════════════════════════
+// ═══════════════════════════════════════════
 const S = {
-  mode: null,
-  accessToken: null,
-  driveFileId: null,
-  driveFolderId: null,
-  universe: null,
-  graphNodes: [],        // {id, x, y, kind, ref}
-  pendingAnswerTo: null, // question id user is answering
-  enrichQueue: [],
-  enrichRunning: false
+  mode:null, accessToken:null, driveFileId:null, driveFolderId:null,
+  universe:null,
+  graphNodes:[],
+  // Composer
+  cTopic:null, cContext:'—', cTemplate:'nedir',
+  // Facets
+  fQuestion:null, fInputs:{},
 };
 
-// ══════════════════════════════════════
-// SEMANTIC ENRICHMENT via Cloudflare Worker → OpenRouter
-// ══════════════════════════════════════
-async function enrichQuestion(q) {
-  if (!AI_PROXY_URL) return;
-  const context = S.universe.questions.slice(-10).map(x => `[${x.id}]: ${x.text}`).join('\n');
-  const prompt = `Sen SINGULAR adlı soru-merkezli kişisel hafıza motorunun anlam motorusun. Kullanıcı bir soru sordu. Sadece JSON döndür, başka hiçbir şey yazma.
-
-Mevcut sorular:
-${context || '(ilk soru)'}
-
-Yeni soru: "${q.text}"
-Aile: ${q.family}
-
-Yanıt formatı:
-{
-  "summary": "sorunun özü (max 6 kelime, Türkçe)",
-  "suggested_facets": ["bu soruya cevap verirken ele alınması gereken 3-4 boyut"],
-  "related_question_ids": ["mevcut sorulardan gerçekten ilişkili olanların ID'leri"],
-  "next_questions": ["bu sorudan doğan 2-3 yeni soru"]
-}`;
-
-  try {
-    const res = await fetch(AI_PROXY_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'anthropic/claude-sonnet-4-5',
-        max_tokens: 600,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
-    const data = await res.json();
-    const raw = data.choices?.[0]?.message?.content || '';
-    const cleaned = raw.replace(/```json|```/g, '').trim();
-    const parsed = JSON.parse(cleaned);
-
-    q.semantic = {
-      summary: parsed.summary || null,
-      suggested_facets: parsed.suggested_facets || [],
-      related_question_ids: parsed.related_question_ids || [],
-      next_questions: parsed.next_questions || []
-    };
-    q.semantic_enriched = true;
-
-    // Update node label with summary
-    const nodeEl = svgEl && svgEl.querySelector(`[data-id="${q.id}"] text`);
-    if (nodeEl && q.semantic.summary) {
-      const short = q.semantic.summary.length > 14 ? q.semantic.summary.slice(0,14)+'…' : q.semantic.summary;
-      nodeEl.textContent = short;
-    }
-
-    // Show next question suggestions
-    if (q.semantic.next_questions && q.semantic.next_questions.length) {
-      showSuggestions(q.semantic.next_questions);
-    }
-
-    // Draw semantic links to related questions
-    if (q.semantic.related_question_ids && q.semantic.related_question_ids.length) {
-      const fromNode = S.graphNodes.find(n => n.id === q.id);
-      q.semantic.related_question_ids.forEach(relId => {
-        const toNode = S.graphNodes.find(n => n.id === relId);
-        if (!fromNode || !toNode) return;
-        const line = svgMk('line');
-        line.setAttribute('x1', fromNode.x); line.setAttribute('y1', fromNode.y);
-        line.setAttribute('x2', toNode.x);   line.setAttribute('y2', toNode.y);
-        line.setAttribute('class','g-link answer-link');
-        svgEl.insertBefore(line, svgEl.children[5] || null);
-      });
-    }
-
-    // Refresh panel if this question is open
-    const panelTitle = document.getElementById('panel-title');
-    if (document.getElementById('panel').classList.contains('open') &&
-        panelTitle.dataset.entryId === q.id) {
-      openPanelQuestion(q.id);
-    }
-
-    await saveUniverse();
-  } catch(err) {
-    console.warn('Semantic enrichment failed:', err);
-  }
-}
-
-async function runEnrichQueue() {
-  if (S.enrichRunning || S.enrichQueue.length === 0) return;
-  S.enrichRunning = true;
-  while (S.enrichQueue.length > 0) {
-    const id = S.enrichQueue.shift();
-    const q = S.universe.questions.find(x => x.id === id);
-    if (q && !q.semantic_enriched) await enrichQuestion(q);
-  }
-  S.enrichRunning = false;
-}
-
-// ══════════════════════════════════════
+// ═══════════════════════════════════════════
 // UNIVERSE MODEL
-// ══════════════════════════════════════
+// ═══════════════════════════════════════════
 function createUniverse() {
   const now = new Date().toISOString();
   return {
-    meta: { version:'1.0', created_at: now, updated_at: now },
-    profile: { name: null },
-    entries: [],    // raw log
-    questions: [],
-    answers: [],
-    entities: [],
-    links: []
+    meta:{version:'2.0',created_at:now,updated_at:now},
+    profile:{name:null},
+    entries:[], questions:[], answers:[], entities:[], links:[]
   };
 }
 
-// Eski formattan yeni formata geçiş
 function migrateUniverse(u) {
   if (!u) return createUniverse();
-  if (!u.questions)  u.questions  = [];
-  if (!u.answers)    u.answers    = [];
-  if (!u.entities)   u.entities   = [];
-  if (!u.links)      u.links      = [];
-  if (!u.entries)    u.entries    = [];
-  if (!u.profile)    u.profile    = { name: null };
-  if (!u.meta)       u.meta       = { version:'1.0', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
-  u.meta.version = '1.0';
+  ['questions','answers','entities','links','entries'].forEach(k=>{ if(!u[k]) u[k]=[]; });
+  if (!u.profile) u.profile = {name:null};
+  if (!u.meta)    u.meta = {version:'2.0',created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
   return u;
 }
 
-function uid(prefix) {
-  return prefix + '_' + Date.now() + '_' + Math.random().toString(36).slice(2,5);
+function uid(p) { return p+'_'+Date.now()+'_'+Math.random().toString(36).slice(2,5); }
+
+function rawEntry(text,kind,qId,aId) {
+  const e={id:uid('e'),text,created_at:new Date().toISOString(),kind,question_id:qId||null,answer_id:aId||null};
+  S.universe.entries.push(e); return e;
 }
 
-// ── Entry ──────────────────────────────
-function addEntry(text, kind, questionId, answerId) {
-  const e = { id: uid('e'), text, created_at: new Date().toISOString(),
-               kind, question_id: questionId || null, answer_id: answerId || null };
-  S.universe.entries.push(e);
-  return e;
-}
-
-// ── Question ───────────────────────────
-function addQuestion(text) {
-  const family = detectFamily(text);
-  const q = {
-    id: uid('q'),
-    text,
-    family,
-    status: 'open',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  };
+function mkQuestion({text,template,topic,context,family}) {
+  const q={id:uid('q'),text,template:template||null,topic:topic||null,context:context||null,
+    family:family||'definition',status:'open',
+    created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
   S.universe.questions.push(q);
-  addEntry(text, 'question_raw', q.id, null);
+  rawEntry(text,'question_raw',q.id,null);
   return q;
 }
 
-// ── Answer ─────────────────────────────
-function addAnswer(questionId, text, facet) {
-  const a = {
-    id: uid('a'),
-    question_id: questionId,
-    facet: facet || 'genel',
-    value: text,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  };
+function mkAnswer(qId,facet,value) {
+  const a={id:uid('a'),question_id:qId,facet:facet||'genel',value,
+    created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
   S.universe.answers.push(a);
-  addEntry(text, 'answer_raw', questionId, a.id);
-
-  // Update question status
-  const q = S.universe.questions.find(q => q.id === questionId);
-  if (q) { q.status = 'answered'; q.updated_at = new Date().toISOString(); }
-
-  // Extract entities from answer
-  extractEntities(a);
-
+  rawEntry(value,'answer_raw',qId,a.id);
+  const q=S.universe.questions.find(x=>x.id===qId);
+  if(q){q.status='answered';q.updated_at=new Date().toISOString();}
+  extractEntity(a);
   return a;
 }
 
-// ── Entity ─────────────────────────────
-function extractEntities(answer) {
-  const text = answer.value;
-  // Simple extraction: @mentions = person
-  const mentions = text.match(/@([\wğüşıöçĞÜŞİÖÇ]+)/g) || [];
-  mentions.forEach(m => {
-    const label = m.slice(1);
-    if (!S.universe.entities.find(e => e.slug === label.toLowerCase())) {
-      const ent = { id: uid('ent'), type:'person', label, slug: label.toLowerCase(), created_at: new Date().toISOString() };
-      S.universe.entities.push(ent);
-      S.universe.links.push({ id: uid('l'), from: answer.id, to: ent.id, type:'mentions', created_at: new Date().toISOString() });
-      addEntityNode(ent);
-    }
-  });
+function extractEntity(answer) {
+  const t=(answer.value||'').trim();
+  // @mention → person
+  (t.match(/@([\wğüşıöçĞÜŞİÖÇ]+)/g)||[]).forEach(m=>upsertEntity('person',m.slice(1)));
 }
 
-// ── Context / Decision ─────────────────
-function addContextEntry(text) {
-  const isDecision = /(karar verdim|yapacağım|planım|hedefim)/i.test(text);
-  const kind = isDecision ? 'decision' : 'context';
-  addEntry(text, kind, null, null);
-
-  if (isDecision) {
-    const dec = { id: uid('dec'), type:'decision', label: text.slice(0,60), slug: uid('d'), created_at: new Date().toISOString() };
-    S.universe.entities.push(dec);
-    addEntityNode(dec, 'decision');
-  }
+function upsertEntity(type,label) {
+  const slug=label.toLowerCase().replace(/\s+/g,'_');
+  if(S.universe.entities.find(e=>e.slug===slug)) return;
+  const ent={id:uid('ent'),type,label,slug,created_at:new Date().toISOString()};
+  S.universe.entities.push(ent);
+  addEntityNode(ent);
 }
 
-// ══════════════════════════════════════
-// QUESTION FAMILY DETECTION
-// ══════════════════════════════════════
 function detectFamily(text) {
-  for (const [fam, cfg] of Object.entries(QUESTION_FAMILIES)) {
-    if (cfg.patterns.some(p => p.test(text))) return fam;
-  }
+  const t=text.toLowerCase();
+  if(/\bkim\b/.test(t)) return 'identity';
+  if(/nedir/.test(t))   return 'definition';
+  if(/nerede/.test(t))  return 'location';
+  if(/ne zaman/.test(t))return 'time';
+  if(/nasıl/.test(t))   return 'method';
+  if(/neden/.test(t))   return 'cause';
+  if(/yapmal/.test(t))  return 'decision';
+  if(/kiminle/.test(t)) return 'relation';
+  if(/bana ne/.test(t)) return 'value';
   return 'definition';
 }
 
-// ══════════════════════════════════════
-// INPUT CLASSIFICATION
-// ══════════════════════════════════════
-function classifyInput(text) {
-  const t = text.trim();
-  if (t.endsWith('?')) return 'question';
-  if (S.pendingAnswerTo) return 'answer';
-  if (/(karar verdim|yapacağım|planım|hedefim)/i.test(t)) return 'decision';
-  return 'context';
-}
-
-// ══════════════════════════════════════
-// INPUT HANDLER
-// ══════════════════════════════════════
-async function handleInput() {
-  const field = document.getElementById('input-field');
-  const text = field.value.trim();
-  if (!text) return;
-  field.value = '';
-  hideSuggestions();
-
-  const kind = classifyInput(text);
-
-  if (kind === 'question') {
-    const q = addQuestion(text);
-    addQuestionNode(q);
-    setPendingAnswer(q);
-    openPanelQuestion(q.id);
-    // Queue semantic enrichment via Worker
-    S.enrichQueue.push(q.id);
-    runEnrichQueue();
-  } else if (kind === 'answer' && S.pendingAnswerTo) {
-    const a = addAnswer(S.pendingAnswerTo, text, null);
-    addAnswerNode(a, S.pendingAnswerTo);
-    drawAnswerLink(a.id, S.pendingAnswerTo);
-    clearPendingAnswer();
-    openPanelAnswer(a.id);
-  } else {
-    // context / decision
-    addContextEntry(text);
-  }
-
-  await saveUniverse();
-  updateCounters();
-}
-
-// ══════════════════════════════════════
-// INPUT MODE UI
-// ══════════════════════════════════════
-function setPendingAnswer(question) {
-  S.pendingAnswerTo = question.id;
-  const pill = document.getElementById('mode-pill');
-  const label = document.getElementById('mode-label');
-  pill.textContent = 'CEVAP';
-  pill.className = 'input-mode-pill pill-a';
-  label.textContent = `"${question.text.slice(0,40)}${question.text.length>40?'…':''}" — cevabını yaz veya soru ile devam et`;
-  document.getElementById('input-field').placeholder = 'Cevabını yaz… (yeni soru için ? ile bitir)';
-  showSuggestions(getFacetSuggestions(question.family));
-}
-
-function clearPendingAnswer() {
-  S.pendingAnswerTo = null;
-  const pill = document.getElementById('mode-pill');
-  const label = document.getElementById('mode-label');
-  pill.textContent = 'SORU';
-  pill.className = 'input-mode-pill pill-q';
-  label.textContent = 'ne sormak istiyorsun?';
-  document.getElementById('input-field').placeholder = 'Bir soru sor, bir cevap ver, bir karar yaz…';
-}
-
-function getFacetSuggestions(family) {
-  const facets = FAMILY_FACETS[family] || [];
-  return facets.map(f => f + ':');
-}
-
 function updateCounters() {
-  const qc = S.universe.questions.length;
-  const ac = S.universe.answers.length;
-  document.getElementById('node-count').textContent = qc + (qc===1?' soru':' soru');
-  document.getElementById('answer-count').textContent = ac + (ac===1?' cevap':' cevap');
+  document.getElementById('node-count').textContent   = S.universe.questions.length+' soru';
+  document.getElementById('answer-count').textContent = S.universe.answers.length+' cevap';
 }
 
-// ══════════════════════════════════════
-// COSMOS ENGINE
-// ══════════════════════════════════════
-const NS = 'http://www.w3.org/2000/svg';
-let svgEl, cx, cy;
+// ═══════════════════════════════════════════
+// FREE INPUT HANDLER
+// ═══════════════════════════════════════════
+function handleFreeInput() {
+  const field = document.getElementById('input-field');
+  const raw   = field.value.trim();
+  if (!raw) return;
 
-const NODE_STYLES = {
-  question: { fill:'rgba(96,165,250,.15)',  stroke:'#60a5fa',  r:13 },
-  answer:   { fill:'rgba(52,211,153,.12)',  stroke:'#34d399',  r:9  },
-  entity:   { fill:'rgba(244,114,182,.12)', stroke:'#f472b6',  r:7  },
-  decision: { fill:'rgba(245,158,11,.12)',  stroke:'#f59e0b',  r:10 },
-  context:  { fill:'rgba(148,163,184,.08)', stroke:'#94a3b8',  r:6  }
-};
-
-function svgMk(tag) { return document.createElementNS(NS, tag); }
-
-function initCosmos() {
-  svgEl = document.getElementById('cosmos');
-  cx = window.innerWidth / 2;
-  cy = window.innerHeight / 2;
-  drawOrbits();
-  drawCore();
-  animateCore();
-  window.addEventListener('resize', () => {
-    cx = window.innerWidth / 2; cy = window.innerHeight / 2;
-    svgEl.innerHTML = '';
-    drawOrbits(); drawCore(); animateCore();
-    rerenderAll();
-  });
-}
-
-function drawOrbits() {
-  [100,180,280,400].forEach(r => {
-    const c = svgMk('circle');
-    c.setAttribute('cx',cx); c.setAttribute('cy',cy);
-    c.setAttribute('r',r); c.setAttribute('class','orbit-ring');
-    svgEl.appendChild(c);
-  });
-}
-
-function drawCore() {
-  const g = svgMk('g'); g.id = 'core-g';
-  [[52,'core-inner'],[30,'core-outer'],[4,'core-dot']].forEach(([r,cls]) => {
-    const c = svgMk('circle');
-    c.setAttribute('cx',cx); c.setAttribute('cy',cy);
-    c.setAttribute('r',r); c.setAttribute('class',cls);
-    g.appendChild(c);
-  });
-  const pulse = svgMk('circle');
-  pulse.setAttribute('cx',cx); pulse.setAttribute('cy',cy);
-  pulse.setAttribute('r','30'); pulse.setAttribute('class','core-pulse');
-  pulse.id = 'pulse-ring'; g.appendChild(pulse);
-  const lbl = svgMk('text');
-  lbl.setAttribute('x',cx); lbl.setAttribute('y',cy+44);
-  lbl.setAttribute('text-anchor','middle');
-  lbl.setAttribute('fill','rgba(167,139,250,.3)');
-  lbl.setAttribute('font-size','7');
-  lbl.setAttribute('font-family','DM Mono,monospace');
-  lbl.setAttribute('letter-spacing','3');
-  lbl.textContent = 'SINGULAR'; g.appendChild(lbl);
-  g.style.cursor = 'pointer';
-  g.onclick = () => openPanelCore();
-  svgEl.appendChild(g);
-}
-
-function animateCore() {
-  const ring = document.getElementById('pulse-ring');
-  if (!ring) return;
-  let r = 30, op = 0.5;
-  (function step() {
-    r += 0.22; op -= 0.005;
-    if (r > 65) { r = 30; op = 0.5; }
-    ring.setAttribute('r',r); ring.setAttribute('opacity',op);
-    requestAnimationFrame(step);
-  })();
-}
-
-// ── Positioning ────────────────────────
-function getOrbit(nodeKind) {
-  return { question:160, answer:260, entity:360, decision:160, context:460 }[nodeKind] || 260;
-}
-
-function getPos(index, total, orbit) {
-  const angle = (index / Math.max(total,1)) * 2 * Math.PI - Math.PI / 2;
-  return { x: cx + orbit * Math.cos(angle), y: cy + orbit * Math.sin(angle) };
-}
-
-function countNodesOfKind(kind) {
-  return S.graphNodes.filter(n => n.kind === kind).length;
-}
-
-// ── Add nodes ──────────────────────────
-function addQuestionNode(q) {
-  const idx = countNodesOfKind('question');
-  const total = S.universe.questions.length;
-  const pos = getPos(idx, total, getOrbit('question'));
-  _addNode({ id: q.id, x: pos.x, y: pos.y, kind:'question', ref: q });
-}
-
-function addAnswerNode(a, questionId) {
-  // Place near its question node
-  const qNode = S.graphNodes.find(n => n.id === questionId);
-  let pos;
-  if (qNode) {
-    const angle = Math.atan2(qNode.y - cy, qNode.x - cx);
-    const spread = (Math.random() - 0.5) * 0.6;
-    const orbit = getOrbit('answer');
-    pos = { x: cx + orbit * Math.cos(angle + spread), y: cy + orbit * Math.sin(angle + spread) };
-  } else {
-    const idx = countNodesOfKind('answer');
-    pos = getPos(idx, S.universe.answers.length, getOrbit('answer'));
-  }
-  _addNode({ id: a.id, x: pos.x, y: pos.y, kind:'answer', ref: a });
-}
-
-function addEntityNode(ent, typeOverride) {
-  const kind = typeOverride || 'entity';
-  const idx = countNodesOfKind(kind);
-  const pos = getPos(idx, S.universe.entities.length, getOrbit(kind));
-  _addNode({ id: ent.id, x: pos.x, y: pos.y, kind, ref: ent });
-}
-
-function _addNode({ id, x, y, kind, ref }) {
-  S.graphNodes.push({ id, x, y, kind, ref });
-  const style = NODE_STYLES[kind] || NODE_STYLES.context;
-
-  const g = svgMk('g');
-  g.setAttribute('class','g-node'); g.setAttribute('data-id', id);
-  g.style.opacity = '0';
-
-  // Core link (for questions)
-  if (kind === 'question' || kind === 'decision') {
-    const link = svgMk('line');
-    link.setAttribute('x1',cx); link.setAttribute('y1',cy);
-    link.setAttribute('x2',x);  link.setAttribute('y2',y);
-    link.setAttribute('class','g-link core-link');
-    link.setAttribute('data-link-id', id);
-    svgEl.insertBefore(link, svgEl.children[5] || null);
-  }
-
-  const circle = svgMk('circle');
-  circle.setAttribute('cx',x); circle.setAttribute('cy',y);
-  circle.setAttribute('r', style.r);
-  circle.setAttribute('fill', style.fill);
-  circle.setAttribute('stroke', style.stroke);
-  circle.setAttribute('stroke-width', kind === 'question' ? '1' : '.5');
-  g.appendChild(circle);
-
-  const dot = svgMk('circle');
-  dot.setAttribute('cx',x); dot.setAttribute('cy',y);
-  dot.setAttribute('r','2.5'); dot.setAttribute('fill', style.stroke);
-  g.appendChild(dot);
-
-  const lbl = svgMk('text');
-  lbl.setAttribute('x',x); lbl.setAttribute('y', y + style.r + 11);
-  lbl.setAttribute('text-anchor','middle');
-  const labelText = ref?.text || ref?.label || ref?.value || '';
-  const short = labelText.length > 14 ? labelText.slice(0,14)+'…' : labelText;
-  lbl.textContent = short;
-  g.appendChild(lbl);
-
-  g.onclick = () => {
-    if (kind === 'question') openPanelQuestion(id);
-    else if (kind === 'answer') openPanelAnswer(id);
-    else openPanelEntity(id);
-  };
-
-  svgEl.appendChild(g);
-  requestAnimationFrame(() => { g.style.transition = 'opacity .6s'; g.style.opacity = '1'; });
-
-  if (S.universe.questions.length + S.universe.answers.length === 1) {
-    document.getElementById('hint').style.opacity = '0';
-  }
-}
-
-function drawAnswerLink(answerId, questionId) {
-  const aNode = S.graphNodes.find(n => n.id === answerId);
-  const qNode = S.graphNodes.find(n => n.id === questionId);
-  if (!aNode || !qNode) return;
-  const line = svgMk('line');
-  line.setAttribute('x1', qNode.x); line.setAttribute('y1', qNode.y);
-  line.setAttribute('x2', aNode.x); line.setAttribute('y2', aNode.y);
-  line.setAttribute('class','g-link answer-link');
-  svgEl.insertBefore(line, svgEl.children[5] || null);
-}
-
-function rerenderAll() {
-  document.querySelectorAll('.g-node,[data-link-id],.answer-link,.entity-link').forEach(el => el.remove());
-  const saved = [...S.graphNodes];
-  S.graphNodes = [];
-  saved.forEach(n => {
-    if (n.kind === 'question') addQuestionNode(n.ref);
-    else if (n.kind === 'answer') addAnswerNode(n.ref, n.ref.question_id);
-    else addEntityNode(n.ref, n.kind);
-  });
-  // re-draw answer links
-  S.universe.answers.forEach(a => drawAnswerLink(a.id, a.question_id));
-}
-
-function renderExistingEntries() {
-  if (!S.universe) return;
-  S.universe.questions.forEach(q => addQuestionNode(q));
-  S.universe.answers.forEach(a => addAnswerNode(a, a.question_id));
-  S.universe.entities.forEach(e => addEntityNode(e));
-  S.universe.answers.forEach(a => drawAnswerLink(a.id, a.question_id));
-  updateCounters();
-  // restore mode
-  clearPendingAnswer();
-}
-
-// ══════════════════════════════════════
-// DETAIL PANEL
-// ══════════════════════════════════════
-function openPanelCore() {
-  const qCount = S.universe.questions.length;
-  const aCount = S.universe.answers.length;
-  const body = `${qCount} soru · ${aCount} cevap · ${S.universe.entities.length} varlık`;
-  const suggested = Object.values(QUESTION_FAMILIES).slice(0,4).map(f =>
-    `${f.label} hakkında bir soru sor?`
-  );
-  _renderPanel({ badge:'core', badgeClass:'badge-core',
-    title:'Senin evrenin', meta: S.universe.meta.created_at ? new Date(S.universe.meta.created_at).toLocaleString('tr-TR') : '—',
-    sections:[{ label:'Özet', text: body }],
-    actions: suggested, actionKind:'question' });
-}
-
-function openPanelQuestion(qId) {
-  const q = S.universe.questions.find(x => x.id === qId);
-  if (!q) return;
-  const answers = S.universe.answers.filter(a => a.question_id === qId);
-  const family = QUESTION_FAMILIES[q.family];
-  const facets = FAMILY_FACETS[q.family] || [];
-
-  const panelBody = document.getElementById('panel-body');
-  panelBody.innerHTML = '';
-
-  // Badge
-  const badge = document.getElementById('panel-badge');
-  badge.textContent = 'soru';
-  badge.className = 'panel-type-badge badge-question';
-
-  // Title
-  const titleEl = document.getElementById('panel-title');
-  const statusDot = `<span class="q-status ${q.status === 'open' ? 'q-open' : 'q-answered'}"></span>`;
-  titleEl.innerHTML = statusDot + q.text;
-  titleEl.dataset.entryId = q.id;
-
-  document.getElementById('panel-meta').textContent =
-    new Date(q.created_at).toLocaleString('tr-TR') + (family ? ' · ' + family.label : '');
-
-  // Answers section
-  if (answers.length > 0) {
-    const sec = _makeSection('Cevaplar');
-    const list = document.createElement('div');
-    list.className = 'answer-list';
-    answers.forEach(a => {
-      const item = document.createElement('div');
-      item.className = 'answer-item';
-      item.innerHTML = `<strong>${a.facet}</strong>: ${a.value}`;
-      list.appendChild(item);
-    });
-    sec.appendChild(list);
-    panelBody.appendChild(sec);
-    panelBody.appendChild(_divider());
-  }
-
-  // Facet suggestions
-  if (facets.length) {
-    const sec = _makeSection('Cevap boyutları');
-    const list = document.createElement('div');
-    list.className = 'facet-list';
-    facets.forEach(f => {
-      const item = document.createElement('div');
-      item.className = 'facet-item';
-      const key = document.createElement('div');
-      key.className = 'facet-key'; key.textContent = f;
-      const val = document.createElement('div');
-      val.className = 'facet-val';
-      const existing = answers.find(a => a.facet === f);
-      if (existing) {
-        val.textContent = existing.value;
-      } else {
-        val.innerHTML = `<input placeholder="ekle…" data-facet="${f}" data-qid="${q.id}"/>`;
-        val.querySelector('input').addEventListener('keydown', e => {
-          if (e.key === 'Enter' && e.target.value.trim()) {
-            const a = addAnswer(q.id, e.target.value.trim(), f);
-            addAnswerNode(a, q.id);
-            drawAnswerLink(a.id, q.id);
-            saveUniverse(); updateCounters();
-            openPanelQuestion(q.id); // refresh
-          }
-        });
-      }
-      item.appendChild(key); item.appendChild(val);
-      list.appendChild(item);
-    });
-    sec.appendChild(list);
-    panelBody.appendChild(sec);
-  }
-
-  // Answer via input button
-  const ansBtn = document.createElement('button');
-  ansBtn.className = 'panel-action-btn panel-answer-btn';
-  ansBtn.style.marginTop = '.75rem';
-  ansBtn.textContent = '→ Input alanında cevapla';
-  ansBtn.onclick = () => { setPendingAnswer(q); closePanel(); document.getElementById('input-field').focus(); };
-  panelBody.appendChild(ansBtn);
-
-  document.getElementById('panel').classList.add('open');
-}
-
-function openPanelAnswer(aId) {
-  const a = S.universe.answers.find(x => x.id === aId);
-  if (!a) return;
-  const q = S.universe.questions.find(x => x.id === a.question_id);
-
-  const badge = document.getElementById('panel-badge');
-  badge.textContent = 'cevap'; badge.className = 'panel-type-badge badge-answer';
-
-  const titleEl = document.getElementById('panel-title');
-  titleEl.textContent = a.value; titleEl.dataset.entryId = a.id;
-  document.getElementById('panel-meta').textContent = new Date(a.created_at).toLocaleString('tr-TR');
-
-  const panelBody = document.getElementById('panel-body');
-  panelBody.innerHTML = '';
-
-  if (q) {
-    const sec = _makeSection('Sorusu');
-    const p = document.createElement('div');
-    p.className = 'panel-body-text';
-    p.style.cursor = 'pointer';
-    p.textContent = q.text;
-    p.onclick = () => openPanelQuestion(q.id);
-    sec.appendChild(p); panelBody.appendChild(sec);
-    panelBody.appendChild(_divider());
-  }
-
-  if (a.facet) {
-    panelBody.appendChild(_simpleSection('Boyut', a.facet));
-  }
-
-  document.getElementById('panel').classList.add('open');
-}
-
-function openPanelEntity(entId) {
-  const ent = S.universe.entities.find(x => x.id === entId);
-  if (!ent) return;
-  const badge = document.getElementById('panel-badge');
-  badge.textContent = ent.type; badge.className = 'panel-type-badge badge-entity';
-  document.getElementById('panel-title').textContent = ent.label;
-  document.getElementById('panel-meta').textContent = new Date(ent.created_at).toLocaleString('tr-TR');
-  document.getElementById('panel-body').innerHTML = '';
-  document.getElementById('panel').classList.add('open');
-}
-
-function _makeSection(label) {
-  const sec = document.createElement('div');
-  sec.className = 'panel-section';
-  const lbl = document.createElement('div');
-  lbl.className = 'panel-label'; lbl.textContent = label;
-  sec.appendChild(lbl);
-  return sec;
-}
-
-function _simpleSection(label, text) {
-  const sec = _makeSection(label);
-  const p = document.createElement('div');
-  p.className = 'panel-body-text'; p.textContent = text;
-  sec.appendChild(p);
-  return sec;
-}
-
-function _divider() {
-  const hr = document.createElement('hr');
-  hr.className = 'panel-divider';
-  return hr;
-}
-
-function _renderPanel({ badge, badgeClass, title, meta, sections, actions, actionKind }) {
-  const badgeEl = document.getElementById('panel-badge');
-  badgeEl.textContent = badge; badgeEl.className = 'panel-type-badge ' + badgeClass;
-  document.getElementById('panel-title').textContent = title;
-  document.getElementById('panel-meta').textContent = meta;
-  const body = document.getElementById('panel-body');
-  body.innerHTML = '';
-  sections.forEach(s => body.appendChild(_simpleSection(s.label, s.text)));
-  if (actions?.length) {
-    const sec = _makeSection('Önerilen sorular');
-    const actList = document.createElement('div');
-    actList.className = 'panel-actions';
-    actions.forEach(a => {
-      const btn = document.createElement('button');
-      btn.className = 'panel-action-btn'; btn.textContent = a;
-      btn.onclick = () => {
-        document.getElementById('input-field').value = a.endsWith('?') ? a : a + '?';
-        document.getElementById('input-field').focus();
-        closePanel();
-      };
-      actList.appendChild(btn);
-    });
-    sec.appendChild(actList); body.appendChild(sec);
-  }
-  document.getElementById('panel').classList.add('open');
-}
-
-function closePanel() {
-  document.getElementById('panel').classList.remove('open');
-}
-
-// ══════════════════════════════════════
-// SUGGESTIONS
-// ══════════════════════════════════════
-function showSuggestions(items) {
-  if (!items?.length) return;
-  const el = document.getElementById('suggestions');
-  el.innerHTML = '';
-  items.slice(0,4).forEach(q => {
-    const btn = document.createElement('button');
-    btn.className = 'sug-btn'; btn.textContent = q;
-    btn.onclick = () => {
-      document.getElementById('input-field').value = q;
-      document.getElementById('input-field').focus();
-      hideSuggestions();
-    };
-    el.appendChild(btn);
-  });
-  el.classList.add('visible');
-}
-
-function hideSuggestions() {
-  document.getElementById('suggestions').classList.remove('visible');
-}
-
-// ══════════════════════════════════════
-// GOOGLE DRIVE
-// ══════════════════════════════════════
-function connectGoogle() {
-  if (!window.google) { alert('Google Identity Services yüklenemedi.'); return; }
-  const tc = google.accounts.oauth2.initTokenClient({
-    client_id: GOOGLE_CLIENT_ID, scope: DRIVE_SCOPE,
-    callback: async (resp) => {
-      if (resp.error) { console.error(resp); return; }
-      S.accessToken = resp.access_token; S.mode = 'google';
-      await initDrive();
-      launchUniverse('Google Drive');
-    }
-  });
-  tc.requestAccessToken();
-}
-
-async function initDrive() {
-  let fid = await findDriveFolder();
-  if (!fid) fid = await createDriveFolder();
-  S.driveFolderId = fid;
-  let fileId = await findUniverseFile(fid);
-  if (!fileId) {
-    S.universe = createUniverse();
-    fileId = await createUniverseFile(fid);
-  } else {
-    S.driveFileId = fileId;
-    const loaded = await loadUniverseFile(fileId);
-    S.universe = migrateUniverse(loaded);
-  }
-  S.driveFileId = fileId;
-}
-
-async function driveReq(url, opts = {}) {
-  const res = await fetch(url, {
-    ...opts,
-    headers: { 'Authorization':'Bearer '+S.accessToken, 'Content-Type':'application/json', ...(opts.headers||{}) }
-  });
-  return res.json();
-}
-
-async function findDriveFolder() {
-  const q = `name='${FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
-  const d = await driveReq(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)`);
-  return d.files?.[0]?.id || null;
-}
-
-async function createDriveFolder() {
-  const d = await driveReq('https://www.googleapis.com/drive/v3/files', {
-    method:'POST', body:JSON.stringify({ name:FOLDER_NAME, mimeType:'application/vnd.google-apps.folder' })
-  });
-  return d.id;
-}
-
-async function findUniverseFile(folderId) {
-  const q = `name='${UNIVERSE_FILENAME}' and '${folderId}' in parents and trashed=false`;
-  const d = await driveReq(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)`);
-  return d.files?.[0]?.id || null;
-}
-
-async function createUniverseFile(folderId) {
-  const form = new FormData();
-  form.append('metadata', new Blob([JSON.stringify({ name:UNIVERSE_FILENAME, parents:[folderId] })], { type:'application/json' }));
-  form.append('file', new Blob([JSON.stringify(S.universe, null, 2)], { type:'application/json' }));
-  const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
-    method:'POST', headers:{ 'Authorization':'Bearer '+S.accessToken }, body:form
-  });
-  const d = await res.json();
-  return d.id;
-}
-
-async function loadUniverseFile(fileId) {
-  const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-    headers: { 'Authorization':'Bearer '+S.accessToken }
-  });
-  return res.json();
-}
-
-async function saveUniverse() {
-  S.universe.meta.updated_at = new Date().toISOString();
-  if (S.mode === 'local') {
-    localStorage.setItem('singular_universe', JSON.stringify(S.universe));
+  // Direct question (ends with ?)
+  if (raw.endsWith('?')) {
+    field.value=''; hideSug();
+    const q = mkQuestion({text:raw, family:detectFamily(raw)});
+    addQuestionNode(q); updateCounters(); saveUniverse();
+    openFacetPanel(q);
     return;
   }
-  if (!S.driveFileId || !S.accessToken) return;
-  await fetch(`https://www.googleapis.com/upload/drive/v3/files/${S.driveFileId}?uploadType=media`, {
-    method:'PATCH',
-    headers:{ 'Authorization':'Bearer '+S.accessToken, 'Content-Type':'application/json' },
-    body: JSON.stringify(S.universe, null, 2)
+
+  // Decision keywords
+  if (/(karar verdim|yapacağım|planım|hedefim)/i.test(raw)) {
+    field.value=''; hideSug();
+    rawEntry(raw,'decision',null,null);
+    upsertEntity('decision',raw.slice(0,60));
+    saveUniverse(); updateCounters();
+    return;
+  }
+
+  // Seed → smart suggestions
+  showSugLayer(raw);
+}
+
+// ═══════════════════════════════════════════
+// SUGGESTION LAYER
+// ═══════════════════════════════════════════
+function showSugLayer(topic) {
+  const isPerson = /^[A-ZÇĞİÖŞÜ][a-züğışöçA-ZÇĞİÖŞÜ]+$/.test(topic) && topic.length >= 3;
+  const suggestions = isPerson ? [
+    {label:`${topic} kim?`,          tmpl:'kim',    ctx:'bu'},
+    {label:`${topic} ile ilişkim ne?`,tmpl:'kiminle',ctx:'benim'},
+    {label:`${topic} neden önemli?`, tmpl:'neden',  ctx:'benim'},
+  ] : [
+    {label:`${topic} nedir?`,         tmpl:'nedir',   ctx:'—'},
+    {label:`${topic} nerede?`,        tmpl:'nerede',  ctx:'benim'},
+    {label:`${topic} hakkında ne yapmalıyım?`,tmpl:'yapmalı',ctx:'—'},
+    {label:`${topic} neden önemli?`,  tmpl:'neden',   ctx:'benim'},
+  ];
+
+  document.getElementById('sug-label').textContent = `"${topic}" → ne sormak istiyorsun?`;
+  const opts = document.getElementById('sug-opts');
+  opts.innerHTML = '';
+
+  suggestions.forEach(s => {
+    const btn = document.createElement('button');
+    btn.className = 'sug-btn';
+    btn.innerHTML = `<span class="sug-arrow">→</span><span>${s.label}</span>`;
+    btn.onclick = () => {
+      hideSug();
+      document.getElementById('input-field').value = '';
+      const fam = Q_TEMPLATES.find(t=>t.id===s.tmpl)?.family || 'definition';
+      const q = mkQuestion({text:s.label,template:s.tmpl,topic,context:s.ctx,family:fam});
+      addQuestionNode(q); updateCounters(); saveUniverse();
+      openFacetPanel(q);
+    };
+    opts.appendChild(btn);
+  });
+
+  // Composer option
+  const comp = document.createElement('button');
+  comp.className='sug-btn';
+  comp.innerHTML=`<span class="sug-arrow">✦</span><span>Soruyu kendin kur…</span>`;
+  comp.onclick=()=>{ hideSug(); openComposer(topic); };
+  opts.appendChild(comp);
+
+  document.getElementById('sug-layer').classList.add('on');
+}
+
+function hideSug() { document.getElementById('sug-layer').classList.remove('on'); }
+
+// ═══════════════════════════════════════════
+// QUESTION COMPOSER (Chip Builder)
+// ═══════════════════════════════════════════
+function openComposer(topic) {
+  S.cTopic    = topic||'';
+  S.cContext  = '—';
+  S.cTemplate = 'nedir';
+  renderComposer();
+  document.getElementById('q-composer').classList.add('on');
+  updateComposerPreview();
+}
+
+function renderComposer() {
+  const slots = document.getElementById('qc-slots');
+  slots.innerHTML = '';
+
+  // Context chips
+  slots.appendChild(makeChipSlot('Bağlam','ctx',Q_CONTEXTS,S.cContext,v=>{ S.cContext=v; updateComposerPreview(); }));
+
+  // Topic input
+  const topicWrap = document.createElement('div');
+  const topicLbl = document.createElement('div'); topicLbl.className='qc-slot-label'; topicLbl.textContent='Konu';
+  const topicInp = document.createElement('input'); topicInp.className='topic-inp';
+  topicInp.value=S.cTopic||''; topicInp.placeholder='aile, arşiv, proje…';
+  topicInp.oninput=()=>{ S.cTopic=topicInp.value; updateComposerPreview(); };
+  topicWrap.appendChild(topicLbl); topicWrap.appendChild(topicInp);
+  slots.appendChild(topicWrap);
+
+  // Template chips
+  slots.appendChild(makeChipSlot('Soru Tipi','tmpl',Q_TEMPLATES.map(t=>t.label),
+    Q_TEMPLATES.find(t=>t.id===S.cTemplate)?.label||'nedir',
+    v=>{ const tmpl=Q_TEMPLATES.find(t=>t.label===v); if(tmpl){S.cTemplate=tmpl.id;updateComposerPreview();} }
+  ));
+}
+
+function makeChipSlot(label,kind,options,selected,onChange) {
+  const wrap=document.createElement('div');
+  const lbl=document.createElement('div'); lbl.className='qc-slot-label'; lbl.textContent=label;
+  wrap.appendChild(lbl);
+  const row=document.createElement('div'); row.className='chip-row';
+  options.forEach(opt=>{
+    const c=document.createElement('span');
+    c.className='chip '+(kind==='ctx'?'ctx':'tmpl')+(opt===selected?' sel':'');
+    c.textContent=opt;
+    c.onclick=()=>{
+      row.querySelectorAll('.chip').forEach(x=>x.classList.remove('sel'));
+      c.classList.add('sel'); onChange(opt);
+    };
+    row.appendChild(c);
+  });
+  wrap.appendChild(row); return wrap;
+}
+
+function updateComposerPreview() {
+  const tmpl = Q_TEMPLATES.find(t=>t.id===S.cTemplate)||Q_TEMPLATES[1];
+  const ctx  = (!S.cContext||S.cContext==='—')?'':S.cContext+' ';
+  const top  = S.cTopic||'…';
+  document.getElementById('qc-preview').textContent = (ctx+top+' '+tmpl.suffix).trim();
+}
+
+function confirmComposer() {
+  const tmpl = Q_TEMPLATES.find(t=>t.id===S.cTemplate)||Q_TEMPLATES[1];
+  const ctx  = (!S.cContext||S.cContext==='—')?'':S.cContext+' ';
+  const text = (ctx+(S.cTopic||'konu')+' '+tmpl.suffix).trim();
+  document.getElementById('q-composer').classList.remove('on');
+  document.getElementById('input-field').value='';
+  const q = mkQuestion({text,template:S.cTemplate,topic:S.cTopic,context:S.cContext,family:tmpl.family});
+  addQuestionNode(q); updateCounters(); saveUniverse();
+  openFacetPanel(q);
+}
+
+function resetComposer() {
+  document.getElementById('q-composer').classList.remove('on');
+  document.getElementById('facet-panel').classList.remove('on');
+  hideSug();
+}
+
+// ═══════════════════════════════════════════
+// FACET ANSWER PANEL
+// ═══════════════════════════════════════════
+function openFacetPanel(q) {
+  S.fQuestion = q; S.fInputs = {};
+  const facets = FAMILY_FACETS[q.family] || FAMILY_FACETS.definition;
+  const existing = S.universe.answers.filter(a=>a.question_id===q.id);
+
+  document.getElementById('fp-q').textContent = q.text;
+  const list = document.getElementById('fp-list'); list.innerHTML='';
+
+  facets.forEach(f=>{
+    const ex = existing.find(a=>a.facet===f);
+    const row = document.createElement('div');
+    row.className='fp-row'+(ex?' has-val':'');
+
+    const key=document.createElement('div'); key.className='fp-key'; key.textContent=f;
+    row.appendChild(key);
+
+    if (ex) {
+      const val=document.createElement('div'); val.className='fp-val'; val.textContent=ex.value;
+      row.appendChild(val);
+    } else {
+      const inp=document.createElement('input'); inp.className='fp-inp';
+      inp.placeholder=f+'…'; inp.dataset.facet=f;
+      inp.oninput=()=>{ S.fInputs[f]=inp.value; };
+      inp.onkeydown=e=>{ if(e.key==='Enter') saveFacets(); };
+      row.appendChild(inp);
+    }
+    list.appendChild(row);
+  });
+
+  document.getElementById('facet-panel').classList.add('on');
+  setTimeout(()=>{ const first=list.querySelector('input'); if(first)first.focus(); },50);
+}
+
+function saveFacets() {
+  const q=S.fQuestion; if(!q) return;
+  let saved=0;
+  Object.entries(S.fInputs).forEach(([f,v])=>{
+    if(v.trim()){ mkAnswer(q.id,f,v.trim()); saved++; }
+  });
+  if(saved>0){ updateCounters(); saveUniverse(); }
+  document.getElementById('facet-panel').classList.remove('on');
+  S.fQuestion=null; S.fInputs={};
+  resetComposer();
+  openPanelQuestion(q.id);
+}
+
+function skipFacets() {
+  document.getElementById('facet-panel').classList.remove('on');
+  S.fQuestion=null; resetComposer();
+}
+
+// ═══════════════════════════════════════════
+// COSMOS ENGINE
+// ═══════════════════════════════════════════
+const NS='http://www.w3.org/2000/svg';
+let svgEl,cx,cy;
+const NODE_STYLES={
+  question:{fill:'rgba(96,165,250,.15)',stroke:'#60a5fa',r:13},
+  entity:  {fill:'rgba(244,114,182,.12)',stroke:'#f472b6',r:7},
+  decision:{fill:'rgba(245,158,11,.12)',stroke:'#f59e0b',r:10},
+};
+
+function svgMk(tag){return document.createElementNS(NS,tag);}
+
+function initCosmos(){
+  svgEl=document.getElementById('cosmos');
+  cx=window.innerWidth/2; cy=window.innerHeight/2;
+  drawOrbits(); drawCore(); animateCore();
+  window.addEventListener('resize',()=>{
+    cx=window.innerWidth/2;cy=window.innerHeight/2;
+    svgEl.innerHTML=''; drawOrbits();drawCore();animateCore();rerenderAll();
   });
 }
 
-// ══════════════════════════════════════
-// LOCAL MODE
-// ══════════════════════════════════════
-function connectLocal() {
-  S.mode = 'local';
-  const saved = localStorage.getItem('singular_universe');
-  if (saved) {
-    try { S.universe = migrateUniverse(JSON.parse(saved)); } catch { S.universe = createUniverse(); }
-  } else {
-    S.universe = createUniverse();
+function drawOrbits(){
+  [100,175,280,400,530].forEach(r=>{
+    const c=svgMk('circle'); c.setAttribute('cx',cx);c.setAttribute('cy',cy);
+    c.setAttribute('r',r);c.setAttribute('class','orbit-ring');svgEl.appendChild(c);
+  });
+}
+
+function drawCore(){
+  const g=svgMk('g');g.id='core-g';
+  [[52,'core-inner'],[30,'core-outer'],[4,'core-dot']].forEach(([r,cls])=>{
+    const c=svgMk('circle');c.setAttribute('cx',cx);c.setAttribute('cy',cy);
+    c.setAttribute('r',r);c.setAttribute('class',cls);g.appendChild(c);
+  });
+  const pulse=svgMk('circle');pulse.setAttribute('cx',cx);pulse.setAttribute('cy',cy);
+  pulse.setAttribute('r','30');pulse.setAttribute('class','core-pulse');pulse.id='pulse-ring';
+  g.appendChild(pulse);
+  const lbl=svgMk('text');lbl.setAttribute('x',cx);lbl.setAttribute('y',cy+44);
+  lbl.setAttribute('text-anchor','middle');lbl.setAttribute('fill','rgba(167,139,250,.3)');
+  lbl.setAttribute('font-size','7');lbl.setAttribute('font-family','DM Mono,monospace');
+  lbl.setAttribute('letter-spacing','3');lbl.textContent='SINGULAR';g.appendChild(lbl);
+  g.style.cursor='pointer';g.onclick=()=>openPanelCore();svgEl.appendChild(g);
+}
+
+function animateCore(){
+  const ring=document.getElementById('pulse-ring');if(!ring)return;
+  let r=30,op=.5;
+  (function step(){r+=.22;op-=.005;if(r>65){r=30;op=.5;}
+    ring.setAttribute('r',r);ring.setAttribute('opacity',op);requestAnimationFrame(step);})();
+}
+
+function getPos(idx,total,orbit){
+  const a=(idx/Math.max(total,1))*2*Math.PI-Math.PI/2;
+  return{x:cx+orbit*Math.cos(a),y:cy+orbit*Math.sin(a)};
+}
+
+function countKind(kind){return S.graphNodes.filter(n=>n.kind===kind).length;}
+
+function addQuestionNode(q){
+  const idx=countKind('question');
+  const pos=getPos(idx,S.universe.questions.length,175);
+  _addNode({id:q.id,x:pos.x,y:pos.y,kind:'question',ref:q});
+  if(S.universe.questions.length===1) document.getElementById('hint').style.opacity='0';
+}
+
+function addEntityNode(ent){
+  const kind=ent.type==='decision'?'decision':'entity';
+  const orbit=kind==='decision'?175:340;
+  const idx=countKind(kind);
+  const pos=getPos(idx,S.universe.entities.length,orbit);
+  _addNode({id:ent.id,x:pos.x,y:pos.y,kind,ref:ent});
+}
+
+function _addNode({id,x,y,kind,ref}){
+  if(S.graphNodes.find(n=>n.id===id)) return;
+  S.graphNodes.push({id,x,y,kind,ref});
+  const style=NODE_STYLES[kind]||NODE_STYLES.entity;
+
+  const link=svgMk('line');
+  link.setAttribute('x1',cx);link.setAttribute('y1',cy);
+  link.setAttribute('x2',x);link.setAttribute('y2',y);
+  link.setAttribute('class','g-link core-link');
+  link.setAttribute('data-link-id',id);
+  svgEl.insertBefore(link,svgEl.children[6]||null);
+
+  const g=svgMk('g');g.setAttribute('class','g-node');g.setAttribute('data-id',id);
+  g.style.opacity='0';
+
+  const circle=svgMk('circle');
+  circle.setAttribute('cx',x);circle.setAttribute('cy',y);circle.setAttribute('r',style.r);
+  circle.setAttribute('fill',style.fill);circle.setAttribute('stroke',style.stroke);
+  circle.setAttribute('stroke-width',kind==='question'?'1':'.5');
+  g.appendChild(circle);
+
+  const dot=svgMk('circle');dot.setAttribute('cx',x);dot.setAttribute('cy',y);
+  dot.setAttribute('r','2.5');dot.setAttribute('fill',style.stroke);g.appendChild(dot);
+
+  const lbl=svgMk('text');lbl.setAttribute('x',x);lbl.setAttribute('y',y+style.r+11);
+  lbl.setAttribute('text-anchor','middle');
+  const raw=(ref?.text||ref?.label||ref?.value||'');
+  lbl.textContent=raw.length>15?raw.slice(0,15)+'…':raw;
+  g.appendChild(lbl);
+
+  g.onclick=()=>{kind==='question'?openPanelQuestion(id):openPanelEntity(id);};
+  svgEl.appendChild(g);
+  requestAnimationFrame(()=>{g.style.transition='opacity .6s';g.style.opacity='1';});
+}
+
+function rerenderAll(){
+  document.querySelectorAll('.g-node,[data-link-id]').forEach(el=>el.remove());
+  S.graphNodes=[];
+  S.universe.questions.forEach(q=>addQuestionNode(q));
+  S.universe.entities.forEach(e=>addEntityNode(e));
+}
+
+function renderExistingEntries(){
+  if(!S.universe) return;
+  S.universe.questions.forEach(q=>addQuestionNode(q));
+  S.universe.entities.forEach(e=>addEntityNode(e));
+  updateCounters();
+}
+
+// ═══════════════════════════════════════════
+// DETAIL PANEL
+// ═══════════════════════════════════════════
+function openPanelCore(){
+  setBadge('evren','pb-core');
+  document.getElementById('p-title').textContent='Senin evrenin';
+  document.getElementById('p-title').dataset.entryId='';
+  document.getElementById('p-meta').textContent=
+    S.universe.meta.created_at?new Date(S.universe.meta.created_at).toLocaleString('tr-TR'):'—';
+  const body=document.getElementById('p-body');body.innerHTML='';
+  body.appendChild(pSection('İstatistik',
+    `${S.universe.questions.length} soru · ${S.universe.answers.length} cevap · ${S.universe.entities.length} varlık`));
+  document.getElementById('panel').classList.add('open');
+}
+
+function openPanelQuestion(qId){
+  const q=S.universe.questions.find(x=>x.id===qId);if(!q)return;
+  const answers=S.universe.answers.filter(a=>a.question_id===qId);
+
+  setBadge('soru','pb-q');
+  const titleEl=document.getElementById('p-title');
+  const dot=`<span class="qdot ${q.status==='open'?'open':'answered'}"></span>`;
+  titleEl.innerHTML=dot+q.text; titleEl.dataset.entryId=q.id;
+  document.getElementById('p-meta').textContent=
+    new Date(q.created_at).toLocaleString('tr-TR')+(q.family?` · ${q.family}`:'');
+
+  const body=document.getElementById('p-body');body.innerHTML='';
+
+  // Template tags
+  if(q.template){
+    const tmpl=Q_TEMPLATES.find(t=>t.id===q.template);
+    if(tmpl){
+      const tagRow=document.createElement('div');tagRow.className='p-tags';tagRow.style.marginBottom='.75rem';
+      [tmpl.label,q.context&&q.context!=='—'?q.context:null,q.topic].filter(Boolean).forEach(t=>{
+        const s=document.createElement('span');s.className='p-tag';s.textContent=t;tagRow.appendChild(s);
+      });
+      body.appendChild(tagRow);
+    }
   }
+
+  // Answers
+  if(answers.length){
+    const sec=document.createElement('div');sec.className='p-section';
+    const lbl=document.createElement('div');lbl.className='p-label';lbl.textContent='Cevaplar';
+    const list=document.createElement('div');list.className='p-answers';
+    answers.forEach(a=>{
+      const item=document.createElement('div');item.className='p-ans';
+      item.innerHTML=`<strong>${a.facet}</strong>${a.value}`;
+      list.appendChild(item);
+    });
+    sec.appendChild(lbl);sec.appendChild(list);body.appendChild(sec);
+    const hr=document.createElement('hr');hr.className='p-divider';body.appendChild(hr);
+  }
+
+  const addBtn=document.createElement('button');addBtn.className='p-btn';
+  addBtn.textContent='+ Cevap ekle / güncelle';
+  addBtn.onclick=()=>{closePanel();openFacetPanel(q);};
+  body.appendChild(addBtn);
+
+  document.getElementById('panel').classList.add('open');
+}
+
+function openPanelEntity(entId){
+  const ent=S.universe.entities.find(x=>x.id===entId);if(!ent)return;
+  setBadge(ent.type,ent.type==='decision'?'pb-d':'pb-e');
+  document.getElementById('p-title').textContent=ent.label;
+  document.getElementById('p-title').dataset.entryId=ent.id;
+  document.getElementById('p-meta').textContent=new Date(ent.created_at).toLocaleString('tr-TR');
+  document.getElementById('p-body').innerHTML='';
+  document.getElementById('panel').classList.add('open');
+}
+
+function closePanel(){document.getElementById('panel').classList.remove('open');}
+
+function setBadge(text,cls){
+  const b=document.getElementById('p-badge');b.textContent=text;b.className='p-badge '+cls;
+}
+function pSection(label,text){
+  const sec=document.createElement('div');sec.className='p-section';
+  const lbl=document.createElement('div');lbl.className='p-label';lbl.textContent=label;
+  const p=document.createElement('div');p.className='p-text';p.textContent=text;
+  sec.appendChild(lbl);sec.appendChild(p);return sec;
+}
+
+// ═══════════════════════════════════════════
+// KEYBOARD SHORTCUTS
+// ═══════════════════════════════════════════
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){resetComposer();closePanel();}
+});
+
+// ═══════════════════════════════════════════
+// GOOGLE DRIVE
+// ═══════════════════════════════════════════
+function connectGoogle(){
+  if(!window.google){alert('Google Identity Services yüklenemedi.');return;}
+  google.accounts.oauth2.initTokenClient({
+    client_id:GOOGLE_CLIENT_ID,scope:DRIVE_SCOPE,
+    callback:async resp=>{
+      if(resp.error){console.error(resp);return;}
+      S.accessToken=resp.access_token;S.mode='google';
+      await initDrive();launchUniverse('Google Drive');
+    }
+  }).requestAccessToken();
+}
+
+async function initDrive(){
+  let fid=await findDriveFolder();
+  if(!fid) fid=await createDriveFolder();
+  S.driveFolderId=fid;
+  let fileId=await findUniverseFile(fid);
+  if(!fileId){
+    S.universe=createUniverse();fileId=await createUniverseFile(fid);
+  } else {
+    S.driveFileId=fileId;
+    S.universe=migrateUniverse(await loadUniverseFile(fileId));
+  }
+  S.driveFileId=fileId;
+}
+
+async function driveReq(url,opts={}){
+  const res=await fetch(url,{...opts,headers:{'Authorization':'Bearer '+S.accessToken,'Content-Type':'application/json',...(opts.headers||{})}});
+  return res.json();
+}
+async function findDriveFolder(){
+  const q=`name='${FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+  const d=await driveReq(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)`);
+  return d.files?.[0]?.id||null;
+}
+async function createDriveFolder(){
+  const d=await driveReq('https://www.googleapis.com/drive/v3/files',{method:'POST',body:JSON.stringify({name:FOLDER_NAME,mimeType:'application/vnd.google-apps.folder'})});
+  return d.id;
+}
+async function findUniverseFile(fid){
+  const q=`name='${UNIVERSE_FILE}' and '${fid}' in parents and trashed=false`;
+  const d=await driveReq(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)`);
+  return d.files?.[0]?.id||null;
+}
+async function createUniverseFile(fid){
+  const form=new FormData();
+  form.append('metadata',new Blob([JSON.stringify({name:UNIVERSE_FILE,parents:[fid]})],{type:'application/json'}));
+  form.append('file',new Blob([JSON.stringify(S.universe,null,2)],{type:'application/json'}));
+  const res=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',{method:'POST',headers:{'Authorization':'Bearer '+S.accessToken},body:form});
+  return (await res.json()).id;
+}
+async function loadUniverseFile(fileId){
+  const res=await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,{headers:{'Authorization':'Bearer '+S.accessToken}});
+  return res.json();
+}
+async function saveUniverse(){
+  S.universe.meta.updated_at=new Date().toISOString();
+  if(S.mode==='local'){localStorage.setItem(SESSION_KEY,JSON.stringify(S.universe));return;}
+  if(!S.driveFileId||!S.accessToken)return;
+  await fetch(`https://www.googleapis.com/upload/drive/v3/files/${S.driveFileId}?uploadType=media`,{
+    method:'PATCH',headers:{'Authorization':'Bearer '+S.accessToken,'Content-Type':'application/json'},
+    body:JSON.stringify(S.universe,null,2)
+  });
+}
+
+// ═══════════════════════════════════════════
+// LOCAL MODE
+// ═══════════════════════════════════════════
+function connectLocal(){
+  S.mode='local';
+  try{S.universe=migrateUniverse(JSON.parse(localStorage.getItem(SESSION_KEY)||'null'));}
+  catch{S.universe=createUniverse();}
   launchUniverse('Yerel');
 }
 
-// ══════════════════════════════════════
+// ═══════════════════════════════════════════
 // LAUNCH
-// ══════════════════════════════════════
-function launchUniverse(label) {
-  const boot = document.getElementById('boot');
-  boot.classList.add('fade-out');
-  setTimeout(() => {
-    boot.style.display = 'none';
-    const u = document.getElementById('universe');
-    u.classList.add('active');
+// ═══════════════════════════════════════════
+function launchUniverse(label){
+  document.getElementById('boot').classList.add('fade-out');
+  setTimeout(()=>{
+    document.getElementById('boot').style.display='none';
+    document.getElementById('universe').classList.add('active');
     document.getElementById('status-dot').classList.add('connected');
-    document.getElementById('status-text').textContent = label;
+    document.getElementById('status-text').textContent=label;
     initCosmos();
     renderExistingEntries();
-    document.getElementById('input-field').addEventListener('keydown', e => {
-      if (e.key === 'Enter') handleInput();
-    });
+    document.getElementById('input-field').addEventListener('keydown',e=>{if(e.key==='Enter')handleFreeInput();});
     document.getElementById('input-field').focus();
-    clearPendingAnswer();
-  }, 800);
+  },800);
 }
 </script>
 </body>
