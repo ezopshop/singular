@@ -367,6 +367,20 @@ function createUniverse() {
   };
 }
 
+// Eski formattan yeni formata geçiş
+function migrateUniverse(u) {
+  if (!u) return createUniverse();
+  if (!u.questions)  u.questions  = [];
+  if (!u.answers)    u.answers    = [];
+  if (!u.entities)   u.entities   = [];
+  if (!u.links)      u.links      = [];
+  if (!u.entries)    u.entries    = [];
+  if (!u.profile)    u.profile    = { name: null };
+  if (!u.meta)       u.meta       = { version:'1.0', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+  u.meta.version = '1.0';
+  return u;
+}
+
 function uid(prefix) {
   return prefix + '_' + Date.now() + '_' + Math.random().toString(36).slice(2,5);
 }
@@ -999,7 +1013,8 @@ async function initDrive() {
     fileId = await createUniverseFile(fid);
   } else {
     S.driveFileId = fileId;
-    S.universe = await loadUniverseFile(fileId);
+    const loaded = await loadUniverseFile(fileId);
+    S.universe = migrateUniverse(loaded);
   }
   S.driveFileId = fileId;
 }
@@ -1070,7 +1085,7 @@ function connectLocal() {
   S.mode = 'local';
   const saved = localStorage.getItem('singular_universe');
   if (saved) {
-    try { S.universe = JSON.parse(saved); } catch { S.universe = createUniverse(); }
+    try { S.universe = migrateUniverse(JSON.parse(saved)); } catch { S.universe = createUniverse(); }
   } else {
     S.universe = createUniverse();
   }
