@@ -469,14 +469,18 @@ canvas#stars{position:fixed;inset:0;pointer-events:none;z-index:0;}
     </div>
     <div id="q-composer">
       <div class="qc-wrap">
-        <div class="qc-lbl" id="qc-lbl-top">Soruyu nasıl oluşturalım?</div>
-        <!-- Doğal dil modu — varsayılan -->
+        <div class="qc-lbl" id="qc-lbl-top">istediğin gibi yaz → soru oluşturulsun</div>
         <div id="qc-natural">
-          <textarea id="qc-natural-inp" class="qc-natural-inp" placeholder="istediğin gibi yaz… 'benim en sevdiğim renk', 'dilانın okulu', 'saz ilerleme'" rows="2"></textarea>
+          <textarea id="qc-natural-inp" class="qc-natural-inp" placeholder="benim en sevdiğim renk · dilانın okulu · bağlama nasıl akort edilir" rows="2"></textarea>
           <div class="qc-transform-row" id="qc-transform-row" style="display:none">
             <div class="qc-transform-arrow">↓</div>
             <div class="qc-prev" id="qcprev">—</div>
             <div class="qc-transform-tags" id="qc-transform-tags"></div>
+          </div>
+          <!-- Soru tipi override — küçük chip'ler, isteğe bağlı -->
+          <div id="qc-type-override" style="display:none;margin-top:.55rem;">
+            <div style="font-size:.46rem;letter-spacing:.2em;text-transform:uppercase;color:var(--text-dim);margin-bottom:.3rem;">soru tipini değiştir</div>
+            <div id="qc-type-chips" style="display:flex;flex-wrap:wrap;gap:.22rem;"></div>
           </div>
         </div>
         <div class="qc-foot">
@@ -5251,13 +5255,25 @@ function mkChipSlot(label,cls,opts,sel,cb){
 }
 
 // ── DOĞAL DİL → SORU DÖNÜŞTÜRÜCÜ ───────────────────────────────────────
-function _analyzeNaturalInput(raw){
+function _analyzeNaturalInput(raw, forceTemplate){
   const v = raw.trim();
   if(!v){ document.getElementById('qc-transform-row').style.display='none'; _setComposerReady(false); return; }
-  const result = _naturalToQuestion(v);
+
+  let result = _naturalToQuestion(v);
+
+  // Kullanıcı manuel tip seçtiyse override et
+  if(forceTemplate){
+    const tmplObj = Q_TEMPLATES.find(t=>t.id===forceTemplate);
+    if(tmplObj){
+      result = _buildWithTemplate(v, forceTemplate, tmplObj);
+    }
+  }
+
   S._composerResult = result;
   document.getElementById('qcprev').textContent = result.text;
   document.getElementById('qc-transform-row').style.display = 'flex';
+
+  // Tag'ler
   const tagsEl = document.getElementById('qc-transform-tags'); tagsEl.innerHTML='';
   [
     {label:result.template_label, color:'rgba(52,211,153,.2)', border:'rgba(52,211,153,.35)', text:'#34d399'},
@@ -5268,7 +5284,56 @@ function _analyzeNaturalInput(raw){
     chip.style.cssText=`background:${t.color};border:.5px solid ${t.border};color:${t.text}`;
     chip.textContent=t.label; tagsEl.appendChild(chip);
   });
+
+  // Soru tipi override chip'leri — ilk analiz sonrası göster
+  _buildTypeOverrideChips(v, result.template);
   _setComposerReady(true);
+}
+
+// Belirli bir template ile soruyu yeniden inşa et
+function _buildWithTemplate(raw, tmplId, tmplObj){
+  const t = raw.toLowerCase().trim();
+  const topic = _extractTopic(t) || _cap(raw);
+  // Template'e göre suffix ekle
+  const suffix = tmplObj.suffix || 'nedir?';
+  const text = `${topic} ${suffix}`;
+  return {
+    text: text.charAt(0).toUpperCase()+text.slice(1),
+    template: tmplId,
+    template_label: tmplObj.label,
+    family: tmplObj.family,
+    topic,
+  };
+}
+
+// Soru tipi override chip'leri — sadece en alakalı 6 tip
+function _buildTypeOverrideChips(raw, currentTmpl){
+  const overrideEl = document.getElementById('qc-type-override');
+  const chipsEl = document.getElementById('qc-type-chips');
+  if(!overrideEl||!chipsEl) return;
+  chipsEl.innerHTML='';
+
+  // En kullanışlı tipler — sıralı
+  const showTypes = ['nedir','nasil','nerede_yer','nezaman','neden','yapmalı','ne_asamada','en_sevdigi','kac','kim'];
+  const typesToShow = Q_TEMPLATES.filter(t=>showTypes.includes(t.id));
+
+  typesToShow.forEach(tmpl=>{
+    const chip = document.createElement('span');
+    const isCurrent = tmpl.id === currentTmpl;
+    chip.style.cssText = `font-size:.56rem;padding:.18rem .52rem;border-radius:10px;cursor:pointer;letter-spacing:.05em;
+      background:${isCurrent?'rgba(52,211,153,.15)':'rgba(255,255,255,.03)'};
+      border:.5px solid ${isCurrent?'rgba(52,211,153,.4)':'rgba(255,255,255,.1)'};
+      color:${isCurrent?'#34d399':'rgba(226,224,240,.4)'};
+      transition:all .12s;`;
+    chip.textContent = `${tmpl.icon} ${tmpl.label}`;
+    chip.onclick = ()=>{
+      const ta = document.getElementById('qc-natural-inp');
+      _analyzeNaturalInput(ta?.value||raw, tmpl.id);
+    };
+    chipsEl.appendChild(chip);
+  });
+
+  overrideEl.style.display = 'block';
 }
 
 function _setComposerReady(ready){
