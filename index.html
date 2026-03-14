@@ -190,6 +190,27 @@ canvas#stars{position:fixed;inset:0;pointer-events:none;z-index:0;}
 ::-webkit-scrollbar{width:2px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:1px;}
+/* ══ TEMPORAL ENGINE ══ */
+#today-panel{
+  position:fixed;bottom:6rem;left:1.5rem;
+  font-family:'DM Mono',monospace;z-index:10;
+}
+.tp-time{font-size:1.1rem;color:var(--text);letter-spacing:.05em;line-height:1;}
+.tp-date{font-size:.52rem;color:var(--text-dim);letter-spacing:.12em;text-transform:uppercase;margin-top:.15rem;margin-bottom:.35rem;}
+.tp-stats{display:flex;flex-direction:column;gap:.18rem;}
+.tp-stat{font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;padding:.1rem .35rem;border-radius:3px;display:inline-block;width:fit-content;}
+.tp-stat.open{color:#f59e0b;background:rgba(245,158,11,.08);}
+.tp-stat.new{color:#34d399;background:rgba(52,211,153,.08);}
+.tp-stat.total{color:var(--text-dim);}
+
+/* ══ EDIT CONTROLS ══ */
+.p-edit-input{
+  width:100%;background:rgba(255,255,255,.03);border:.5px solid var(--border-hi);
+  border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;
+  font-size:.72rem;padding:.4rem .6rem;outline:none;margin:.3rem 0;
+}
+.p-edit-input:focus{border-color:var(--core);}
+
 /* ══ INSPECTOR PANEL ENHANCEMENTS ══ */
 .p-stat-row{display:flex;gap:.5rem;margin-bottom:.75rem;flex-wrap:wrap;}
 .p-stat{display:flex;flex-direction:column;align-items:center;padding:.4rem .6rem;
@@ -330,6 +351,9 @@ canvas#stars{position:fixed;inset:0;pointer-events:none;z-index:0;}
 
   <div id="status"><div class="sdot" id="sdot"></div><span id="stext">bağlanıyor…</span><button onclick="openSearch()" style="background:transparent;border:.5px solid var(--border);border-radius:5px;color:var(--text-dim);font-family:'DM Mono',monospace;font-size:.52rem;letter-spacing:.12em;padding:.18rem .5rem;cursor:pointer;transition:all .2s;margin-left:.3rem;" title="Ara (⌘K)">⌕ ara</button><button id="logout-btn" onclick="logout()" title="Çıkış yap">✕ çıkış</button></div>
   <div id="topright"><div id="nc">0 varlık</div><div id="qc">0 soru</div></div>
+
+  <!-- TODAY PANEL -->
+  <div id="today-panel"></div>
 
   <div id="legend">
     <div class="leg"><div class="ldot star" style="background:var(--core)"></div>domain (yıldız)</div>
@@ -967,6 +991,255 @@ function renderEntityAliases(ent, body){
 
   sec.appendChild(lbl);sec.appendChild(row);sec.appendChild(addRow);
   body.appendChild(sec);
+}
+
+
+
+// ══════════════════════════════════════════
+// TEMPORAL AWARENESS ENGINE v1
+// Zaman bağlamı + routine + today panel
+// ══════════════════════════════════════════
+
+// Temporal context — her dakika güncellenir
+const TC = {
+  now: null, date: null, weekday: null,
+  timeOfDay: null, month: null, year: null,
+  _interval: null
+};
+
+const TR_WEEKDAYS = ['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'];
+const TR_MONTHS   = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+
+function updateTemporalContext(){
+  const now = new Date();
+  TC.now     = now;
+  TC.date    = now.toISOString().slice(0,10);
+  TC.weekday = TR_WEEKDAYS[now.getDay()];
+  TC.month   = TR_MONTHS[now.getMonth()];
+  TC.year    = now.getFullYear();
+  const h    = now.getHours();
+  TC.timeOfDay = h<6?'Gece': h<12?'Sabah': h<17?'Öğleden Sonra': h<21?'Akşam':'Gece';
+  updateTodayPanel();
+}
+
+function startTemporalEngine(){
+  updateTemporalContext();
+  TC._interval = setInterval(updateTemporalContext, 60000); // every minute
+}
+
+// Today panel — sol altta zaman + açık sorular
+function updateTodayPanel(){
+  const el = document.getElementById('today-panel');
+  if(!el || !S.universe) return;
+
+  const now = TC.now;
+  const timeStr = now.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
+  const openQs  = S.universe.questions?.filter(q=>q.status==='open').length||0;
+  const totalEnts= S.universe.entities?.filter(e=>e.type!=='domain').length||0;
+
+  // Recent activity (last 24h)
+  const oneDayAgo = new Date(now - 86400000).toISOString();
+  const recentEnts = S.universe.entities?.filter(e=>e.created_at>oneDayAgo&&e.type!=='domain').length||0;
+
+  el.innerHTML = `
+    <div class="tp-time">${timeStr}</div>
+    <div class="tp-date">${TC.weekday}, ${TC.month} ${now.getDate()}</div>
+    <div class="tp-stats">
+      ${openQs>0?`<span class="tp-stat open">${openQs} açık soru</span>`:''}
+      ${recentEnts>0?`<span class="tp-stat new">+${recentEnts} bugün</span>`:''}
+      <span class="tp-stat total">${totalEnts} varlık</span>
+    </div>
+  `;
+}
+
+// Parse date strings from text input
+// "3 Mart", "2026-03-14", "14/03/2026", "Pazartesi" etc.
+function parseTemporalInput(text){
+  const t = text.toLowerCase().trim();
+  // ISO date
+  if(/^\d{4}-\d{2}-\d{2}$/.test(t)) return {type:'date', value:t, display:t};
+  // Turkish month names
+  const monthMatch = t.match(/(\d{1,2})\s+(ocak|şubat|mart|nisan|mayıs|haziran|temmuz|ağustos|eylül|ekim|kasım|aralık)(?:\s+(\d{4}))?/);
+  if(monthMatch){
+    const day=monthMatch[1].padStart(2,'0');
+    const mon=String(TR_MONTHS.indexOf(monthMatch[2].charAt(0).toUpperCase()+monthMatch[2].slice(1))+1).padStart(2,'0');
+    const yr=monthMatch[3]||TC.year;
+    return {type:'date', value:`${yr}-${mon}-${day}`, display:text};
+  }
+  // Weekday
+  if(TR_WEEKDAYS.map(w=>w.toLowerCase()).includes(t)){
+    return {type:'weekday', value:t, display:text};
+  }
+  // Year only
+  if(/^\d{4}$/.test(t) && parseInt(t)>1900 && parseInt(t)<2100){
+    return {type:'year', value:t, display:t};
+  }
+  // Time
+  if(/^\d{1,2}:\d{2}$/.test(t)){
+    return {type:'time', value:t, display:t};
+  }
+  return null;
+}
+
+// Create or find time entity node
+function ensureTimeNode(temporalObj){
+  const slug = 'time_'+temporalObj.value.replace(/[^a-z0-9]/gi,'_');
+  const existing = S.universe.entities.find(e=>e.slug===slug);
+  if(existing) return existing;
+  const ent = {
+    id: uid('ent'), type:'time', label: temporalObj.display,
+    slug, domain:'memory', created_at: new Date().toISOString(),
+    properties: {temporal_type:temporalObj.type, temporal_value:temporalObj.value},
+    entityClass:'concept'
+  };
+  S.universe.entities.push(ent);
+  ensureDomain('memory');
+  spawnEntityNode(ent,'memory');
+  addLink(ent.id,'domain_memory','belongs_to_domain');
+  return ent;
+}
+
+// Link entity to time (called from bigBang or processStatement when date detected)
+function linkEntityToTime(entityId, temporalStr, relation){
+  const temporal = parseTemporalInput(temporalStr);
+  if(!temporal) return;
+  const timeEnt = ensureTimeNode(temporal);
+  addLink(entityId, timeEnt.id, relation||'happens_on');
+}
+
+// AUDIT LOG — değişiklikleri kaydet
+const AUDIT_LOG = [];
+function auditLog(action, data){
+  const entry = {
+    action, ...data,
+    timestamp: new Date().toISOString(),
+    actor: S.universe?.profile?.name||'user'
+  };
+  AUDIT_LOG.push(entry);
+  if(AUDIT_LOG.length > 200) AUDIT_LOG.shift(); // keep last 200
+  // Store in universe meta
+  if(S.universe){
+    if(!S.universe.audit) S.universe.audit = [];
+    S.universe.audit.push(entry);
+    if(S.universe.audit.length > 200) S.universe.audit.shift();
+  }
+}
+
+
+// ══════════════════════════════════════════
+// GRAPH EDITABILITY ENGINE
+// Rename, delete, edit — full user control
+// ══════════════════════════════════════════
+
+// ── ENTITY RENAME
+function renameEntity(entId, newLabel){
+  const ent = S.universe.entities.find(e=>e.id===entId);
+  if(!ent || !newLabel.trim()) return;
+  const oldLabel = ent.label;
+
+  // Add old name as alias
+  if(!ent.properties.aliases) ent.properties.aliases = [];
+  if(!ent.properties.aliases.includes(oldLabel)) ent.properties.aliases.push(oldLabel);
+
+  // Update label (keep slug for stability)
+  ent.label = newLabel.trim();
+
+  // Update ALIAS_INDEX
+  ALIAS_INDEX[oldLabel.toLowerCase()] = newLabel.trim();
+  learnEntityType(newLabel.trim(), ent.type);
+
+  // Update graph node label
+  const gLbl = svgEl?.querySelector(`[data-nid="${entId}"] text`);
+  if(gLbl) gLbl.textContent = newLabel.trim().slice(0,16);
+
+  // Update questions with this as topic
+  S.universe.questions.forEach(q=>{
+    if(q.topic===oldLabel) q.topic=newLabel.trim();
+  });
+
+  auditLog('rename_entity', {entityId:entId, from:oldLabel, to:newLabel.trim()});
+  saveUniverse();
+  openPanelEntity(entId);
+}
+
+// ── ENTITY DELETE (soft delete with deleted flag)
+function deleteEntity(entId){
+  const ent = S.universe.entities.find(e=>e.id===entId);
+  if(!ent) return;
+  const label = ent.label;
+
+  // Soft delete — mark as deleted
+  ent.properties.deleted = true;
+  ent.properties.deleted_at = new Date().toISOString();
+
+  // Remove from graph visually
+  svgEl?.querySelector(`[data-nid="${entId}"]`)?.remove();
+  S.nodes = S.nodes.filter(n=>n.id!==entId);
+
+  // Remove related links
+  const removedLinks = S.universe.links.filter(l=>l.from===entId||l.to===entId);
+  S.universe.links = S.universe.links.filter(l=>l.from!==entId&&l.to!==entId);
+  // Remove their visual lines
+  removedLinks.forEach(l=>{
+    svgEl?.querySelector(`[data-lid="${l.id}"]`)?.remove();
+  });
+
+  auditLog('delete_entity', {entityId:entId, label, linksRemoved:removedLinks.length});
+  closePanel();
+  saveUniverse();
+  updateCounters();
+}
+
+// ── RELATION DELETE
+function deleteLink(linkId){
+  const link = S.universe.links.find(l=>l.id===linkId);
+  if(!link) return;
+  S.universe.links = S.universe.links.filter(l=>l.id!==linkId);
+  svgEl?.querySelector(`[data-lid="${linkId}"]`)?.remove();
+  auditLog('delete_link', {linkId, from:link.from, to:link.to, relation:link.relation});
+  saveUniverse();
+}
+
+// ── QUESTION EDIT
+function editQuestion(qId, newText){
+  if(!newText.trim()) return;
+  const q = S.universe.questions.find(x=>x.id===qId);
+  if(!q) return;
+  // Check duplicate
+  const norm = newText.trim().toLowerCase().replace(/\s+/g,' ');
+  const dup = S.universe.questions.find(x=>x.id!==qId && x.text.toLowerCase().replace(/\s+/g,' ')===norm);
+  if(dup){ alert('Bu soru zaten mevcut.'); return; }
+  const oldText = q.text;
+  q.text = newText.trim();
+  q.updated_at = new Date().toISOString();
+  // Update graph node label
+  const gLbl = svgEl?.querySelector(`[data-nid="${qId}"] text`);
+  if(gLbl) gLbl.textContent = newText.trim().slice(0,18)+'…';
+  auditLog('edit_question', {questionId:qId, from:oldText, to:newText.trim()});
+  saveUniverse();
+  openPanelQuestion(qId);
+}
+
+// ── ANSWER EDIT (already handled by mkAnswer overwrite, but add audit)
+function editAnswer(answerId, newValue){
+  const a = S.universe.answers.find(x=>x.id===answerId);
+  if(!a || !newValue.trim()) return;
+  const oldVal = a.value;
+  a.value = newValue.trim();
+  a.updated_at = new Date().toISOString();
+  const q = S.universe.questions.find(x=>x.id===a.question_id);
+  if(q) q.updated_at = new Date().toISOString();
+  auditLog('edit_answer', {answerId, questionId:a.question_id, from:oldVal, to:newValue.trim()});
+  saveUniverse();
+}
+
+// ── Merge + integrity (called after merge)
+function mergeAndClean(sourceId, targetId){
+  mergeEntities(sourceId, targetId);
+  integrityCleanup();
+  auditLog('merge_entity', {source:sourceId, target:targetId});
+  saveUniverse();
+  updateCounters();
 }
 
 
@@ -3964,6 +4237,25 @@ function openPanelEntity(entId){
   focusBtn.onclick=()=>{ closePanel(); focusEntity(ent.id); };
   qa.appendChild(focusBtn);
 
+  // ── RENAME
+  const renameBtn=document.createElement('button');renameBtn.className='p-qa-btn';
+  renameBtn.innerHTML='✎ Yeniden adlandır';
+  renameBtn.onclick=()=>{
+    const inp=document.createElement('input');inp.className='p-edit-input';
+    inp.value=ent.label;inp.placeholder='Yeni ad…';
+    renameBtn.replaceWith(inp);inp.focus();inp.select();
+    const confirm=()=>{ if(inp.value.trim()&&inp.value.trim()!==ent.label) renameEntity(ent.id,inp.value.trim()); else openPanelEntity(ent.id); };
+    inp.onblur=confirm;
+    inp.addEventListener('keydown',e=>{ if(e.key==='Enter')confirm(); if(e.key==='Escape')openPanelEntity(ent.id); });
+  };
+  qa.appendChild(renameBtn);
+
+  // ── DELETE
+  const delBtn=document.createElement('button');delBtn.className='p-qa-btn';
+  delBtn.innerHTML='🗑 Sil';delBtn.style.color='#f87171';delBtn.style.borderColor='rgba(248,113,113,.25)';
+  delBtn.onclick=()=>{ if(confirm(`"${ent.label}" varlığını silmek istiyor musun?`)) deleteEntity(ent.id); };
+  qa.appendChild(delBtn);
+
   // ── TYPE CORRECTION — inline dropdown
   const typeTypes = ['person','place','project','credential','concept','event','document','organization'];
   const typeBtn=document.createElement('button');typeBtn.className='p-qa-btn';
@@ -4079,6 +4371,18 @@ function openPanelQuestion(qId){
   const focusBtn=document.createElement('button');focusBtn.className='p-qa-btn';
   focusBtn.innerHTML='⊙ Odakla';focusBtn.onclick=()=>{closePanel();focusEntity(q.id);};
   qa.appendChild(focusBtn);
+  // ── EDIT QUESTION
+  const editQBtn=document.createElement('button');editQBtn.className='p-qa-btn';
+  editQBtn.innerHTML='✎ Soruyu düzenle';
+  editQBtn.onclick=()=>{
+    const inp=document.createElement('input');inp.className='p-edit-input';
+    inp.value=q.text;inp.placeholder='Soruyu düzenle…';
+    editQBtn.replaceWith(inp);inp.focus();inp.select();
+    const confirm=()=>{ if(inp.value.trim()&&inp.value.trim()!==q.text) editQuestion(q.id,inp.value.trim()); else openPanelQuestion(q.id); };
+    inp.onblur=confirm;
+    inp.addEventListener('keydown',e=>{ if(e.key==='Enter')confirm(); if(e.key==='Escape')openPanelQuestion(q.id); });
+  };
+  qa.appendChild(editQBtn);
   body.appendChild(qa);
   document.getElementById('panel').classList.add('open');
 }
@@ -4161,6 +4465,7 @@ function launchUniverse(label){
     initCosmos();
     renderExisting();
     buildAliasIndex();  // canonicalization engine
+    startTemporalEngine();  // temporal awareness
     document.getElementById('input-field').addEventListener('keydown',e=>{if(e.key==='Enter')handleInput();});
     document.getElementById('input-field').focus();
     // Google token ~55dk sonra sona erer — 50dk'da silent refresh yap
