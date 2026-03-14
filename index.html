@@ -316,27 +316,35 @@ const Q_TEMPLATES = [
 ];
 const Q_CONTEXTS = ['benim','bu','o','biz','—'];
 const FAMILY_FACETS = {
-  identity:   ['isim','köken','roller','değerler','hedef'],
-  family:     ['isim','ilişki türü','nasıl tanıştım','önemli anılar','iletişim'],
-  docs:       ['adres / link','şifre / anahtar','notlar'],
+  identity:   ['isim','doğum tarihi','doğduğum şehir','köken','roller','değerler','hedef'],
+  family:     ['isim','ilişki türü','nerede yaşıyor','iletişim','önemli anılar'],
+  work:       ['şirket adı','pozisyon','nerede','ne iş yapıyorum','ortaklar'],
+  projects:   ['amaç','ne aşamada','sonraki adım','ekip','neden önemli'],
+  places:     ['adres / link','şehir','ülke','notlar'],
+  finance:    ['banka','iban','kart türü','notlar'],
+  health:     ['değer','ne zaman ölçüldü','doktor','notlar'],
+  media:      ['tür','sanatçı / yönetmen','neden önemli','notlar'],
+  memory:     ['ne oldu','ne zaman','kimler vardı','hissettiklerim'],
   knowledge:  ['tanım','örnek','ilgili kavramlar','önemi'],
-  music:      ['tür','sanatçı','dönem','notlar'],
-  film:       ['yönetmen','yıl','neden önemli','notlar'],
-  projects:   ['amaç','durum','sonraki adım','ekip'],
-  finance:    ['tutar','kategori','tarih','notlar'],
-  health:     ['semptom / detay','ne zaman başladı','ne yaptım','sonuç'],
-  edu:        ['konu','kaynak','ilerleme','notlar'],
+  docs:       ['adres / link','şifre / anahtar','notlar'],
 };
 
 const RELATION_TYPES = {
+  belongs_to_domain:'alanı',
   child_of:        'çocuğu',
   parent_of:       'ebeveyni',
+  fills_role:      'rolünü doldurur',
+  is_a:            'türü',
   part_of:         'parçası',
   related_to:      'ilgili',
-  belongs_to_domain:'alanı',
+  works_at:        'çalışır',
+  works_on:        'üzerinde çalışıyor',
+  lives_in:        'yaşıyor',
+  owns:            'sahibi',
+  likes:           'seviyor',
+  remembers:       'hatırlıyor',
   asks_about:      'sorusu',
   answered_by:     'cevabı',
-  is_a:            'türü',
   mentions:        'bahseder',
 };
 
@@ -408,25 +416,116 @@ function ensureDomain(domainId){
   return ent.id;
 }
 
-// ── Detect domain from text ────────────────────────────────────────────
+// ── Detect domain from text — öncelikli eşleşme ──────────────────────
+// Öncelik sırası önemli: daha spesifik önce gelir
+const DOMAIN_PRIORITY = ['family','work','projects','finance','health','places','media','memory','docs','identity','knowledge'];
+
 function detectDomain(text){
-  const t=text.toLowerCase();
-  for(const[id,cfg] of Object.entries(DOMAINS)){
-    if(id==='knowledge') continue;
-    if(cfg.keywords.some(k=>t.includes(k))) return id;
+  const t = text.toLowerCase();
+  for(const id of DOMAIN_PRIORITY){
+    const cfg = DOMAINS[id];
+    if(!cfg) continue;
+    if(cfg.keywords.some(k => t.includes(k))) return id;
   }
   return 'knowledge';
 }
 
-// ── Entity ─────────────────────────────────────────────────────────────
-function mkEntity(type,label,domainId,props){
-  const slug=label.toLowerCase().replace(/[\s@]+/g,'_');
-  const existing=S.universe.entities.find(e=>e.slug===slug&&e.type===type);
+// Kullanıcı sözlüğü — öğrenilen kişisel eşleşmeler
+// Örn: {anne: 'Ayşe', baba: 'Mehmet'}
+function getUserDictionary(){
+  const dict = {};
+  S.universe.links.filter(l=>l.relation==='fills_role').forEach(l=>{
+    const real = S.universe.entities.find(e=>e.id===l.from);
+    const role = S.universe.entities.find(e=>e.id===l.to);
+    if(real&&role) dict[role.slug] = real.label;
+  });
+  return dict;
+}
+
+// ── Entity — role vs real ayrımı ──────────────────────────────────────
+// role_entity: anne, baba (soyut ilişki rolü)  — başta boş, cevapla dolar
+// real_entity: Ayşe, Mehmet (somut kişi)        — cevaptan doğar
+
+// Aile rol haritası — hangi keywords hangi role map eder
+const FAMILY_ROLES = {
+  'anne':'anne','annem':'anne','annesi':'anne','annenin':'anne',
+  'baba':'baba','babam':'baba','babası':'baba','babanın':'baba',
+  'kardeş':'kardeş','kardeşim':'kardeş','kardeşin':'kardeş',
+  'eş':'eş','eşim':'eş','koca':'koca','karı':'eş',
+  'oğul':'oğul','oğlum':'oğul','kız çocuk':'kız',
+  'nine':'nine','büyükanne':'nine','ninem':'nine',
+  'dede':'dede','büyükbaba':'dede','dedem':'dede',
+  'amca':'amca','amcam':'amca','hala':'hala','halam':'hala',
+  'dayı':'dayı','dayım':'dayı','teyze':'teyze','teyzem':'teyze',
+  'kuzen':'kuzen','kuzenimi':'kuzen','yeğen':'yeğen',
+};
+
+// Work role map
+const WORK_ROLES = {
+  'şirketim':'şirket','şirketimiz':'şirket','şirket':'şirket',
+  'ofisim':'ofis','ortağım':'ortak','ortağımız':'ortak',
+  'müşterim':'müşteri','patronum':'patron','çalıştığım':'şirket',
+};
+
+function mkEntity(type, label, domainId, props){
+  const slug = label.toLowerCase().replace(/[\s@]+/g,'_');
+  const existing = S.universe.entities.find(e => e.slug===slug);
   if(existing) return existing;
-  const ent={id:uid('ent'),type,label,slug,domain:domainId||'knowledge',
-    created_at:new Date().toISOString(),properties:props||{}};
+  const ent = {
+    id: uid('ent'), type, label, slug,
+    domain: domainId||'knowledge',
+    created_at: new Date().toISOString(),
+    properties: props||{},
+    // role_entity: soyut rol (anne, baba) — gerçek kişiyle doldurulacak
+    // real_entity: somut kişi (Ayşe) — cevaptan doğdu
+    entityClass: props?.is_role ? 'role' : (props?.is_real ? 'real' : 'concept')
+  };
   S.universe.entities.push(ent);
   return ent;
+}
+
+// Cevap geldiğinde role entity'yi somut kişiyle güncelle
+// "anne" → Ayşe  →  Ayşe --fills_role--> anne,  ben --child_of--> Ayşe
+function materializeRole(roleEntId, realName, domainId){
+  const roleEnt = S.universe.entities.find(e => e.id === roleEntId);
+  if(!roleEnt) return null;
+
+  const slug = realName.toLowerCase().replace(/\s+/g,'_');
+  let realEnt = S.universe.entities.find(e => e.slug === slug && e.entityClass === 'real');
+  if(!realEnt){
+    realEnt = mkEntity('person', realName, domainId||roleEnt.domain, {is_real:true, fills_role: roleEnt.slug});
+    spawnEntityNode(realEnt, domainId||roleEnt.domain);
+  }
+
+  // Link: realEnt --fills_role--> roleEnt
+  if(!S.universe.links.find(l=>l.from===realEnt.id&&l.to===roleEnt.id&&l.relation==='fills_role')){
+    addLink(realEnt.id, roleEnt.id, 'fills_role');
+  }
+  // Link: realEnt --is_a--> person
+  const personConcept = S.universe.entities.find(e=>e.slug==='person')||
+    mkEntity('concept','person','knowledge');
+  if(!S.universe.links.find(l=>l.from===realEnt.id&&l.to===personConcept.id)){
+    addLink(realEnt.id, personConcept.id, 'is_a');
+  }
+
+  // Rewire: ben --child_of--> realEnt (instead of role)
+  const selfEnt = S.universe.entities.find(e=>e.properties?.is_self);
+  if(selfEnt){
+    const existingChild = S.universe.links.find(l=>l.from===selfEnt.id&&l.to===roleEnt.id&&l.relation==='child_of');
+    if(existingChild){
+      existingChild.to = realEnt.id; // update in-place
+    } else {
+      if(!S.universe.links.find(l=>l.from===selfEnt.id&&l.to===realEnt.id)){
+        addLink(selfEnt.id, realEnt.id, 'child_of');
+      }
+    }
+  }
+
+  // Update role entity label on graph to show it's filled
+  const gLbl = svgEl?.querySelector(`[data-nid="${roleEnt.id}"] text`);
+  if(gLbl) gLbl.textContent = roleEnt.label + ' (' + realName.slice(0,8) + ')';
+
+  return realEnt;
 }
 
 // ── Question ───────────────────────────────────────────────────────────
@@ -495,50 +594,78 @@ function bigBang(text, questionObj){
 
 // ── Extract concepts from text ─────────────────────────────────────────
 function extractConcepts(text, domainId){
-  const t=text.trim();
-  const concepts=[];
+  const t = text.trim();
+  const lower = t.toLowerCase();
+  const concepts = [];
 
-  // Person mentions (@name or capitalized)
+  // 1. @mention → real person
   (t.match(/@([\wğüşıöçĞÜŞİÖÇ]+)/g)||[]).forEach(m=>{
-    concepts.push({type:'person',label:m.slice(1)});
+    concepts.push({type:'person', label:m.slice(1), properties:{is_real:true}});
   });
 
-  // Family relation keywords → person entity
-  const familyMap={
-    'anne':'anne','annem':'anne','annesi':'anne',
-    'baba':'baba','babam':'baba','babası':'baba',
-    'kardeş':'kardeş','kardeşim':'kardeş',
-    'eş':'eş','eşim':'eş','koca':'koca','karı':'eş',
-    'çocuk':'çocuk','oğul':'oğul','kız':'kız',
-    'nine':'nine','dede':'dede','büyükanne':'nine','büyükbaba':'dede',
-    'amca':'amca','hala':'hala','dayı':'dayı','teyze':'teyze',
-    'kuzen':'kuzen','yeğen':'yeğen',
-  };
-  const lower=t.toLowerCase();
-  Object.entries(familyMap).forEach(([kw,canonical])=>{
+  // 2. Family roles → role_entity (soyut, cevapla dolacak)
+  Object.entries(FAMILY_ROLES).forEach(([kw, canonical])=>{
     if(lower.includes(kw) && !concepts.find(c=>c.label===canonical)){
-      concepts.push({type:'person',label:canonical,properties:{relation_to_self:kw}});
+      concepts.push({type:'person', label:canonical,
+        properties:{is_role:true, relation_to_self:canonical, role_keyword:kw}});
     }
   });
 
-  // Access keywords → credential entity
-  const accessKw=['şifre','parola','link','url','hesap','e-posta','mail'];
-  accessKw.forEach(kw=>{
-    if(lower.includes(kw)&&!concepts.find(c=>c.label===kw)){
-      concepts.push({type:'credential',label:kw});
-    }
-  });
-
-  // Project / task keywords
-  if(domainId==='projects'&&t.length>3){
-    const lbl=t.replace(/[?!.]+$/,'').trim().slice(0,40);
-    if(!concepts.length) concepts.push({type:'project',label:lbl});
+  // 3. Work roles → role_entity
+  if(domainId==='work'){
+    Object.entries(WORK_ROLES).forEach(([kw, canonical])=>{
+      if(lower.includes(kw) && !concepts.find(c=>c.label===canonical)){
+        concepts.push({type:'organization', label:canonical, properties:{is_role:true, role_keyword:kw}});
+      }
+    });
   }
 
-  // If no specific extraction, create generic entity from topic word
-  if(!concepts.length && t.length>1){
-    const topic=t.replace(/\b(benim|bana|nedir|nerede|nasıl|neden|kim|ne zaman|kiminle|ne yapmalıyım)\b/gi,'').replace(/[?!.]+$/,'').trim();
-    if(topic.length>1) concepts.push({type:'concept',label:topic.slice(0,50)});
+  // 4. Credential / document keywords
+  const credKw = [
+    ['şifre','şifre'],['parola','parola'],['iban','iban'],
+    ['pasaport','pasaport'],['vergi no','vergi_no'],['tc kimlik','tc_kimlik'],
+    ['kredi kartı','kredi_kartı'],['ehliyet','ehliyet'],['email','email'],
+    ['mail','email'],['telefon','telefon'],
+  ];
+  credKw.forEach(([kw,slug])=>{
+    if(lower.includes(kw) && !concepts.find(c=>c.slug===slug||c.label===slug)){
+      concepts.push({type:'credential', label:slug.replace('_',' '), properties:{is_credential:true}});
+    }
+  });
+
+  // 5. Place keywords
+  const placeKw = [['ev adres','ev'],['ofis','ofis'],['şehir','şehir'],['adresim','adres']];
+  if(domainId==='places'){
+    placeKw.forEach(([kw,lbl])=>{
+      if(lower.includes(kw) && !concepts.find(c=>c.label===lbl)){
+        concepts.push({type:'place', label:lbl, properties:{is_place:true}});
+      }
+    });
+  }
+
+  // 6. Project names (capitalized or known)
+  const knownProjects = ['singular','cillop'];
+  knownProjects.forEach(p=>{
+    if(lower.includes(p) && !concepts.find(c=>c.label===p)){
+      concepts.push({type:'project', label:p, properties:{is_project:true}});
+    }
+  });
+
+  // 7. Health attributes
+  if(domainId==='health'){
+    const healthKw = [['boy','boy'],['kilo','kilo'],['doktor','doktor'],['spor','spor']];
+    healthKw.forEach(([kw,lbl])=>{
+      if(lower.includes(kw) && !concepts.find(c=>c.label===lbl)){
+        concepts.push({type:'attribute', label:lbl, properties:{is_attribute:true}});
+      }
+    });
+  }
+
+  // 8. Generic fallback — clean up question words
+  if(!concepts.length && t.length > 1){
+    const stopWords = /\b(benim|bana|nedir|nerede|nasıl|neden|kim|ne zaman|kiminle|ne yapmalıyım|hangi|kaç|hangisi)\b/gi;
+    const topic = t.replace(stopWords,'').replace(/[?!.]+$/,'').trim();
+    if(topic.length > 1) concepts.push({type:'concept', label:topic.slice(0,50)});
   }
 
   return concepts;
@@ -546,28 +673,52 @@ function extractConcepts(text, domainId){
 
 // ── Build semantic relations between entities ──────────────────────────
 function buildEntityRelations(entities, question){
-  // self ↔ family member relations
-  const selfId='entity_self';
-  let selfEnt=S.universe.entities.find(e=>e.slug==='ben'||e.slug==='self');
+  // Ensure 'ben' self entity
+  let selfEnt = S.universe.entities.find(e=>e.properties?.is_self);
   if(!selfEnt){
-    selfEnt=mkEntity('person','ben','identity',{is_self:true});
+    selfEnt = mkEntity('person','ben','identity',{is_self:true});
     spawnEntityNode(selfEnt,'identity');
     ensureDomain('identity');
     addLink(selfEnt.id,'domain_identity','belongs_to_domain');
   }
 
   entities.forEach(ent=>{
-    if(ent.properties?.relation_to_self){
-      const rel=ent.properties.relation_to_self;
-      // ben → child_of → anne/baba
-      if(['anne','annem','annesi','baba','babam','nine','dede'].includes(rel)){
-        if(!S.universe.links.find(l=>l.from===selfEnt.id&&l.to===ent.id)){
-          addLink(selfEnt.id,ent.id,'child_of');
-        }
-      } else {
-        if(!S.universe.links.find(l=>l.from===selfEnt.id&&l.to===ent.id)){
-          addLink(selfEnt.id,ent.id,'related_to');
-        }
+    const props = ent.properties||{};
+
+    // Family roles: ben --child_of--> anne/baba/nine/dede
+    if(props.is_role && props.relation_to_self){
+      const parentRoles = ['anne','baba','nine','dede'];
+      const rel = parentRoles.includes(props.relation_to_self) ? 'child_of' : 'related_to';
+      if(!S.universe.links.find(l=>l.from===selfEnt.id&&l.to===ent.id)){
+        addLink(selfEnt.id, ent.id, rel);
+      }
+    }
+
+    // Work: ben --works_at--> şirket
+    else if(ent.type==='organization' && props.is_role){
+      if(!S.universe.links.find(l=>l.from===selfEnt.id&&l.to===ent.id)){
+        addLink(selfEnt.id, ent.id, 'works_at');
+      }
+    }
+
+    // Project: ben --works_on--> proje
+    else if(ent.type==='project'){
+      if(!S.universe.links.find(l=>l.from===selfEnt.id&&l.to===ent.id)){
+        addLink(selfEnt.id, ent.id, 'works_on');
+      }
+    }
+
+    // Credential/docs: ben --owns--> şifre/iban/pasaport
+    else if(ent.type==='credential'){
+      if(!S.universe.links.find(l=>l.from===selfEnt.id&&l.to===ent.id)){
+        addLink(selfEnt.id, ent.id, 'owns');
+      }
+    }
+
+    // Health attribute: ben --has_attribute--> boy/kilo
+    else if(ent.type==='attribute'){
+      if(!S.universe.links.find(l=>l.from===selfEnt.id&&l.to===ent.id)){
+        addLink(selfEnt.id, ent.id, 'related_to');
       }
     }
   });
@@ -834,6 +985,7 @@ function physicsLoop(){
 
   // Update link visual opacity based on relation strength (visual feedback)
   updateLinkOpacity();
+  updateDomainSize();
   updateNodePositions();
   requestAnimationFrame(physicsLoop);
 }
@@ -844,9 +996,28 @@ function updateLinkOpacity(){
     const rel = line.getAttribute('data-rel');
     const spring = REL_SPRING[rel];
     if(!spring) return;
-    // k değerine göre opacity: güçlü bağ daha görünür
-    const opacity = Math.min(0.6, spring.k * 10 + 0.05);
+    const opacity = Math.min(0.65, spring.k * 9 + 0.05);
     line.setAttribute('opacity', opacity);
+  });
+}
+
+// Domain yıldızı büyümesi — entity yoğunluğuna göre
+let _dgt = 0;
+function updateDomainSize(){
+  _dgt++;
+  if(_dgt % 90 !== 0) return;
+  Object.keys(S.universe.domains).forEach(domId=>{
+    const entCount = S.universe.entities.filter(e=>e.domain===domId&&e.type!=='domain').length;
+    const g = svgEl?.querySelector(`[data-nid="domain_${domId}"]`);
+    if(!g) return;
+    const newR = Math.min(30, 13 + entCount * 1.6);
+    const cfg = DOMAINS[domId];
+    const circles = g.querySelectorAll('circle');
+    [[newR+14,0.03],[newR+7,0.055],[newR,0.09]].forEach(([r,a],i)=>{
+      if(!circles[i]) return;
+      circles[i].setAttribute('r',r);
+      if(cfg) circles[i].setAttribute('fill', hexAlpha(cfg.color, Math.min(0.25, a + entCount*0.012)));
+    });
   });
 }
 
@@ -1330,26 +1501,73 @@ function openFacetPanel(q){
   setTimeout(()=>{const fi=list.querySelector('input');if(fi)fi.focus();},60);
 }
 function saveFacets(){
-  const q=S.fQ;if(!q)return;
-  let saved=0;
-  Object.entries(S.fInputs).forEach(([f,v])=>{if(v.trim()){mkAnswer(q.id,f,v.trim());saved++;}});
-  // If 'isim' or 'name' given for entity, update the entity label
-  const isimVal=S.fInputs['isim']?.trim();
-  if(isimVal){
-    // Find entity connected to this question
-    const link=S.universe.links.find(l=>l.from===q.id&&l.relation==='asks_about');
-    if(link){
-      const ent=S.universe.entities.find(e=>e.id===link.to);
-      if(ent&&ent.type==='person'){
-        ent.label=isimVal;
-        const gLbl=svgEl.querySelector(`[data-nid="${ent.id}"] text`);
-        if(gLbl) gLbl.textContent=isimVal.slice(0,16);
+  const q = S.fQ; if(!q) return;
+  let saved = 0;
+
+  // Find the primary entity this question asks about
+  const primaryLink = S.universe.links.find(l => l.from===q.id && l.relation==='asks_about' && l.to!==('domain_'+q.family));
+  const primaryEnt = primaryLink ? S.universe.entities.find(e=>e.id===primaryLink.to) : null;
+
+  Object.entries(S.fInputs).forEach(([facet, value])=>{
+    const v = value.trim(); if(!v) return;
+    mkAnswer(q.id, facet, v);
+    saved++;
+
+    // ── CEVAPTAN DÜNYA KURMA ──────────────────────────────
+    const selfEnt = S.universe.entities.find(e=>e.properties?.is_self);
+
+    // A) İSİM cevabı: role entity somut kişiye dönüşür
+    if(facet === 'isim' && primaryEnt && primaryEnt.properties?.is_role){
+      materializeRole(primaryEnt.id, v, q.family);
+    }
+
+    // B) İLİŞKİ TÜRÜ cevabı: yeni relation tipi ekle
+    else if(facet === 'ilişki türü' && primaryEnt && selfEnt){
+      if(!S.universe.links.find(l=>l.from===selfEnt.id&&l.to===primaryEnt.id&&l.relation==='related_to')){
+        addLink(selfEnt.id, primaryEnt.id, 'related_to');
       }
     }
-  }
-  if(saved>0){updateCounters();saveUniverse();}
+
+    // C) ADRES / KONUM cevabı: place entity oluştur
+    else if((facet==='adres / link' || facet==='ev' || facet==='ofis') && v.length>1){
+      const placeEnt = mkEntity('place', v.slice(0,40), q.family||'places', {is_place:true, answer_from:q.id});
+      if(!S.nodes.find(n=>n.id===placeEnt.id)){
+        spawnEntityNode(placeEnt, 'places');
+        ensureDomain('places');
+        addLink(placeEnt.id,'domain_places','belongs_to_domain');
+      }
+      if(selfEnt && !S.universe.links.find(l=>l.from===selfEnt.id&&l.to===placeEnt.id)){
+        addLink(selfEnt.id, placeEnt.id, 'lives_in');
+      }
+    }
+
+    // D) NUMARA / ŞİFRE cevabı: credential entity zenginleştir
+    else if((facet==='şifre / anahtar'||facet==='notlar') && primaryEnt?.type==='credential'){
+      primaryEnt.properties.value = v; // değeri sakla (görünmez)
+      primaryEnt.properties.filled = true;
+      // Düğümü dolu olarak işaretle
+      const gCirc = svgEl?.querySelector(`[data-nid="${primaryEnt.id}"] circle`);
+      if(gCirc) gCirc.setAttribute('fill','rgba(96,165,250,.25)');
+    }
+
+    // E) GENEL: cevap varlığı oluştur ve question'a bağla
+    else if(v.length > 1 && !['tanım','örnek','notlar','önemi','ilerleme'].includes(facet)){
+      // Uzun değer değil, kısa entity-like cevaplar için node
+      if(v.length < 60 && !/^\d+$/.test(v)){
+        const ansEnt = mkEntity('answer_value', v.slice(0,40), q.family, {is_answer:true, for_facet:facet, answer_from:q.id});
+        if(!S.nodes.find(n=>n.id===ansEnt.id)){
+          spawnEntityNode(ansEnt, q.family);
+          if(!S.universe.links.find(l=>l.from===q.id&&l.to===ansEnt.id)){
+            addLink(q.id, ansEnt.id, 'answered_by');
+          }
+        }
+      }
+    }
+  });
+
+  if(saved > 0){ updateCounters(); saveUniverse(); }
   document.getElementById('facet-panel').classList.remove('on');
-  S.fQ=null;S.fInputs={};
+  S.fQ=null; S.fInputs={};
   resetComposer();
   openPanelQuestion(q.id);
 }
