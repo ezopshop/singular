@@ -1347,7 +1347,14 @@ function deleteEntity(entId){
   if(!ent) return;
   const label = ent.label;
 
-  // Soft delete — mark as deleted
+  // KORUMA: Rol entity'leri silinemez (anne, baba, kardeş gibi)
+  // Bunlar graph'ın iskeletidir — rename edilebilir, silinemez
+  if(ent.properties?.is_role){
+    alert(`"${label}" bir ilişki rolüdür ve silinemez. Yeniden adlandırabilirsin.`);
+    return;
+  }
+
+  // SOFT DELETE — veri asla kaybolmaz, sadece görünmez
   ent.properties.deleted = true;
   ent.properties.deleted_at = new Date().toISOString();
 
@@ -1355,15 +1362,14 @@ function deleteEntity(entId){
   svgEl?.querySelector(`[data-nid="${entId}"]`)?.remove();
   S.nodes = S.nodes.filter(n=>n.id!==entId);
 
-  // Remove related links
-  const removedLinks = S.universe.links.filter(l=>l.from===entId||l.to===entId);
-  S.universe.links = S.universe.links.filter(l=>l.from!==entId&&l.to!==entId);
-  // Remove their visual lines
-  removedLinks.forEach(l=>{
+  // Links: soft-hide (veri korunur, görsel kaldırılır)
+  const affectedLinks = S.universe.links.filter(l=>l.from===entId||l.to===entId);
+  affectedLinks.forEach(l=>{
+    l.hidden = true;  // soft hide
     svgEl?.querySelector(`[data-lid="${l.id}"]`)?.remove();
   });
 
-  auditLog('delete_entity', {entityId:entId, label, linksRemoved:removedLinks.length});
+  auditLog('delete_entity', {entityId:entId, label, linksAffected:affectedLinks.length});
   closePanel();
   saveUniverse();
   updateCounters();
@@ -2669,8 +2675,16 @@ function migrateUniverse(u){
   if(!u.profile) u.profile={name:null,gender:null};
   if(!u.domains) u.domains={};
   if(!u.meta) u.meta={version:'4.1',created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
-  // Run integrity cleanup on load (fixes old data issues)
-  setTimeout(()=>{ if(S.universe) integrityCleanup(); }, 2000);
+  // Integrity cleanup + deleted entity link hiding
+  setTimeout(()=>{
+    if(!S.universe) return;
+    // Ensure deleted entity links are marked hidden
+    const deletedIds = new Set(S.universe.entities.filter(e=>e.properties?.deleted).map(e=>e.id));
+    S.universe.links.forEach(l=>{
+      if(deletedIds.has(l.from)||deletedIds.has(l.to)) l.hidden=true;
+    });
+    integrityCleanup();
+  }, 2000);
   return u;
 }
 
@@ -3693,6 +3707,11 @@ function spawnQuestionNode(q, domainId){
 // ── DRAW LINK — relation-aware visual language
 // [LINK_STYLE_BLOCK — moved to ONTOLOGY layer]
 function drawLink(fromId, toId, relation){
+  // Don't draw links involving deleted/hidden entities
+  const fromEnt = S.universe.entities.find(e=>e.id===fromId);
+  const toEnt   = S.universe.entities.find(e=>e.id===toId);
+  if(fromEnt?.properties?.deleted || toEnt?.properties?.deleted) return;
+
   const fn = S.nodes.find(n => n.id === fromId);
   const tn = S.nodes.find(n => n.id === toId);
   if(!fn || !tn) return;
@@ -3945,7 +3964,7 @@ function rerenderAll(){
     const dom=detectDomain(q.text);
     spawnQuestionNode(q,dom);
   });
-  S.universe.links.forEach(l=>drawLink(l.from,l.to,l.relation));
+  S.universe.links.filter(l=>!l.hidden).forEach(l=>drawLink(l.from,l.to,l.relation));
 }
 
 function renderExisting(){
@@ -3954,7 +3973,7 @@ function renderExisting(){
     const ent=S.universe.entities.find(e=>e.id===did);
     if(ent) spawnDomainNode(ent);
   });
-  S.universe.entities.filter(e=>e.type!=='domain').forEach(e=>spawnEntityNode(e,e.domain));
+  S.universe.entities.filter(e=>e.type!=='domain'&&!e.properties?.deleted).forEach(e=>spawnEntityNode(e,e.domain));
   S.universe.questions.forEach(q=>spawnQuestionNode(q,detectDomain(q.text)));
   S.universe.links.forEach(l=>drawLink(l.from,l.to,l.relation));
   updateCounters();
@@ -4896,7 +4915,14 @@ function openPanelEntity(entId){
   // ── DELETE
   const delBtn=document.createElement('button');delBtn.className='p-qa-btn';
   delBtn.innerHTML='🗑 Sil';delBtn.style.color='#f87171';delBtn.style.borderColor='rgba(248,113,113,.25)';
-  delBtn.onclick=()=>{ if(confirm(`"${ent.label}" varlığını silmek istiyor musun?`)) deleteEntity(ent.id); };
+  // Rol entity'leri için silme butonu gösterme
+  if(ent.properties?.is_role){
+    delBtn.innerHTML='— Silinemez';
+    delBtn.style.opacity='.3';delBtn.style.cursor='default';delBtn.style.color='var(--text-dim)';
+    delBtn.onclick=()=>alert(`"${ent.label}" bir ilişki rolüdür. Yeniden adlandırabilirsin.`);
+  } else {
+    delBtn.onclick=()=>{ if(confirm(`"${ent.label}" gizlensin mi?\n\nVeri kaybolmaz, sadece görünmez olur.`)) deleteEntity(ent.id); };
+  }
   qa.appendChild(delBtn);
 
   // ── TYPE CORRECTION — inline dropdown
