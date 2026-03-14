@@ -5266,15 +5266,93 @@ function _showTypePicker(topic, guessedType){
 function _confirmTypePicker(topic, entityType, forceDomain){
   learnEntityType(topic, entityType);
 
-  // Domain belirle
+  // Belirsiz tipler için domain seçici göster
+  // person/place/credential/event kendi domain'lerini biliyor — sormaya gerek yok
+  const clearTypes = ['person','place','credential','event'];
+  if(!forceDomain && !clearTypes.includes(entityType)){
+    _showDomainPicker(topic, entityType);
+    return;
+  }
+
   const domainMap = {
     person:'family', place:'places', project:'projects',
     concept:'knowledge', organization:'work', media_item:'media',
     credential:'credentials', event:'memory'
   };
   const domain = forceDomain || domainMap[entityType] || 'knowledge';
+  _finalizeEntity(topic, entityType, domain);
+}
 
-  // Entity oluştur
+// İkinci adım: domain seçici — hangi galaksiye eklenecek?
+function _showDomainPicker(topic, entityType){
+  const opts = document.getElementById('sugopts'); opts.innerHTML='';
+
+  const typeLabels = {project:'proje',concept:'kavram',organization:'kurum',media_item:'medya'};
+  document.getElementById('suglbl').innerHTML =
+    `<span style="opacity:.5">"${topic.slice(0,22)}"</span> <span style="opacity:.3">·</span> <span style="color:rgba(226,224,240,.5)">hangi alana ait?</span>`;
+
+  // Bu tipe uygun domain'leri göster
+  const domainCandidates = {
+    project:      ['projects','work','knowledge','health'],
+    concept:      ['knowledge','work','health','media','preferences','memory'],
+    organization: ['work','knowledge','contacts'],
+    media_item:   ['media','knowledge','preferences'],
+  };
+  const candidates = domainCandidates[entityType] || Object.keys(S.universe?.domains||{}).slice(0,6);
+
+  // Tüm aktif domain'ler + candidates birleştir
+  const activeDomains = Object.keys(S.universe?.domains||{});
+  const allCandidates = [...new Set([...candidates, ...activeDomains])].filter(id=>DOMAINS[id]);
+
+  const grid = document.createElement('div');
+  grid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:.3rem;margin-bottom:.35rem;';
+
+  allCandidates.slice(0,9).forEach(domId=>{
+    const cfg = DOMAINS[domId]; if(!cfg) return;
+    // Bu domain'de zaten içerik var mı?
+    const entCount = S.universe?.entities?.filter(e=>e.domain===domId&&e.type!=='domain').length || 0;
+
+    const btn = document.createElement('button');
+    btn.style.cssText = `
+      padding:.35rem .4rem;border-radius:8px;cursor:pointer;
+      font-family:'DM Mono',monospace;font-size:.58rem;
+      text-align:center;transition:all .12s;
+      background:${hexAlpha(cfg.color,.08)};
+      border:.5px solid ${hexAlpha(cfg.color,.2)};
+      color:${hexAlpha(cfg.color,.7)};
+    `;
+    btn.innerHTML = `
+      <div style="font-size:.75rem;margin-bottom:.1rem">${_domainIcon(domId)}</div>
+      <div>${cfg.label}</div>
+      ${entCount>0?`<div style="font-size:.42rem;opacity:.4;margin-top:.1rem">${entCount} varlık</div>`:''}
+    `;
+    btn.onmouseenter=()=>{ btn.style.background=hexAlpha(cfg.color,.15); btn.style.borderColor=hexAlpha(cfg.color,.4); };
+    btn.onmouseleave=()=>{ btn.style.background=hexAlpha(cfg.color,.08); btn.style.borderColor=hexAlpha(cfg.color,.2); };
+    btn.onclick=()=>{ _finalizeEntity(topic, entityType, domId); };
+    grid.appendChild(btn);
+  });
+  opts.appendChild(grid);
+
+  // Geri butonu
+  const backBtn = document.createElement('button');
+  backBtn.className='sug-opt comp-opt';
+  backBtn.style.cssText='opacity:.4;font-size:.58rem;';
+  backBtn.innerHTML=`<span class="sug-arr">←</span><span>geri</span>`;
+  backBtn.onclick=()=>{ _showTypePicker(topic, detectSeedType(topic)); };
+  opts.appendChild(backBtn);
+}
+
+function _domainIcon(domId){
+  const icons = {
+    identity:'◈',family:'♡',knowledge:'○',work:'◆',projects:'▷',
+    finance:'$',health:'✦',places:'◉',contacts:'@',documents:'□',
+    credentials:'⬡',media:'♪',preferences:'★',memory:'◷',
+  };
+  return icons[domId] || (DOMAINS[domId]?.is_custom ? '✧' : '·');
+}
+
+// Entity'yi oluştur ve soru önerilerine geç
+function _finalizeEntity(topic, entityType, domain){
   ensureDomain(domain);
   const ent = mkEntity(entityType, topic, domain, {});
   if(ent && !S.nodes.find(n=>n.id===ent.id)){
@@ -5283,16 +5361,14 @@ function _confirmTypePicker(topic, entityType, forceDomain){
     saveUniverse(); updateCounters();
   }
 
-  // Sug layer'ı soru önerilerine geçir
   const sugs = getSuggestionPack(topic, entityType, ent);
   const domColor = DOMAINS[domain]?.color || '#a78bfa';
 
   document.getElementById('suglbl').innerHTML =
-    `<span style="color:${domColor}">${topic}</span> <span style="opacity:.35;font-size:.5rem;text-transform:uppercase;letter-spacing:.1em">${ONTOLOGY.entity_types?.[entityType]?.label||entityType}</span>`;
+    `<span style="color:${domColor}">${topic.slice(0,24)}</span> <span style="opacity:.3;font-size:.48rem;text-transform:uppercase;letter-spacing:.1em">→ ${DOMAINS[domain]?.label||domain}</span>`;
 
   const opts = document.getElementById('sugopts'); opts.innerHTML='';
 
-  // Cosmos'tan bağlamsal soru üret
   const contextQ = _generateContextualQuestion(topic, entityType, ent);
   if(contextQ){
     const highlight = document.createElement('button');
