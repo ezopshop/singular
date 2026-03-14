@@ -412,7 +412,7 @@ canvas#stars{position:fixed;inset:0;pointer-events:none;z-index:0;}
     <span id="zoom-level">yörünge</span>
   </div>
 
-  <div id="hint">bir soru sor, bir kişi yaz, bir şey hatırla</div>
+  <div id="hint">bir soru sor · bir kişi yaz · yeni galaksi: saz derslerim</div>
 
   <!-- QUICK SUGGESTIONS — ilişki kurulunca önerilen sorular -->
   <div id="suggestions" style="position:fixed;bottom:6.8rem;left:50%;transform:translateX(-50%);width:min(620px,93vw);display:flex;flex-wrap:wrap;gap:.35rem;justify-content:center;opacity:0;pointer-events:none;transition:opacity .3s;z-index:15;"></div>
@@ -2902,10 +2902,21 @@ function migrateUniverse(u){
   if(!u.profile) u.profile={name:null,gender:null};
   if(!u.domains) u.domains={};
   if(!u.meta) u.meta={version:'4.1',created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
-  // Integrity cleanup + deleted entity link hiding
+
+  // Custom domain'leri DOMAINS ve DOMAIN_ANGLES tablolarına geri yükle
+  u.entities.filter(e=>e.type==='domain'&&e.properties?.is_custom).forEach(e=>{
+    if(!DOMAINS[e.slug]){
+      const c = e.properties?.color || '#a78bfa';
+      DOMAINS[e.slug] = { label: e.label, color: c, keywords: [e.label.toLowerCase(), e.slug] };
+      const totalDomains = Object.keys(DOMAIN_ANGLES).length;
+      if(DOMAIN_ANGLES[e.slug] === undefined){
+        DOMAIN_ANGLES[e.slug] = -Math.PI/2 + (Math.PI*2/Math.max(totalDomains+1,16)) * totalDomains;
+      }
+    }
+  });
+
   setTimeout(()=>{
     if(!S.universe) return;
-    // Ensure deleted entity links are marked hidden
     const deletedIds = new Set(S.universe.entities.filter(e=>e.properties?.deleted).map(e=>e.id));
     S.universe.links.forEach(l=>{
       if(deletedIds.has(l.from)||deletedIds.has(l.to)) l.hidden=true;
@@ -3025,11 +3036,54 @@ function ensureDomain(domainId){
   return ent.id;
 }
 
+// Kullanıcının kendi galaksisini oluşturur
+// createCustomDomain('saz derslerim', '#a78bfa') → yeni domain + node
+function createCustomDomain(label, color){
+  const slug = label.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_üğışöçĞÜŞİÖÇ]/g,'');
+  if(!slug) return null;
+
+  // Zaten var mı?
+  if(S.universe.domains[slug]) return slug;
+
+  // Renk yoksa rastgele güzel bir renk ver
+  const palettes=['#a78bfa','#f472b6','#34d399','#f59e0b','#60a5fa','#fb923c','#e879f9','#a3e635','#22d3ee'];
+  const c = color || palettes[Object.keys(S.universe.domains).length % palettes.length];
+
+  // Runtime DOMAINS'e ekle
+  DOMAINS[slug] = { label, color: c, keywords: [label.toLowerCase(), slug] };
+
+  // Açı: mevcut domain sayısına göre
+  const totalDomains = Object.keys(DOMAIN_ANGLES).length + Object.keys(S.universe.domains).length;
+  const customAngle = -Math.PI/2 + (Math.PI * 2 / Math.max(totalDomains+1, 16)) * (totalDomains);
+  DOMAIN_ANGLES[slug] = customAngle;
+
+  // Universe'e ekle
+  const ent={id:'domain_'+slug,type:'domain',label,slug,
+    domain:slug,created_at:new Date().toISOString(),
+    properties:{is_custom:true,color:c}};
+  S.universe.domains[slug]=ent.id;
+  S.universe.entities.push(ent);
+  spawnDomainNode(ent);
+
+  saveUniverse();
+  updateCounters();
+  showToast(`✦ Yeni galaksi: ${label}`);
+  return slug;
+}
+
 // ── Detect domain from text — öncelikli eşleşme ──────────────────────
 // Öncelik sırası önemli: daha spesifik önce gelir
 // [DOMAIN_PRIORITY_BLOCK — moved to ONTOLOGY layer]
 function detectDomain(text){
   const t = text.toLowerCase();
+  // Önce custom domain'leri tara — kullanıcının kendi galaksileri öncelikli
+  const customDomains = Object.keys(S.universe?.domains||{}).filter(id=>!DOMAIN_PRIORITY.includes(id));
+  for(const id of customDomains){
+    const cfg = DOMAINS[id];
+    if(!cfg) continue;
+    if(cfg.keywords.some(k => t.includes(k))) return id;
+  }
+  // Sonra standart domain'ler
   for(const id of DOMAIN_PRIORITY){
     const cfg = DOMAINS[id];
     if(!cfg) continue;
@@ -4480,6 +4534,15 @@ function classifyInput(text){
 function handleInput(){
   const field=document.getElementById('input-field');
   const raw=field.value.trim(); if(!raw)return;
+
+  // ── YENİ GALAKSİ — "#galaksi:saz derslerim" veya "yeni galaksi: saz derslerim"
+  const galaksiMatch = raw.match(/^(?:#galaksi:|yeni galaksi:?\s*)(.+)$/i);
+  if(galaksiMatch){
+    field.value=''; hideSug();
+    createCustomDomain(galaksiMatch[1].trim());
+    return;
+  }
+
   const inputType = classifyInput(raw);
 
   // ── SORU
@@ -4844,7 +4907,7 @@ function detectSeedType(topic){
     e.label.toLowerCase()===t && e.type !== 'concept' && e.type !== 'domain'
   );
   if(savedEnt){
-    ENTITY_TYPE_MEMORY[t] = savedEnt.type; // learn it
+    ENTITY_TYPE_MEMORY[t] = savedEnt.type;
     return savedEnt.type;
   }
 
@@ -4856,15 +4919,24 @@ function detectSeedType(topic){
   if(/^https?:\/\/|^www\.|@.*\./.test(t)) return 'credential';
   if(/^[+]?\d[\d\s\-().]{7,}$/.test(t)) return 'credential';
 
-  // 4. Known places (countries + cities + provinces)
+  // 4. Media keywords — BEFORE place check (Urfa Türküleri → media not place)
+  if(/türkü|şarkı|albüm|müzik|film|dizi|kitap|roman|podcast|oyun|beste|parça|eser|sanatçı|yönetmen|yazar/.test(t)){
+    return 'media_item';
+  }
+
+  // 5. Known places (countries + cities + provinces)
+  // Only match if the ENTIRE topic is a known place, not if it's part of a longer phrase
   if(KNOWN_PLACES.has(t)) return 'place';
-  // Place suffix patterns
-  if(/(şehir|köy|mahalle|ilçe|kasaba|bölge|ülke)$/.test(t)) return 'place';
+  // Single-word place suffix patterns
+  if(!t.includes(' ') && /(şehir|köy|mahalle|ilçe|kasaba|bölge|ülke)$/.test(t)) return 'place';
+  // Multi-word: only first word is place — probably media/concept, not place
+  if(t.includes(' ') && KNOWN_PLACES.has(t.split(' ')[0])){
+    // "Urfa Türküleri" — first word is place but phrase is media/concept
+    return 'concept'; // will be overridden by media check above
+  }
 
-  // 5. Known projects
+  // 6. Known projects
   if(KNOWN_PROJECTS.has(t)) return 'project';
-
-  // 6. Family roles already handled upstream, skip here
 
   // 7. Known credential services
   if(KNOWN_CREDENTIALS.has(t)) return 'credential';
@@ -4878,8 +4950,6 @@ function detectSeedType(topic){
   // 9. Proper name (capitalized, Turkish chars, no digits)
   const looksLikeName = /^[A-ZÇĞİÖŞÜ][a-züğışöçĞÜŞİÖÇ]{1,}$/.test(topic);
   if(looksLikeName){
-    // Extra check: does it look like a place even if not in list?
-    // Place-like endings: -stan, -land, -ia, -iye
     if(/stan$|land$|ia$|iye$|istan$/i.test(topic)) return 'place';
     return 'person';
   }
