@@ -240,6 +240,29 @@ canvas#stars{position:fixed;inset:0;pointer-events:none;z-index:0;}
 .ap-title{font-family:'DM Serif Display',serif;font-size:1rem;color:var(--text);}
 .ap-close{background:transparent;border:none;color:var(--text-muted);cursor:pointer;font-size:.9rem;}
 #ap-body{flex:1;overflow-y:auto;padding:1rem 1.2rem;}
+
+/* ══ SELF ENTITY ══ */
+.g-entity.is-self circle { filter: drop-shadow(0 0 8px rgba(167,139,250,.6)); }
+.g-entity.is-self text   { fill: rgba(167,139,250,.9) !important; font-weight: 500; }
+
+/* ══ ONBOARDING WELCOME ══ */
+#welcome-banner{
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  background:rgba(8,8,16,.97);border:.5px solid var(--border-hi);
+  border-radius:16px;padding:2rem 2.5rem;text-align:center;z-index:80;
+  max-width:380px;animation:su .35s ease;
+}
+.wb-title{font-family:'DM Serif Display',serif;font-size:1.6rem;color:var(--text);margin-bottom:.5rem;}
+.wb-sub{font-size:.65rem;color:var(--text-muted);letter-spacing:.08em;margin-bottom:1.5rem;line-height:1.7;}
+.wb-actions{display:flex;flex-direction:column;gap:.5rem;}
+.wb-btn{padding:.7rem 1rem;background:transparent;border:.5px solid var(--border-hi);
+  border-radius:8px;color:var(--text-muted);font-family:'DM Mono',monospace;
+  font-size:.68rem;cursor:pointer;text-align:left;transition:all .2s;}
+.wb-btn:hover{border-color:var(--core);color:var(--text);background:rgba(167,139,250,.05);}
+.wb-btn.primary{border-color:rgba(167,139,250,.4);color:var(--core);}
+.wb-skip{font-size:.55rem;color:var(--text-dim);cursor:pointer;margin-top:1rem;display:block;
+  letter-spacing:.1em;text-transform:uppercase;transition:color .2s;}
+.wb-skip:hover{color:var(--text-muted);}
 /* ══ EDIT CONTROLS ══ */
 .p-edit-input{
   width:100%;background:rgba(255,255,255,.03);border:.5px solid var(--border-hi);
@@ -1813,6 +1836,61 @@ function apTaskItem(t, done=false){
   return item;
 }
 
+
+
+// ══════════════════════════════════════════
+// ONBOARDING — Welcome Banner
+// ══════════════════════════════════════════
+function showWelcomeBanner(name){
+  if(document.getElementById('welcome-banner')) return;
+
+  const banner = document.createElement('div');
+  banner.id = 'welcome-banner';
+  banner.innerHTML = `
+    <div class="wb-title">Merhaba, ${name}.</div>
+    <div class="wb-sub">
+      Evrenin kuruldu.<br>
+      Sana birkaç temel soru soralım mı?
+    </div>
+    <div class="wb-actions">
+      <button class="wb-btn primary" onclick="startOnboarding('${name}')">
+        ✦ Evet, başlayalım
+      </button>
+      <button class="wb-btn" onclick="closeWelcomeBanner()">
+        Şimdi değil, kendim keşfederim
+      </button>
+    </div>
+    <span class="wb-skip" onclick="closeWelcomeBanner()">atla</span>
+  `;
+  document.body.appendChild(banner);
+}
+
+function closeWelcomeBanner(){
+  document.getElementById('welcome-banner')?.remove();
+}
+
+// Onboarding — temel sorular sırayla
+const ONBOARDING_QUESTIONS = [
+  {text:'nerede doğdum?',       family:'places',    ph:'Doğduğun şehir veya ülke…'},
+  {text:'nerede yaşıyorum?',    family:'places',    ph:'Şu an yaşadığın yer…'},
+  {text:'ne iş yapıyorum?',     family:'work',      ph:'Mesleğin veya işin…'},
+];
+
+function startOnboarding(name){
+  closeWelcomeBanner();
+  // İlk soruyu sor
+  const q = mkQuestion({
+    text: `${name} hakkında ne bilmek isterim?`,
+    family: 'identity',
+    topic: name,
+    context: 'benim'
+  });
+  if(q){
+    bigBang(q.text, q);
+    updateCounters(); saveUniverse();
+    setTimeout(()=>openFacetPanel(q), 400);
+  }
+}
 
 // ══════════════════════════════════════════
 // AUTO-RESTORE — script sonu, tüm fonksiyonlar yüklü
@@ -3464,7 +3542,11 @@ function drawCore(){
   lbl.setAttribute('text-anchor','middle');lbl.setAttribute('fill','rgba(167,139,250,.22)');
   lbl.setAttribute('font-size','6');lbl.setAttribute('font-family','DM Mono,monospace');
   lbl.setAttribute('letter-spacing','4');lbl.textContent='SINGULAR';g.appendChild(lbl);
-  g.style.cursor='pointer';g.onclick=()=>openPanelCore();
+  g.style.cursor='pointer';g.onclick=()=>{
+    const selfE=S.universe.entities.find(e=>e.properties?.is_self);
+    if(selfE){ focusEntity(selfE.id); setTimeout(()=>openPanelEntity(selfE.id),400); }
+    else openPanelCore();
+  };
   svgEl.appendChild(g);
 }
 
@@ -4097,7 +4179,16 @@ function renderExisting(){
     const ent=S.universe.entities.find(e=>e.id===did);
     if(ent) spawnDomainNode(ent);
   });
-  S.universe.entities.filter(e=>e.type!=='domain'&&!e.properties?.deleted).forEach(e=>spawnEntityNode(e,e.domain));
+  S.universe.entities.filter(e=>e.type!=='domain'&&!e.properties?.deleted).forEach(e=>{
+    spawnEntityNode(e,e.domain);
+    // Self entity'ye özel class + pin
+    if(e.properties?.is_self){
+      const g=svgEl?.querySelector(`[data-nid="${e.id}"]`);
+      if(g) g.classList.add('is-self');
+      const n=S.nodes.find(x=>x.id===e.id);
+      if(n) n.pinned=true;
+    }
+  });
   S.universe.questions.forEach(q=>spawnQuestionNode(q,detectDomain(q.text)));
   S.universe.links.forEach(l=>drawLink(l.from,l.to,l.relation));
   updateCounters();
