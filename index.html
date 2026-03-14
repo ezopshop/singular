@@ -871,7 +871,15 @@ function findSimilarEntities(label, threshold=2){
   const t = label.toLowerCase();
   const tNorm = normalizeForSlug(label);
   return S.universe.entities
-    .filter(e=>e.type!=='domain')
+    .filter(e=>{
+      if(e.type==='domain') return false;
+      if(e.properties?.is_role) return false;      // rol entity'leri muaf
+      if(e.properties?.is_self) return false;      // ben muaf
+      if(e.properties?.deleted) return false;      // silinmişler muaf
+      if(e.type==='time') return false;            // zaman node'ları muaf
+      if(e.type==='answer_value') return false;    // cevap node'ları muaf
+      return true;
+    })
     .map(e=>{
       const eNorm = normalizeForSlug(e.label);
       const dist = levenshtein(t, e.label.toLowerCase());
@@ -949,10 +957,24 @@ function addEntityAlias(entId, alias){
 
 // Check for merge suggestions after creating/updating entity
 function checkMergeSuggestions(label, entId){
-  const similar = findSimilarEntities(label, 2).filter(x=>x.entity.id!==entId);
+  const thisEnt = S.universe.entities.find(e=>e.id===entId);
+  if(!thisEnt) return;
+
+  const similar = findSimilarEntities(label, 2).filter(x=>{
+    if(x.entity.id===entId) return false;
+    // Sadece benzer tip entity'leri öner
+    // person↔person, place↔place, concept↔concept — cross-type merge önerilmez
+    const sameTypeGroup = (a, b) => {
+      const group = t => ['person','contact'].includes(t)?'person':
+                         ['place'].includes(t)?'place':
+                         ['project'].includes(t)?'project':
+                         ['credential','account'].includes(t)?'credential':'other';
+      return group(a)===group(b);
+    };
+    return sameTypeGroup(thisEnt.type, x.entity.type);
+  });
   if(!similar.length) return;
 
-  // Show subtle notification (non-blocking)
   const top=similar[0];
   showMergeSuggestion(entId, top.entity.id, label, top.entity.label);
 }
