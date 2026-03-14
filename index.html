@@ -282,54 +282,107 @@ const AUTH_SESSION_KEY = 'singular_auth';
 const MODE_SESSION_KEY = 'singular_mode';
 
 // ══════════════════════════════════════════
-// TAXONOMY
+// ONTOLOGY — loaded from ontology_seed.json
 // ══════════════════════════════════════════
-const DOMAINS = {
-  identity:  {label:'kimlik',   color:'#a78bfa', keywords:['ben kimim','adım','doğum','yaş','kimliğim','pasaport','tc kimlik','ehliyet','telefon','email']},
-  family:    {label:'aile',     color:'#f472b6', keywords:['anne','annem','baba','babam','kardeş','aile','eş','çocuk','nine','dede','amca','hala','dayı','teyze']},
-  work:      {label:'iş',       color:'#fb923c', keywords:['iş','şirket','meslek','ofis','çalışıyorum','kariyer','ortağım','müşteri']},
-  projects:  {label:'projeler', color:'#f59e0b', keywords:['proje','singular','cillop','geliştiriyorum','uygulama','startup','yazılım']},
-  places:    {label:'yerler',   color:'#34d399', keywords:['adres','nerede yaşıyorum','ev adres','ofis adres','şehir','mahalle','ülke']},
-  finance:   {label:'finans',   color:'#22d3ee', keywords:['para','bütçe','banka','iban','kredi kartı','borç','gelir','vergi']},
-  health:    {label:'sağlık',   color:'#a3e635', keywords:['sağlık','hastalık','ilaç','doktor','boy','kilo','spor','diyet']},
-  media:     {label:'medya',    color:'#e879f9', keywords:['film','dizi','müzik','şarkı','sanatçı','albüm','izledim','dinliyorum']},
-  memory:    {label:'anı',      color:'#f97316', keywords:['hatırlıyorum','ilk kez','ne zamandı','konser','üniversite','aldım','gittim']},
-  knowledge: {label:'bilgi',    color:'#94a3b8', keywords:['nedir','nasıl çalışır','ne anlama','modal','jazz','tarih']},
-  docs:      {label:'belgeler', color:'#60a5fa', keywords:['şifre','parola','hesap','arşiv','dosya','link','url','numaram']},
+let ONT = null; // populated at boot
+
+async function loadOntology() {
+  try {
+    const res = await fetch('./ontology_seed.json');
+    ONT = await res.json();
+  } catch(e) {
+    console.warn('ontology_seed.json yüklenemedi, varsayılan kullanılıyor.', e);
+    ONT = null;
+  }
+}
+
+// Build DOMAINS from ontology or fallback to hardcoded
+function buildDomains() {
+  if (!ONT) return DOMAINS_FALLBACK;
+  const result = {};
+  Object.entries(ONT.domains).forEach(([id, cfg]) => {
+    const synonyms = ONT.synonyms?.domains?.[id] || [];
+    result[id] = { label: cfg.label, color: cfg.color, keywords: synonyms };
+  });
+  return result;
+}
+
+function buildFamilyRoles() {
+  if (!ONT) return FAMILY_ROLES_FALLBACK;
+  const result = {};
+  Object.entries(ONT.synonyms?.family_roles || {}).forEach(([canonical, synonymList]) => {
+    synonymList.forEach(syn => { result[syn.toLowerCase()] = canonical; });
+    result[canonical] = canonical;
+  });
+  return result;
+}
+
+function buildRelationTypes() {
+  if (!ONT) return RELATION_TYPES_FALLBACK;
+  const result = {};
+  Object.entries(ONT.relation_types).forEach(([id, cfg]) => { result[id] = cfg.label; });
+  return result;
+}
+
+// ── Fallback taxonomy (used if ontology_seed.json missing) ──────────
+const DOMAINS_FALLBACK = {
+  identity:    {label:'kimlik',    color:'#a78bfa', keywords:['ben kimim','adım','doğum','yaş','kimliğim','pasaport','tc kimlik','ehliyet','telefon','email']},
+  family:      {label:'aile',      color:'#f472b6', keywords:['anne','annem','baba','babam','kardeş','aile','eş','çocuk','nine','dede','amca','hala','dayı','teyze']},
+  work:        {label:'iş',        color:'#fb923c', keywords:['iş','şirket','meslek','ofis','çalışıyorum','kariyer','ortağım','müşteri']},
+  projects:    {label:'projeler',  color:'#f59e0b', keywords:['proje','singular','cillop','geliştiriyorum','uygulama','startup','yazılım']},
+  places:      {label:'yerler',    color:'#34d399', keywords:['adres','nerede yaşıyorum','ev adres','ofis adres','şehir','mahalle','ülke']},
+  finance:     {label:'finans',    color:'#22d3ee', keywords:['para','bütçe','banka','iban','kredi kartı','borç','gelir','vergi']},
+  health:      {label:'sağlık',    color:'#a3e635', keywords:['sağlık','hastalık','ilaç','doktor','boy','kilo','spor','diyet']},
+  media:       {label:'medya',     color:'#e879f9', keywords:['film','dizi','müzik','şarkı','sanatçı','albüm','izledim','dinliyorum']},
+  memory:      {label:'anı',       color:'#f97316', keywords:['hatırlıyorum','ilk kez','ne zamandı','konser','üniversite','aldım','gittim']},
+  knowledge:   {label:'bilgi',     color:'#94a3b8', keywords:['nedir','nasıl çalışır','ne anlama','modal','jazz','tarih']},
+  docs:        {label:'belgeler',  color:'#60a5fa', keywords:['şifre','parola','hesap','arşiv','dosya','link','url','numaram']},
+  contacts:    {label:'kişiler',   color:'#f0abfc', keywords:['rehber','iletişim','telefon numarası','mail adresi']},
+  credentials: {label:'hesaplar',  color:'#38bdf8', keywords:['kullanıcı adı','login','giriş','2fa','şifre yöneticisi']},
+  preferences: {label:'tercihler', color:'#fbbf24', keywords:['seviyorum','sevdiğim','tercihim','favorim','en iyi','beğeniyorum']},
 };
 
-const FAMILY_FACETS = {
-  identity:   ['isim','doğum tarihi','doğduğum şehir','köken','roller','değerler','hedef'],
-  family:     ['isim','ilişki türü','nerede yaşıyor','iletişim','önemli anılar'],
-  work:       ['şirket adı','pozisyon','nerede','ne iş yapıyorum','ortaklar'],
-  projects:   ['amaç','ne aşamada','sonraki adım','ekip','neden önemli'],
-  places:     ['adres / link','şehir','ülke','notlar'],
-  finance:    ['banka','iban','kart türü','notlar'],
-  health:     ['değer','ne zaman ölçüldü','doktor','notlar'],
-  media:      ['tür','sanatçı / yönetmen','neden önemli','notlar'],
-  memory:     ['ne oldu','ne zaman','kimler vardı','hissettiklerim'],
-  knowledge:  ['tanım','örnek','ilgili kavramlar','önemi'],
-  docs:       ['adres / link','şifre / anahtar','notlar'],
-};
-
-const FAMILY_ROLES = {
-  'anne':'anne','annem':'anne','annesi':'anne',
-  'baba':'baba','babam':'baba','babası':'baba',
-  'kardeş':'kardeş','kardeşim':'kardeş',
-  'eş':'eş','eşim':'eş','koca':'koca',
-  'nine':'nine','büyükanne':'nine','ninem':'nine',
+const FAMILY_ROLES_FALLBACK = {
+  'anne':'anne','annem':'anne','annesi':'anne','annemin adı':'anne',
+  'baba':'baba','babam':'baba','babası':'baba','babamın adı':'baba',
+  'kardeş':'kardeş','kardeşim':'kardeş','ablam':'kardeş','ağabeyim':'kardeş',
+  'eş':'eş','eşim':'eş','koca':'koca','karım':'eş',
+  'nine':'nine','büyükanne':'nine','ninem':'nine','babaannem':'nine','anneeannem':'nine',
   'dede':'dede','büyükbaba':'dede','dedem':'dede',
   'amca':'amca','amcam':'amca','hala':'hala','halam':'hala',
   'dayı':'dayı','dayım':'dayı','teyze':'teyze','teyzem':'teyze',
 };
 
-const RELATION_TYPES = {
+const RELATION_TYPES_FALLBACK = {
   belongs_to_domain:'alanı', child_of:'çocuğu', parent_of:'ebeveyni',
-  fills_role:'rolünü doldurur', is_a:'türü', part_of:'parçası',
-  related_to:'ilgili', works_at:'çalışır', works_on:'çalışıyor',
-  lives_in:'yaşıyor', owns:'sahibi', likes:'seviyor',
-  asks_about:'sorusu', answered_by:'cevabı', mentions:'bahseder',
-  has_property:'değeri',
+  spouse_of:'eşi', sibling_of:'kardeşi', fills_role:'rolünü doldurur',
+  is_a:'türü', part_of:'parçası', related_to:'ilgili',
+  works_at:'çalışır', works_on:'çalışıyor', lives_in:'yaşıyor',
+  owns:'sahibi', likes:'seviyor', stored_in:'saklandığı yer',
+  located_at:'konumu', asks_about:'sorusu', answered_by:'cevabı',
+  mentions:'bahseder', has_property:'değeri',
+};
+
+// ── Live references — rebuilt after ontology loads ───────────────────
+let DOMAINS       = DOMAINS_FALLBACK;
+let FAMILY_ROLES  = FAMILY_ROLES_FALLBACK;
+let RELATION_TYPES = RELATION_TYPES_FALLBACK;
+
+const FAMILY_FACETS = {
+  identity:    ['isim','doğum tarihi','doğduğum şehir','köken','roller','değerler','hedef'],
+  family:      ['isim','ilişki türü','nerede yaşıyor','iletişim','önemli anılar'],
+  work:        ['şirket adı','pozisyon','nerede','ne iş yapıyorum','ortaklar'],
+  projects:    ['amaç','ne aşamada','sonraki adım','ekip','neden önemli'],
+  places:      ['adres / link','şehir','ülke','notlar'],
+  finance:     ['banka','iban','kart türü','notlar'],
+  health:      ['değer','ne zaman ölçüldü','doktor','notlar'],
+  media:       ['tür','sanatçı / yönetmen','neden önemli','notlar'],
+  memory:      ['ne oldu','ne zaman','kimler vardı','hissettiklerim'],
+  knowledge:   ['tanım','örnek','ilgili kavramlar','önemi'],
+  docs:        ['adres / link','şifre / anahtar','notlar'],
+  contacts:    ['isim','telefon','email','nasıl tanıdım','notlar'],
+  credentials: ['kullanıcı adı','şifre / anahtar','2fa','kurtarma kodu','notlar'],
+  preferences: ['ne','neden seviyorum','ne zaman keşfettim','notlar'],
 };
 
 // ══════════════════════════════════════════
@@ -1462,6 +1515,12 @@ function slugify(s){
 
 // ── BOOT ─────────────────────────────────────────────────────────────
 (async()=>{
+  // 1. Load ontology — parser needs it before anything
+  await loadOntology();
+  DOMAINS        = buildDomains();
+  FAMILY_ROLES   = buildFamilyRoles();
+  RELATION_TYPES = buildRelationTypes();
+  // 2. Session restore or show boot
   const restored=await tryRestoreSession();
   if(!restored){const boot=document.getElementById('boot');if(boot){boot.style.opacity='1';boot.style.pointerEvents='all';}}
 })();
