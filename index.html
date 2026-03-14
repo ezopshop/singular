@@ -5183,6 +5183,181 @@ function learnEntityType(label, type){
   ENTITY_TYPE_MEMORY[slug] = type;
 }
 
+// ── TİP SEÇİCİ — yeni entity için kullanıcıya "bu ne?" sor ─────────────
+// Sistem en iyi tahminini vurgular, kullanıcı değiştirebilir veya onaylayabilir
+function _showTypePicker(topic, guessedType){
+
+  const TYPE_OPTIONS = [
+    { type:'person',       icon:'@',  label:'kişi',       color:'#f472b6', hint:'bir insan' },
+    { type:'place',        icon:'◉',  label:'yer',        color:'#34d399', hint:'konum, şehir, adres' },
+    { type:'project',      icon:'▷',  label:'proje',      color:'#f59e0b', hint:'iş, hedef, görev' },
+    { type:'concept',      icon:'○',  label:'kavram',     color:'#a78bfa', hint:'fikir, bilgi, konu' },
+    { type:'organization', icon:'◆',  label:'kurum',      color:'#fb923c', hint:'şirket, okul, dernek' },
+    { type:'media_item',   icon:'♪',  label:'medya',      color:'#e879f9', hint:'film, müzik, kitap, video' },
+    { type:'credential',   icon:'⬡',  label:'hesap',      color:'#38bdf8', hint:'şifre, uygulama, servis' },
+    { type:'event',        icon:'◈',  label:'olay',       color:'#f97316', hint:'tarih, anı, etkinlik' },
+  ];
+
+  const opts = document.getElementById('sugopts'); opts.innerHTML='';
+
+  // Başlık
+  document.getElementById('suglbl').innerHTML =
+    `<span style="opacity:.5">"${topic.slice(0,28)}"</span> <span style="opacity:.3">—</span> <span style="color:rgba(226,224,240,.5)">bu ne?</span>`;
+
+  // Tip seçenekleri
+  const grid = document.createElement('div');
+  grid.style.cssText = 'display:grid;grid-template-columns:repeat(4,1fr);gap:.3rem;margin-bottom:.4rem;';
+
+  TYPE_OPTIONS.forEach(opt=>{
+    const isGuess = opt.type === guessedType;
+    const btn = document.createElement('button');
+    btn.style.cssText = `
+      padding:.35rem .4rem;border-radius:8px;cursor:pointer;
+      font-family:'DM Mono',monospace;font-size:.58rem;
+      text-align:center;transition:all .12s;
+      background:${isGuess ? hexAlpha(opt.color,.15) : 'rgba(255,255,255,.02)'};
+      border:.5px solid ${isGuess ? hexAlpha(opt.color,.5) : 'rgba(255,255,255,.07)'};
+      color:${isGuess ? opt.color : 'rgba(226,224,240,.45)'};
+      ${isGuess ? 'box-shadow:0 0 8px '+hexAlpha(opt.color,.15)+';' : ''}
+    `;
+    btn.title = opt.hint;
+    btn.innerHTML = `<div style="font-size:.8rem;margin-bottom:.1rem">${opt.icon}</div><div>${opt.label}</div>${isGuess?'<div style="font-size:.42rem;opacity:.5;margin-top:.1rem">tahmin</div>':''}`;
+
+    btn.onmouseenter = ()=>{ if(!isGuess) btn.style.background=hexAlpha(opt.color,.08); btn.style.borderColor=hexAlpha(opt.color,.3); btn.style.color=opt.color; };
+    btn.onmouseleave = ()=>{ btn.style.background=isGuess?hexAlpha(opt.color,.15):'rgba(255,255,255,.02)'; btn.style.borderColor=isGuess?hexAlpha(opt.color,.5):'rgba(255,255,255,.07)'; btn.style.color=isGuess?opt.color:'rgba(226,224,240,.45)'; };
+
+    btn.onclick = ()=>{ _confirmTypePicker(topic, opt.type); };
+    grid.appendChild(btn);
+  });
+  opts.appendChild(grid);
+
+  // Domain seçeneği — custom galaksi seç
+  const customDomains = Object.keys(S.universe?.domains||{}).filter(id=>DOMAINS[id]?.is_custom||false);
+  if(customDomains.length){
+    const domDiv = document.createElement('div');
+    domDiv.style.cssText='display:flex;flex-wrap:wrap;gap:.25rem;margin-top:.2rem;';
+    const domLbl = document.createElement('div');
+    domLbl.style.cssText='font-size:.46rem;letter-spacing:.15em;color:var(--text-dim);text-transform:uppercase;width:100%;margin-bottom:.15rem;';
+    domLbl.textContent='ya da doğrudan galaksiye ekle';
+    domDiv.appendChild(domLbl);
+    customDomains.forEach(domId=>{
+      const cfg=DOMAINS[domId]; if(!cfg)return;
+      const chip=document.createElement('button');
+      chip.style.cssText=`font-size:.57rem;padding:.2rem .55rem;border-radius:10px;cursor:pointer;font-family:'DM Mono',monospace;background:${hexAlpha(cfg.color,.1)};border:.5px solid ${hexAlpha(cfg.color,.3)};color:${hexAlpha(cfg.color,.8)};transition:all .12s;`;
+      chip.textContent = cfg.label;
+      chip.onclick=()=>{ _confirmTypePicker(topic, 'concept', domId); };
+      domDiv.appendChild(chip);
+    });
+    opts.appendChild(domDiv);
+  }
+
+  // Soru olarak sor seçeneği
+  const qBtn = document.createElement('button');
+  qBtn.className = 'sug-opt comp-opt';
+  qBtn.style.cssText='margin-top:.25rem;opacity:.5;font-size:.6rem;';
+  qBtn.innerHTML=`<span class="sug-arr">✦</span><span>soru olarak kur…</span>`;
+  qBtn.onclick=()=>{ hideSug(); openComposer(topic); };
+  opts.appendChild(qBtn);
+
+  document.getElementById('sug-layer').classList.add('on');
+}
+
+// Tip onaylandı — entity oluştur, soru öner
+function _confirmTypePicker(topic, entityType, forceDomain){
+  learnEntityType(topic, entityType);
+
+  // Domain belirle
+  const domainMap = {
+    person:'family', place:'places', project:'projects',
+    concept:'knowledge', organization:'work', media_item:'media',
+    credential:'credentials', event:'memory'
+  };
+  const domain = forceDomain || domainMap[entityType] || 'knowledge';
+
+  // Entity oluştur
+  ensureDomain(domain);
+  const ent = mkEntity(entityType, topic, domain, {});
+  if(ent && !S.nodes.find(n=>n.id===ent.id)){
+    spawnEntityNode(ent, domain);
+    addLink(ent.id, 'domain_'+domain, 'belongs_to_domain');
+    saveUniverse(); updateCounters();
+  }
+
+  // Sug layer'ı soru önerilerine geçir
+  const sugs = getSuggestionPack(topic, entityType, ent);
+  const domColor = DOMAINS[domain]?.color || '#a78bfa';
+
+  document.getElementById('suglbl').innerHTML =
+    `<span style="color:${domColor}">${topic}</span> <span style="opacity:.35;font-size:.5rem;text-transform:uppercase;letter-spacing:.1em">${ONTOLOGY.entity_types?.[entityType]?.label||entityType}</span>`;
+
+  const opts = document.getElementById('sugopts'); opts.innerHTML='';
+
+  // Cosmos'tan bağlamsal soru üret
+  const contextQ = _generateContextualQuestion(topic, entityType, ent);
+  if(contextQ){
+    const highlight = document.createElement('button');
+    highlight.className='sug-opt';
+    highlight.style.cssText=`border-color:${hexAlpha(domColor,.3)};background:${hexAlpha(domColor,.06)};color:var(--text);margin-bottom:.2rem;`;
+    highlight.innerHTML=`<span class="sug-arr" style="color:${domColor}">✦</span><span>${contextQ.text}</span>`;
+    highlight.onclick=()=>{
+      hideSug(); document.getElementById('input-field').value='';
+      const q=mkQuestion({text:contextQ.text,template:contextQ.tid,topic,family:contextQ.fam});
+      bigBang(contextQ.text,q); updateCounters(); saveUniverse(); openFacetPanel(q);
+    };
+    opts.appendChild(highlight);
+  }
+
+  sugs.slice(0,3).forEach(s=>{
+    const btn=document.createElement('button');btn.className='sug-opt';
+    btn.innerHTML=`<span class="sug-arr">→</span><span>${s.text}</span>`;
+    btn.onclick=()=>{
+      hideSug(); document.getElementById('input-field').value='';
+      const fam=Q_TEMPLATES.find(t=>t.id===s.tid)?.family||'knowledge';
+      const q=mkQuestion({text:s.text,template:s.tid,topic,context:s.ctx,family:fam});
+      bigBang(s.text,q); updateCounters(); saveUniverse(); openFacetPanel(q);
+    };
+    opts.appendChild(btn);
+  });
+
+  const comp=document.createElement('button');comp.className='sug-opt comp-opt';
+  comp.innerHTML=`<span class="sug-arr">✦</span><span>Soruyu kendin kur…</span>`;
+  comp.onclick=()=>{hideSug();openComposer(topic);};
+  opts.appendChild(comp);
+}
+
+// Cosmos'ta mevcut bilgilerden bağlamsal soru üret
+function _generateContextualQuestion(topic, entityType, ent){
+  if(!S.universe||!ent) return null;
+
+  // Kişiyse ve aile domain'indeyse — kim sorusu var mı?
+  if(entityType==='person'){
+    const hasKimQ = S.universe.questions.some(q=>q.text.toLowerCase().includes(topic.toLowerCase())&&q.text.includes('kim'));
+    if(!hasKimQ) return {text:`${topic} kim?`, tid:'kim', fam:'family'};
+    return {text:`${topic} ile ilişkim ne?`, tid:'kiminle', fam:'family'};
+  }
+
+  // Medyaysa — bana ne anlama geliyor?
+  if(entityType==='media_item'){
+    return {text:`${topic} bana ne anlama geliyor?`, tid:'ne_anlama', fam:'identity'};
+  }
+
+  // Projeyse — cosmos'ta başka proje var mı? Birleştir/karşılaştır
+  if(entityType==='project'){
+    const otherProjects = S.universe.entities.filter(e=>e.type==='project'&&e.id!==ent.id&&!e.properties?.deleted);
+    if(otherProjects.length){
+      return {text:`${topic} ile ${otherProjects[0].label} arasındaki bağlantı ne?`, tid:'nedir', fam:'knowledge'};
+    }
+    return {text:`${topic} ne aşamada?`, tid:'ne_asamada', fam:'projects'};
+  }
+
+  // Kavramsa — nedir
+  if(entityType==='concept'){
+    return {text:`${topic} nedir?`, tid:'nedir', fam:'knowledge'};
+  }
+
+  return null;
+}
+
 
 function showSugLayer(topic){
   const t = topic.trim().toLowerCase();
@@ -5339,50 +5514,9 @@ function showSugLayer(topic){
     return;
   }
 
-  // ── Yeni entity ───────────────────────────────────────────────────────
+  // ── Yeni entity — önce TİP SEÇİCİ göster ────────────────────────────
   const seedType = detectSeedType(topic);
-
-  if(seedType === 'place'){
-    ensureDomain('places');
-    const placeEnt = mkEntity('place', topic, 'places', {is_place:true});
-    if(!S.nodes.find(n=>n.id===placeEnt.id)){
-      spawnEntityNode(placeEnt,'places');
-      addLink(placeEnt.id,'domain_places','belongs_to_domain');
-    }
-  } else if(seedType === 'credential'){
-    ensureDomain('credentials');
-    const credEnt = mkEntity('credential', topic, 'credentials', {is_credential:true});
-    if(!S.nodes.find(n=>n.id===credEnt.id)){
-      spawnEntityNode(credEnt,'credentials');
-      addLink(credEnt.id,'domain_credentials','belongs_to_domain');
-    }
-  } else if(seedType === 'project'){
-    ensureDomain('projects');
-    const projEnt = mkEntity('project', topic, 'projects', {is_project:true});
-    if(!S.nodes.find(n=>n.id===projEnt.id)){
-      spawnEntityNode(projEnt,'projects');
-      addLink(projEnt.id,'domain_projects','belongs_to_domain');
-    }
-  }
-
-  const newEnt = S.universe.entities.find(e=>e.label.toLowerCase()===topic.toLowerCase()&&e.type!=='domain');
-  const sugs = getSuggestionPack(topic, seedType, newEnt);
-  document.getElementById('suglbl').innerHTML=
-    `<span style="opacity:.6">"${topic}"</span> → nasıl bir soru?`;
-  const opts=document.getElementById('sugopts'); opts.innerHTML='';
-
-  sugs.forEach(s=>{
-    const btn=document.createElement('button');btn.className='sug-opt';
-    btn.innerHTML=`<span class="sug-arr">→</span><span>${s.text}</span>`;
-    btn.onclick=()=>{
-      hideSug(); document.getElementById('input-field').value='';
-      const fam=Q_TEMPLATES.find(t=>t.id===s.tid)?.family||'knowledge';
-      const q=mkQuestion({text:s.text,template:s.tid,topic,context:s.ctx,family:fam});
-      bigBang(s.text,q);
-      updateCounters(); saveUniverse(); openFacetPanel(q);
-    };
-    opts.appendChild(btn);
-  });
+  _showTypePicker(topic, seedType);
 
   const comp=document.createElement('button');comp.className='sug-opt comp-opt';
   comp.innerHTML=`<span class="sug-arr">✦</span><span>Soruyu kendin kur…</span>`;
