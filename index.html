@@ -4269,10 +4269,24 @@ function processStatement(text){
   if(parsed.self){
     let selfEnt = S.universe.entities.find(e=>e.properties?.is_self);
     if(!selfEnt){
-      selfEnt = mkEntity('person','ben','identity',{is_self:true});
-      ensureDomain('identity');
-      spawnEntityNode(selfEnt,'identity');
-      addLink(selfEnt.id,'domain_identity','belongs_to_domain');
+      // Self entity direkt oluştur — mkEntity kullanma (loop riski)
+      const selfSlug = 'ben';
+      const existing_ = S.universe.entities.find(e=>e.slug===selfSlug);
+      if(existing_){
+        selfEnt = existing_;
+        selfEnt.type='person';
+        selfEnt.properties.is_self=true;
+      } else {
+        selfEnt = {id:uid('ent'),type:'person',label:'ben',slug:'ben',domain:'identity',
+          created_at:new Date().toISOString(),properties:{is_self:true},entityClass:'concept'};
+        S.universe.entities.push(selfEnt);
+        ensureDomain('identity');
+        spawnEntityNode(selfEnt,'identity');
+        addLink(selfEnt.id,'domain_identity','belongs_to_domain');
+      }
+    } else {
+      // Mevcut self entity — person olduğundan emin ol
+      if(selfEnt.type !== 'person') selfEnt.type = 'person';
     }
     // Prop'u entity'e ekle
     selfEnt.properties[parsed.prop] = parsed.value;
