@@ -209,11 +209,13 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;heig
 // ══════════════════════════════════════
 // CONFIG
 // ══════════════════════════════════════
-const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID_HERE';
-const ANTHROPIC_API_KEY = 'YOUR_ANTHROPIC_API_KEY_HERE';
+const GOOGLE_CLIENT_ID = '557723915441-q49en6uqqkqm9s5fie14ejm6cak9eo6r.apps.googleusercontent.com';
+// API calls go through Cloudflare Worker proxy (OPENROUTER_API_KEY is secret on Worker)
+const AI_PROXY_URL = 'https://broad-limit-fea7.ezopshop.workers.dev/chat';
 const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const UNIVERSE_FILENAME = 'universe.json';
 const FOLDER_NAME = 'SINGULAR';
+const SESSION_KEY = 'singular_session';
 
 // ══════════════════════════════════════
 // QUESTION FAMILIES
@@ -248,10 +250,106 @@ const S = {
   driveFileId: null,
   driveFolderId: null,
   universe: null,
-  graphNodes: [],   // {id, x, y, kind, ref}  kind: question|answer|entity
-  // pending answer context
-  pendingAnswerTo: null,  // question id user is answering
+  graphNodes: [],        // {id, x, y, kind, ref}
+  pendingAnswerTo: null, // question id user is answering
+  enrichQueue: [],
+  enrichRunning: false
 };
+
+// ══════════════════════════════════════
+// SEMANTIC ENRICHMENT via Cloudflare Worker → OpenRouter
+// ══════════════════════════════════════
+async function enrichQuestion(q) {
+  if (!AI_PROXY_URL) return;
+  const context = S.universe.questions.slice(-10).map(x => `[${x.id}]: ${x.text}`).join('\n');
+  const prompt = `Sen SINGULAR adlı soru-merkezli kişisel hafıza motorunun anlam motorusun. Kullanıcı bir soru sordu. Sadece JSON döndür, başka hiçbir şey yazma.
+
+Mevcut sorular:
+${context || '(ilk soru)'}
+
+Yeni soru: "${q.text}"
+Aile: ${q.family}
+
+Yanıt formatı:
+{
+  "summary": "sorunun özü (max 6 kelime, Türkçe)",
+  "suggested_facets": ["bu soruya cevap verirken ele alınması gereken 3-4 boyut"],
+  "related_question_ids": ["mevcut sorulardan gerçekten ilişkili olanların ID'leri"],
+  "next_questions": ["bu sorudan doğan 2-3 yeni soru"]
+}`;
+
+  try {
+    const res = await fetch(AI_PROXY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'anthropic/claude-sonnet-4-5',
+        max_tokens: 600,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await res.json();
+    const raw = data.choices?.[0]?.message?.content || '';
+    const cleaned = raw.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(cleaned);
+
+    q.semantic = {
+      summary: parsed.summary || null,
+      suggested_facets: parsed.suggested_facets || [],
+      related_question_ids: parsed.related_question_ids || [],
+      next_questions: parsed.next_questions || []
+    };
+    q.semantic_enriched = true;
+
+    // Update node label with summary
+    const nodeEl = svgEl && svgEl.querySelector(`[data-id="${q.id}"] text`);
+    if (nodeEl && q.semantic.summary) {
+      const short = q.semantic.summary.length > 14 ? q.semantic.summary.slice(0,14)+'…' : q.semantic.summary;
+      nodeEl.textContent = short;
+    }
+
+    // Show next question suggestions
+    if (q.semantic.next_questions && q.semantic.next_questions.length) {
+      showSuggestions(q.semantic.next_questions);
+    }
+
+    // Draw semantic links to related questions
+    if (q.semantic.related_question_ids && q.semantic.related_question_ids.length) {
+      const fromNode = S.graphNodes.find(n => n.id === q.id);
+      q.semantic.related_question_ids.forEach(relId => {
+        const toNode = S.graphNodes.find(n => n.id === relId);
+        if (!fromNode || !toNode) return;
+        const line = svgMk('line');
+        line.setAttribute('x1', fromNode.x); line.setAttribute('y1', fromNode.y);
+        line.setAttribute('x2', toNode.x);   line.setAttribute('y2', toNode.y);
+        line.setAttribute('class','g-link answer-link');
+        svgEl.insertBefore(line, svgEl.children[5] || null);
+      });
+    }
+
+    // Refresh panel if this question is open
+    const panelTitle = document.getElementById('panel-title');
+    if (document.getElementById('panel').classList.contains('open') &&
+        panelTitle.dataset.entryId === q.id) {
+      openPanelQuestion(q.id);
+    }
+
+    await saveUniverse();
+  } catch(err) {
+    console.warn('Semantic enrichment failed:', err);
+  }
+}
+
+async function runEnrichQueue() {
+  if (S.enrichRunning || S.enrichQueue.length === 0) return;
+  S.enrichRunning = true;
+  while (S.enrichQueue.length > 0) {
+    const id = S.enrichQueue.shift();
+    const q = S.universe.questions.find(x => x.id === id);
+    if (q && !q.semantic_enriched) await enrichQuestion(q);
+  }
+  S.enrichRunning = false;
+}
 
 // ══════════════════════════════════════
 // UNIVERSE MODEL
@@ -387,6 +485,9 @@ async function handleInput() {
     addQuestionNode(q);
     setPendingAnswer(q);
     openPanelQuestion(q.id);
+    // Queue semantic enrichment via Worker
+    S.enrichQueue.push(q.id);
+    runEnrichQueue();
   } else if (kind === 'answer' && S.pendingAnswerTo) {
     const a = addAnswer(S.pendingAnswerTo, text, null);
     addAnswerNode(a, S.pendingAnswerTo);
