@@ -1632,7 +1632,9 @@ function migrateUniverse(u){
   ['questions','answers','entities','links','entries'].forEach(k=>{if(!u[k])u[k]=[];});
   if(!u.profile) u.profile={name:null,gender:null};
   if(!u.domains) u.domains={};
-  if(!u.meta) u.meta={version:'4.0',created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+  if(!u.meta) u.meta={version:'4.1',created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+  // Run integrity cleanup on load (fixes old data issues)
+  setTimeout(()=>{ if(S.universe) integrityCleanup(); }, 2000);
   return u;
 }
 
@@ -1643,11 +1645,95 @@ function rawEntry(text,kind,qId,aId){
   S.universe.entries.push(e); return e;
 }
 
-function addLink(from,to,relation){
+// ══════════════════════════════════════════
+// KNOWLEDGE INTEGRITY ENGINE
+// Duplicate, boş ve invalid yapıları önler
+// ══════════════════════════════════════════
+
+// Link dedup — aynı from+to+relation kombinasyonu bir kez olabilir
+function addLink(from, to, relation){
+  if(!from || !to || !relation) return null;
+  if(from === to) return null; // self-link
+  // Dedup check
+  if(S.universe.links.find(l=>l.from===from&&l.to===to&&l.relation===relation)){
+    return null; // already exists
+  }
   const l={id:uid('l'),from,to,relation,created_at:new Date().toISOString()};
   S.universe.links.push(l);
   drawLink(from,to,relation);
   return l;
+}
+
+// Integrity report — console only, non-blocking
+function integrityCheck(){
+  const issues = [];
+
+  // 1. Duplicate entities (same slug, same type)
+  const slugMap = {};
+  S.universe.entities.forEach(e=>{
+    const key = e.slug+'::'+e.type;
+    if(slugMap[key]) issues.push({type:'dup_entity', ids:[slugMap[key],e.id], label:e.label});
+    else slugMap[key] = e.id;
+  });
+
+  // 2. Orphan links (pointing to non-existent nodes)
+  const allIds = new Set([
+    ...S.universe.entities.map(e=>e.id),
+    ...S.universe.questions.map(q=>q.id),
+    ...S.universe.answers.map(a=>a.id),
+  ]);
+  S.universe.links.forEach(l=>{
+    if(!allIds.has(l.from)) issues.push({type:'orphan_link', id:l.id, side:'from', missing:l.from});
+    if(!allIds.has(l.to))   issues.push({type:'orphan_link', id:l.id, side:'to',   missing:l.to});
+  });
+
+  // 3. Blank questions
+  S.universe.questions.filter(q=>!q.text?.trim()).forEach(q=>{
+    issues.push({type:'blank_question', id:q.id});
+  });
+
+  // 4. Blank answers
+  S.universe.answers.filter(a=>!a.value?.trim()).forEach(a=>{
+    issues.push({type:'blank_answer', id:a.id, qId:a.question_id});
+  });
+
+  // 5. Answer with no parent question
+  const qIds = new Set(S.universe.questions.map(q=>q.id));
+  S.universe.answers.filter(a=>!qIds.has(a.question_id)).forEach(a=>{
+    issues.push({type:'orphan_answer', id:a.id});
+  });
+
+  if(issues.length > 0){
+    console.warn(`[SINGULAR integrity] ${issues.length} issue(s):`, issues);
+  }
+  return issues;
+}
+
+// Auto-cleanup: remove duplicate links and blank entries
+function integrityCleanup(){
+  // Remove duplicate links
+  const seen = new Set();
+  S.universe.links = S.universe.links.filter(l=>{
+    const key = l.from+'→'+l.to+'::'+l.relation;
+    if(seen.has(key)) return false;
+    seen.add(key); return true;
+  });
+
+  // Remove blank answers
+  S.universe.answers = S.universe.answers.filter(a=>a.value?.trim());
+
+  // Remove blank questions
+  S.universe.questions = S.universe.questions.filter(q=>q.text?.trim());
+
+  // Remove orphan links
+  const allIds = new Set([
+    ...S.universe.entities.map(e=>e.id),
+    ...S.universe.questions.map(q=>q.id),
+    ...S.universe.answers.map(a=>a.id),
+  ]);
+  S.universe.links = S.universe.links.filter(l=>allIds.has(l.from)&&allIds.has(l.to));
+
+  console.log('[SINGULAR] integrity cleanup done');
 }
 
 // ── Domain nodes ───────────────────────────────────────────────────────
@@ -1701,16 +1787,37 @@ const WORK_ROLES = {
 };
 
 function mkEntity(type, label, domainId, props){
-  const slug = label.toLowerCase().replace(/[\s@]+/g,'_');
+  if(!label?.trim()) return null;  // Guard: empty label rejected
+
+  // Normalize slug — Türkçe karakterleri koru, boşluk → _
+  const slug = label.toLowerCase()
+    .replace(/\s+/g,'_')
+    .replace(/@/g,'')
+    .trim();
+
   const existing = S.universe.entities.find(e => e.slug===slug);
-  if(existing) return existing;
+  if(existing){
+    // TYPE UPGRADE: concept → more specific type (place, person, etc.)
+    const typeRank = {concept:0,fact:1,property:2,event:3,media_item:4,
+      preference:5,document:6,credential:7,organization:8,contact:9,
+      place:10,project:11,person:12};
+    const existRank = typeRank[existing.type]||0;
+    const newRank   = typeRank[type]||0;
+    if(newRank > existRank){
+      existing.type = type;
+      if(domainId && domainId !== 'knowledge') existing.domain = domainId;
+      learnEntityType(label, type);
+    }
+    // Merge props
+    if(props) Object.assign(existing.properties, props);
+    return existing;
+  }
+
   const ent = {
     id: uid('ent'), type, label, slug,
     domain: domainId||'knowledge',
     created_at: new Date().toISOString(),
     properties: props||{},
-    // role_entity: soyut rol (anne, baba) — gerçek kişiyle doldurulacak
-    // real_entity: somut kişi (Ayşe) — cevaptan doğdu
     entityClass: props?.is_role ? 'role' : (props?.is_real ? 'real' : 'concept')
   };
   S.universe.entities.push(ent);
@@ -1761,22 +1868,49 @@ function materializeRole(roleEntId, realName, domainId){
   return realEnt;
 }
 
-// ── Question ───────────────────────────────────────────────────────────
+// ── Question — dedup + validation ──────────────────────────────────────
 function mkQuestion({text,template,topic,context,family}){
-  const q={id:uid('q'),text,template:template||null,topic:topic||null,
+  const clean = text?.trim();
+  if(!clean) return null;  // Guard: empty text rejected
+
+  // Dedup: same question text → return existing
+  const normalizedText = clean.toLowerCase().replace(/\s+/g,' ');
+  const existing = S.universe.questions.find(q=>
+    q.text.toLowerCase().replace(/\s+/g,' ') === normalizedText
+  );
+  if(existing){
+    console.debug('[SINGULAR] Duplicate question blocked:', clean);
+    return existing;
+  }
+
+  const q={id:uid('q'),text:clean,template:template||null,topic:topic||null,
     context:context||null,family:family||'knowledge',status:'open',
     created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
   S.universe.questions.push(q);
-  rawEntry(text,'question_raw',q.id,null);
+  rawEntry(clean,'question_raw',q.id,null);
   return q;
 }
 
-// ── Answer ─────────────────────────────────────────────────────────────
-function mkAnswer(qId,facet,value){
-  const a={id:uid('a'),question_id:qId,facet,value,
+// ── Answer — validation + dedup ────────────────────────────────────────
+function mkAnswer(qId, facet, value){
+  const cleanVal = value?.trim();
+  if(!cleanVal) return null;  // Guard: empty value rejected
+  if(!qId) return null;       // Guard: no parent question
+
+  // Dedup: same question + same facet → update, don't duplicate
+  const existing = S.universe.answers.find(a=>
+    a.question_id===qId && a.facet===facet
+  );
+  if(existing){
+    existing.value = cleanVal;
+    existing.updated_at = new Date().toISOString();
+    return existing;
+  }
+
+  const a={id:uid('a'),question_id:qId,facet,value:cleanVal,
     created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
   S.universe.answers.push(a);
-  rawEntry(value,'answer_raw',qId,a.id);
+  rawEntry(cleanVal,'answer_raw',qId,a.id);
   const q=S.universe.questions.find(x=>x.id===qId);
   if(q){q.status='answered';q.updated_at=new Date().toISOString();}
   return a;
