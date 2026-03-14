@@ -245,24 +245,6 @@ canvas#stars{position:fixed;inset:0;pointer-events:none;z-index:0;}
 .g-entity.is-self circle { filter: drop-shadow(0 0 8px rgba(167,139,250,.6)); }
 .g-entity.is-self text   { fill: rgba(167,139,250,.9) !important; font-weight: 500; }
 
-/* ══ ONBOARDING WELCOME ══ */
-#welcome-banner{
-  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
-  background:rgba(8,8,16,.97);border:.5px solid var(--border-hi);
-  border-radius:16px;padding:2rem 2.5rem;text-align:center;z-index:80;
-  max-width:380px;animation:su .35s ease;
-}
-.wb-title{font-family:'DM Serif Display',serif;font-size:1.6rem;color:var(--text);margin-bottom:.5rem;}
-.wb-sub{font-size:.65rem;color:var(--text-muted);letter-spacing:.08em;margin-bottom:1.5rem;line-height:1.7;}
-.wb-actions{display:flex;flex-direction:column;gap:.5rem;}
-.wb-btn{padding:.7rem 1rem;background:transparent;border:.5px solid var(--border-hi);
-  border-radius:8px;color:var(--text-muted);font-family:'DM Mono',monospace;
-  font-size:.68rem;cursor:pointer;text-align:left;transition:all .2s;}
-.wb-btn:hover{border-color:var(--core);color:var(--text);background:rgba(167,139,250,.05);}
-.wb-btn.primary{border-color:rgba(167,139,250,.4);color:var(--core);}
-.wb-skip{font-size:.55rem;color:var(--text-dim);cursor:pointer;margin-top:1rem;display:block;
-  letter-spacing:.1em;text-transform:uppercase;transition:color .2s;}
-.wb-skip:hover{color:var(--text-muted);}
 /* ══ EDIT CONTROLS ══ */
 .p-edit-input{
   width:100%;background:rgba(255,255,255,.03);border:.5px solid var(--border-hi);
@@ -431,6 +413,9 @@ canvas#stars{position:fixed;inset:0;pointer-events:none;z-index:0;}
   </div>
 
   <div id="hint">bir soru sor, bir kişi yaz, bir şey hatırla</div>
+
+  <!-- QUICK SUGGESTIONS — ilişki kurulunca önerilen sorular -->
+  <div id="suggestions" style="position:fixed;bottom:6.8rem;left:50%;transform:translateX(-50%);width:min(620px,93vw);display:flex;flex-wrap:wrap;gap:.35rem;justify-content:center;opacity:0;pointer-events:none;transition:opacity .3s;z-index:15;"></div>
 
   <!-- ══ SEARCH OVERLAY ══ -->
   <div id="search-overlay" onclick="closeSearch(event)">
@@ -1841,104 +1826,6 @@ function apTaskItem(t, done=false){
 // ══════════════════════════════════════════
 // ONBOARDING — Welcome Banner
 // ══════════════════════════════════════════
-function showWelcomeBanner(name){
-  if(document.getElementById('welcome-banner')) return;
-
-  const banner = document.createElement('div');
-  banner.id = 'welcome-banner';
-  banner.innerHTML = `
-    <div class="wb-title">Merhaba, ${name}.</div>
-    <div class="wb-sub">
-      Evrenin kuruldu.<br>
-      Sana birkaç temel soru soralım mı?
-    </div>
-    <div class="wb-actions">
-      <button class="wb-btn primary" id="wb-start-btn">
-        ✦ Evet, başlayalım
-      </button>
-      <button class="wb-btn" onclick="closeWelcomeBanner()">
-        Şimdi değil, kendim keşfederim
-      </button>
-    </div>
-    <span class="wb-skip" onclick="closeWelcomeBanner()">atla</span>
-  `;
-  document.body.appendChild(banner);
-  // onclick bağla (string interpolation sorununu önle)
-  document.getElementById('wb-start-btn').onclick = ()=>startOnboarding(name);
-}
-
-function closeWelcomeBanner(){
-  document.getElementById('welcome-banner')?.remove();
-}
-
-// Onboarding — temel sorular sırayla
-const ONBOARDING_QUESTIONS = [
-  {text:'nerede doğdum?',       family:'places',    ph:'Doğduğun şehir veya ülke…'},
-  {text:'nerede yaşıyorum?',    family:'places',    ph:'Şu an yaşadığın yer…'},
-  {text:'ne iş yapıyorum?',     family:'work',      ph:'Mesleğin veya işin…'},
-];
-
-function startOnboarding(name){
-  closeWelcomeBanner();
-
-  // Onboarding soru sırası — adım adım, her biri anlamlı
-  const steps = [
-    {
-      text: `${name} kim?`,
-      family: 'family',
-      facets: [
-        {label:'doğum yeri',      ph:'Hangi şehir veya ülkede?',    binding:'place_link'},
-        {label:'şu an nerede',    ph:'Şu an yaşadığın yer…',         binding:'place_link'},
-        {label:'meslek',          ph:'Ne iş yapıyorsun?',             binding:'note'},
-        {label:'kısa tanıtım',    ph:'Kendini bir cümleyle anlat…',   binding:'note'},
-      ]
-    }
-  ];
-
-  const selfEnt = S.universe.entities.find(e=>e.properties?.is_self);
-  const step = steps[0];
-
-  // Soruyu oluştur — ama topic self entity olsun
-  let q = S.universe.questions.find(x=>x.text.toLowerCase()===step.text.toLowerCase());
-  if(!q){
-    q = mkQuestion({text:step.text, family:step.family, topic:name, context:'benim'});
-    if(q && selfEnt){
-      bigBang(step.text, q);
-      // asks_about → self entity
-      if(!S.universe.links.find(l=>l.from===q.id&&l.to===selfEnt.id)){
-        addLink(q.id, selfEnt.id, 'asks_about');
-      }
-      updateCounters(); saveUniverse();
-    }
-  }
-
-  if(q){
-    // Facet'leri override et — onboarding özel facet'ler
-    S.fQ = q;
-    S.fInputs = {};
-    // openFacetPanel çağır ama özel facet'lerle
-    document.getElementById('fpq').textContent = step.text;
-    const list = document.getElementById('fplist'); list.innerHTML='';
-    step.facets.forEach(f=>{
-      const row=document.createElement('div');row.className='fp-row';
-      row.setAttribute('data-binding',f.binding);
-      const key=document.createElement('div');key.className='fp-key';key.textContent=f.label;
-      const inp=document.createElement('input');inp.className='fp-inp';inp.placeholder=f.ph;
-      inp.oninput=()=>{S.fInputs[f.label]=inp.value;};
-      inp.onkeydown=e=>{
-        if(e.key==='Enter'){e.preventDefault();
-          const inputs=list.querySelectorAll('input');
-          const idx=Array.from(inputs).indexOf(inp);
-          if(idx<inputs.length-1) inputs[idx+1].focus(); else saveFacets();
-        }
-      };
-      row.appendChild(key);row.appendChild(inp);list.appendChild(row);
-    });
-    document.getElementById('facet-panel').classList.add('on');
-    setTimeout(()=>{const fi=list.querySelector('input');if(fi)fi.focus();},60);
-  }
-}
-
 // ══════════════════════════════════════════
 // AUTO-RESTORE — script sonu, tüm fonksiyonlar yüklü
 // tryRestoreSession script'in altında tanımlandı, oraya taşındı
@@ -2767,8 +2654,9 @@ const QUESTION_FACETS = {
   // ── KİM soruları ─────────────────────────────────────
   kim: [
     {label:'isim',            ph:'Tam adı…',              binding:'materialize_role'},
-    {label:'ilişki türü',     ph:'Arkadaş, iş arkadaşı…', binding:'relation_type'},
-    {label:'nerede yaşıyor',  ph:'Şehir veya ülke…',      binding:'place_link'},
+    {label:'ilişki türü',     ph:'Arkadaş, kızım, annem…', binding:'relation_type'},
+    {label:'doğum yeri',      ph:'Hangi şehir veya ülke?', binding:'place_link', relation:'born_in'},
+    {label:'nerede yaşıyor',  ph:'Şu an nerede?',          binding:'place_link', relation:'lives_in'},
     {label:'telefon',         ph:'Telefon numarası…',      binding:'contact_info'},
     {label:'önemli anılar',   ph:'Kısa not…',              binding:'note'},
   ],
@@ -2871,6 +2759,7 @@ function getFacetsForQuestion(q){
 function getFacetLabel(f){ return typeof f === 'string' ? f : f.label; }
 function getFacetPlaceholder(f){ return typeof f === 'string' ? f+'…' : (f.ph||f.label+'…'); }
 function getFacetBinding(f){ return typeof f === 'string' ? 'note' : (f.binding||'note'); }
+function getFacetRelation(f){ return typeof f === 'string' ? null : (f.relation||null); }
 
 // Eski FAMILY_FACETS alias — backward compat
 const FAMILY_FACETS = Object.fromEntries(
@@ -2894,7 +2783,7 @@ const S = {
   // Composer
   cTopic:'', cCtx:'—', cTmpl:'nedir',
   // Facets
-  fQ:null, fInputs:{},
+  fQ:null, fInputs:{}, fFacetMeta:{},  // fFacetMeta: {label → {binding, relation}}
 };
 
 // ══════════════════════════════════════════
@@ -3517,7 +3406,6 @@ function initCosmos(){
     svgEl.innerHTML='';
     buildDefs();drawOrbits();drawCore();animateCore();
     rerenderAll();
-    setTimeout(()=>smartInitialView(), 80);
   });
   requestAnimationFrame(physicsLoop);
 }
@@ -3965,32 +3853,9 @@ function spawnQuestionNode(q, domainId){
   if(!S._rendering) onNodeSpawned();
 }
 
-// ── ON NODE SPAWNED — yeni node gelince viewport güncelle ───────────────
-// renderExisting sırasında değil, kullanıcı etkileşimiyle gelen node'larda çalışır
-let _spawnViewTimer = null;
-function onNodeSpawned(){
-  // Debounce — birden fazla node aynı anda gelirse tek seferde hesapla
-  if(_spawnViewTimer) clearTimeout(_spawnViewTimer);
-  _spawnViewTimer = setTimeout(()=>{
-    _spawnViewTimer = null;
-    const count = S.nodes.length;
-    if(count === 0) return;
-
-    // Yeni node ekran içinde mi? Değilse gentle zoom out
-    // Eğer 2-3 node varsa yakına, fazlası varsa fit yap
-    if(count <= 2){
-      smartInitialView();
-    } else {
-      // Mevcut view'da görünür olmayan node var mı kontrol et
-      const anyOutside = S.nodes.some(n=>{
-        const sx = (n.x + S.vpX) * S.vpS;
-        const sy = (n.y + S.vpY) * S.vpS;
-        return sx < -20 || sy < -20 || sx > W+20 || sy > H+20;
-      });
-      if(anyOutside) smartInitialView();
-    }
-  }, 350);
-}
+// onNodeSpawned — kullanıcı etkileşiminde viewport sıfırlamaz
+// Sadece renderExisting bitişinde smartInitialView çağrılır
+function onNodeSpawned(){ /* no-op: viewport kullanıcı zoom/pan'ını korur */ }
 
 
 // [LINK_STYLE_BLOCK — moved to ONTOLOGY layer]
@@ -4542,9 +4407,11 @@ function processStatement(text){
       if(gSelf) gSelf.classList.add('is-self');
       const selfNode = S.nodes.find(n=>n.id===selfEnt.id);
       if(selfNode){ selfNode.pinned=true; selfNode.x=W/2; selfNode.y=H/2+70; }
-      // Welcome banner — ilk isim girişinde
+      // İlk isim girişinde — sadece kısa bir onay
       const isFirstName = !oldLabel || oldLabel === 'ben';
-      if(isFirstName) showWelcomeBanner(newName);
+      if(isFirstName){
+        setTimeout(()=>showToast(`Merhaba, ${newName}. Evrenin hazır.`), 300);
+      }
       updateTodayPanel();
     }
     // Credential entity — şifre, mail, telefon
@@ -5018,7 +4885,7 @@ function resetComposer(){
 // FACET PANEL
 // ══════════════════════════════════════════
 function openFacetPanel(q){
-  S.fQ=q; S.fInputs={};
+  S.fQ=q; S.fInputs={}; S.fFacetMeta={};
   const facets=getFacetsForQuestion(q);
   const existing=S.universe.answers.filter(a=>a.question_id===q.id);
   document.getElementById('fpq').textContent=q.text;
@@ -5027,6 +4894,7 @@ function openFacetPanel(q){
   facets.forEach(f=>{
     const label = getFacetLabel(f);
     const ph    = getFacetPlaceholder(f);
+    S.fFacetMeta[label] = { binding: getFacetBinding(f), relation: getFacetRelation(f) };
     const ex=existing.find(a=>a.facet===label);
     const row=document.createElement('div');
     row.className='fp-row'+(ex?' filled':'');
@@ -5087,9 +4955,11 @@ function saveFacets(){
     const a = mkAnswer(q.id, facet, v); if(!a) return;
     saved++;
 
-    // Binding metadata bul
+    // Binding + relation metadata — önce fFacetMeta'ya bak (daha zengin), yoksa def'e dön
+    const meta = S.fFacetMeta[facet];
     const def = facetDefs.find(f=>getFacetLabel(f)===facet);
-    const binding = def ? getFacetBinding(def) : 'note';
+    const binding = meta?.binding || (def ? getFacetBinding(def) : 'note');
+    const facetRelation = meta?.relation || (def ? getFacetRelation(def) : null);
 
     // ── BINDING HANDLERS ───────────────────────────────────
     switch(binding){
@@ -5101,37 +4971,89 @@ function saveFacets(){
         break;
 
       case 'relation_type': {
-        // ilişki türü → semantic relation
-        if(primaryEnt && selfEnt){
-          // Map Türkçe ilişki tipi → relation slug
+        // ilişki türü → semantic relation — genişletilmiş Türkçe mapping
+        if(primaryEnt){
           const relMap = {
-            'arkadaş':'related_to','yakın arkadaş':'related_to',
-            'iş arkadaşı':'works_at','meslektaş':'works_at',
-            'mentor':'related_to','öğrenci':'related_to',
-            'müşteri':'related_to','partner':'related_to',
-            'kardeş':'sibling_of','abla':'sibling_of','ağabey':'sibling_of',
-            'eş':'spouse_of','sevgili':'related_to',
-            'anne':'parent_of','baba':'parent_of',
+            // Arkadaşlık
+            'arkadaş':'related_to','yakın arkadaş':'related_to','en yakın arkadaş':'related_to',
+            // İş
+            'iş arkadaşı':'works_at','meslektaş':'works_at','çalışma arkadaşı':'works_at',
+            'mentor':'related_to','öğrenci':'related_to','müşteri':'related_to','partner':'related_to',
+            'patron':'related_to','yönetici':'related_to',
+            // Aile — çift yönlü: "kızım" → ben parent_of Dila, Dila child_of ben
+            'kızım':'parent_of_self','oğlum':'parent_of_self',   // ben → primaryEnt
+            'kardeşim':'sibling_of','kardeş':'sibling_of',
+            'abla':'sibling_of','ağabey':'sibling_of','ablam':'sibling_of','ağabeyim':'sibling_of',
+            'annem':'child_of_self','babam':'child_of_self',     // ben → primaryEnt (ters: ben onun çocuğu)
+            'anne':'child_of_self','baba':'child_of_self',
+            'eşim':'spouse_of','eş':'spouse_of','sevgilim':'related_to','sevgili':'related_to',
+            'büyükanne':'related_to','büyükbaba':'related_to','nine':'related_to','dede':'related_to',
+            'torunum':'parent_of_self','yeğenim':'related_to',
+            'halası':'related_to','dayısı':'related_to','teyze':'related_to','amca':'related_to',
           };
-          const rel = relMap[v.toLowerCase()] || 'related_to';
-          if(!S.universe.links.find(l=>l.from===selfEnt.id&&l.to===primaryEnt.id&&l.relation===rel)){
-            addLink(selfEnt.id, primaryEnt.id, rel);
+          const relKey = v.toLowerCase().trim();
+          const relCode = relMap[relKey] || 'related_to';
+
+          if(selfEnt){
+            if(relCode === 'parent_of_self'){
+              // "kızım/oğlum": ben parent_of Dila, Dila child_of ben
+              if(!S.universe.links.find(l=>l.from===selfEnt.id&&l.to===primaryEnt.id&&l.relation==='parent_of')){
+                addLink(selfEnt.id, primaryEnt.id, 'parent_of');
+              }
+              if(!S.universe.links.find(l=>l.from===primaryEnt.id&&l.to===selfEnt.id&&l.relation==='child_of')){
+                addLink(primaryEnt.id, selfEnt.id, 'child_of');
+              }
+              // Domain: family
+              ensureDomain('family');
+              if(!S.universe.links.find(l=>l.from===primaryEnt.id&&l.to==='domain_family')){
+                addLink(primaryEnt.id,'domain_family','belongs_to_domain');
+                primaryEnt.domain = 'family';
+              }
+            } else if(relCode === 'child_of_self'){
+              // "annem/babam": ben child_of Ayşe, Ayşe parent_of ben
+              if(!S.universe.links.find(l=>l.from===selfEnt.id&&l.to===primaryEnt.id&&l.relation==='child_of')){
+                addLink(selfEnt.id, primaryEnt.id, 'child_of');
+              }
+              if(!S.universe.links.find(l=>l.from===primaryEnt.id&&l.to===selfEnt.id&&l.relation==='parent_of')){
+                addLink(primaryEnt.id, selfEnt.id, 'parent_of');
+              }
+              ensureDomain('family');
+              if(!S.universe.links.find(l=>l.from===primaryEnt.id&&l.to==='domain_family')){
+                addLink(primaryEnt.id,'domain_family','belongs_to_domain');
+                primaryEnt.domain = 'family';
+              }
+            } else {
+              if(!S.universe.links.find(l=>l.from===selfEnt.id&&l.to===primaryEnt.id&&l.relation===relCode)){
+                addLink(selfEnt.id, primaryEnt.id, relCode);
+              }
+            }
           }
           primaryEnt.properties.relation_label = v;
+
+          // İlişki kurulunca soru üret — "Dila kim? → kızım" sonrası "Dila nerede okuyor?" gibi
+          _generateRelationQuestions(primaryEnt, relCode, v);
         }
         break;
       }
 
       case 'place_link': {
-        // nerede yaşıyor, şehir → place entity + lives_in
+        // Yer cevabı → place entity + doğru semantik relation
+        // facetRelation: 'born_in' | 'lives_in' | null(→ lives_in varsayılan)
+        const placeRel = facetRelation || (facet.includes('doğum') ? 'born_in' : 'lives_in');
         const placeEnt = mkEntity('place', v.slice(0,40), 'places', {is_place:true});
         if(placeEnt && !S.nodes.find(n=>n.id===placeEnt.id)){
           ensureDomain('places');
           spawnEntityNode(placeEnt,'places');
           addLink(placeEnt.id,'domain_places','belongs_to_domain');
         }
-        if(placeEnt && primaryEnt && !S.universe.links.find(l=>l.from===primaryEnt.id&&l.to===placeEnt.id&&l.relation==='lives_in')){
-          addLink(primaryEnt.id, placeEnt.id, 'lives_in');
+        // Hem primaryEnt hem selfEnt için bağ kur (hangisi uygunsaysa)
+        const subjectEnt = primaryEnt || selfEnt;
+        if(placeEnt && subjectEnt && !S.universe.links.find(l=>l.from===subjectEnt.id&&l.to===placeEnt.id&&l.relation===placeRel)){
+          addLink(subjectEnt.id, placeEnt.id, placeRel);
+        }
+        // born_in → places domain + identity bağlantısı
+        if(placeRel === 'born_in' && subjectEnt){
+          subjectEnt.properties.birth_place = v;
         }
         break;
       }
@@ -5211,7 +5133,68 @@ function saveFacets(){
   openPanelQuestion(q.id);
 }
 
-// Rutin öneri toast — sıklık bilgisi gelince
+// İlişki kurulunca akıllı soru önerileri üret
+// "kızım" → "Dila nerede okuyor?", "Dila ne zaman doğdu?" gibi
+function _generateRelationQuestions(ent, relCode, relLabel){
+  if(!ent || !S.universe) return;
+  const name = ent.label;
+  const suggestions = [];
+
+  if(relCode === 'parent_of_self' || relCode === 'child_of'){
+    // Çocuk
+    suggestions.push(`${name} nerede okuyor?`);
+    suggestions.push(`${name} ne zaman doğdu?`);
+    suggestions.push(`${name} ne sever?`);
+  } else if(relCode === 'child_of_self' || relCode === 'parent_of'){
+    // Ebeveyn
+    suggestions.push(`${name} nerede yaşıyor?`);
+    suggestions.push(`${name} ne iş yapıyor?`);
+  } else if(relCode === 'sibling_of'){
+    suggestions.push(`${name} nerede yaşıyor?`);
+    suggestions.push(`${name} ne iş yapıyor?`);
+  } else if(relCode === 'spouse_of'){
+    suggestions.push(`${name} ile ne zaman tanıştık?`);
+    suggestions.push(`${name} ne iş yapıyor?`);
+  }
+
+  if(suggestions.length){
+    // Suggestion layer'a göster
+    setTimeout(()=>{
+      const el = document.getElementById('suggestions');
+      if(!el) return;
+      el.innerHTML = '';
+      suggestions.forEach(sq=>{
+        const btn = document.createElement('button');
+        btn.className = 'sug-btn'; btn.textContent = sq;
+        btn.onclick = ()=>{
+          document.getElementById('input-field').value = sq;
+          document.getElementById('input-field').focus();
+          el.classList.remove('visible');
+        };
+        el.appendChild(btn);
+      });
+      el.classList.add('visible');
+      setTimeout(()=>el.classList.remove('visible'), 8000);
+    }, 600);
+  }
+}
+
+function showSuggestions(arr){
+  if(!arr?.length) return;
+  const el = document.getElementById('suggestions');
+  if(!el) return;
+  el.innerHTML='';
+  arr.forEach(sq=>{
+    const btn=document.createElement('button');btn.className='sug-btn';btn.textContent=sq;
+    btn.onclick=()=>{document.getElementById('input-field').value=sq;document.getElementById('input-field').focus();el.classList.remove('visible');};
+    el.appendChild(btn);
+  });
+  el.classList.add('visible');
+}
+
+function hideSuggestions(){
+  document.getElementById('suggestions')?.classList.remove('visible');
+}
 function showRoutinePrompt(entityLabel, frequency, entityId){
   if(document.getElementById('routine-prompt')) return;
   const freqMap={'günlük':'daily','haftalık':'weekly','aylık':'monthly','her gün':'daily','her hafta':'weekly'};
