@@ -2419,18 +2419,56 @@ function setInputModeHint(text, pillClass){
 // ══════════════════════════════════════════
 // SUGGESTION LAYER
 // ══════════════════════════════════════════
+// Bilinen yer adları — bunlar kişi değil
+const KNOWN_PLACES = new Set([
+  'adıyaman','adana','ankara','antalya','bursa','diyarbakır','edirne','erzurum',
+  'eskişehir','gaziantep','hatay','istanbul','izmir','kayseri','kocaeli','konya',
+  'malatya','manisa','mardin','mersin','muğla','ordu','samsun','şanlıurfa',
+  'trabzon','van','zonguldak','balıkesir','çanakkale','denizli','elazığ',
+  'giresun','ığdır','kahramanmaraş','kastamonu','kırıkkale','kırklareli',
+  'kırşehir','muş','nevşehir','niğde','rize','sakarya','sinop','sivas',
+  'tekirdağ','tokat','uşak','yozgat','aksaray','batman','bingöl','bitlis',
+  'çorum','düzce','hakkari','iğdır','karabük','karaman','kilis','osmaniye',
+  'şırnak','tunceli','yalova','amsterdam','berlin','london','paris','tokyo',
+  'new york','los angeles','dubai','moscow','beijing','istanbul',
+]);
+
+function detectSeedType(topic){
+  const t = topic.toLowerCase().trim();
+  // Bilinen yer adı?
+  if(KNOWN_PLACES.has(t)) return 'place';
+  // Çok kelimeli → kavram/proje
+  if(topic.includes(' ')) return 'concept';
+  // Büyük harf ile başlıyor, Türkçe isim karakterleri → kişi adayı
+  const looksLikeName = /^[A-ZÇĞİÖŞÜ][a-züğışöçĞÜŞİÖÇ]{1,}$/.test(topic);
+  if(looksLikeName) return 'person';
+  // Küçük harf → kavram
+  return 'concept';
+}
+
 function showSugLayer(topic){
-  const isPerson=/^[A-ZÇĞİÖŞÜ][a-züğışöçA-ZÇĞİÖŞÜ]+$/.test(topic)&&topic.length>=3;
-  const sugs=isPerson?[
-    {text:`${topic} kim?`,tid:'kim',ctx:'bu'},
-    {text:`${topic} ile ilişkim ne?`,tid:'kiminle',ctx:'benim'},
-    {text:`${topic} neden önemli?`,tid:'neden',ctx:'benim'},
-  ]:[
-    {text:`${topic} nedir?`,tid:'nedir',ctx:'—'},
-    {text:`${topic} nerede?`,tid:'nerede',ctx:'benim'},
-    {text:`${topic} hakkında ne yapmalıyım?`,tid:'yapmalı',ctx:'—'},
-    {text:`${topic} neden önemli?`,tid:'neden',ctx:'benim'},
-  ];
+  const seedType = detectSeedType(topic);
+  let sugs;
+  if(seedType === 'person'){
+    sugs = [
+      {text:`${topic} kim?`,           tid:'kim',    ctx:'bu'},
+      {text:`${topic} ile ilişkim ne?`,tid:'kiminle',ctx:'benim'},
+      {text:`${topic} neden önemli?`,  tid:'neden',  ctx:'benim'},
+    ];
+  } else if(seedType === 'place'){
+    sugs = [
+      {text:`${topic} nerede?`,                    tid:'nerede',  ctx:'—'},
+      {text:`${topic} ile bağlantım ne?`,          tid:'kiminle', ctx:'benim'},
+      {text:`${topic} hakkında ne biliyorum?`,     tid:'nedir',   ctx:'—'},
+      {text:`${topic} neden önemli benim için?`,   tid:'neden',   ctx:'benim'},
+    ];
+  } else {
+    sugs = [
+      {text:`${topic} nedir?`,                        tid:'nedir',   ctx:'—'},
+      {text:`${topic} hakkında ne yapmalıyım?`,       tid:'yapmalı', ctx:'—'},
+      {text:`${topic} neden önemli?`,                 tid:'neden',   ctx:'benim'},
+    ];
+  }
 
   document.getElementById('suglbl').innerHTML=
     `<span style="opacity:.6">"${topic}"</span> → nasıl bir soru?`;
