@@ -190,6 +190,24 @@ canvas#stars{position:fixed;inset:0;pointer-events:none;z-index:0;}
 ::-webkit-scrollbar{width:2px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:1px;}
+/* ══ INSPECTOR PANEL ENHANCEMENTS ══ */
+.p-stat-row{display:flex;gap:.5rem;margin-bottom:.75rem;flex-wrap:wrap;}
+.p-stat{display:flex;flex-direction:column;align-items:center;padding:.4rem .6rem;
+  background:rgba(255,255,255,.02);border:.5px solid var(--border);border-radius:8px;min-width:52px;}
+.p-stat-val{font-size:.85rem;color:var(--text);font-family:'DM Serif Display',serif;}
+.p-stat-lbl{font-size:.45rem;letter-spacing:.15em;text-transform:uppercase;color:var(--text-dim);margin-top:.15rem;}
+.p-quick-actions{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.5rem;}
+.p-qa-btn{font-size:.58rem;padding:.3rem .65rem;background:transparent;border:.5px solid var(--border);
+  border-radius:20px;color:var(--text-muted);cursor:pointer;font-family:'DM Mono',monospace;
+  transition:all .15s;display:flex;align-items:center;gap:.3rem;}
+.p-qa-btn:hover{color:var(--text);border-color:var(--core);background:rgba(167,139,250,.05);}
+.p-qa-btn.primary{border-color:rgba(52,211,153,.25);color:var(--a);}
+.p-qa-btn.primary:hover{background:rgba(52,211,153,.06);}
+.p-completeness{height:2px;background:var(--border);border-radius:1px;margin:.5rem 0;}
+.p-completeness-fill{height:100%;border-radius:1px;transition:width .4s ease;}
+.p-completeness-lbl{font-size:.48rem;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--text-dim);display:flex;justify-content:space-between;margin-bottom:.2rem;}
+
 /* ══ SEARCH LAYER ══════════════════════════════════════ */
 #search-overlay{
   position:fixed;inset:0;z-index:100;display:none;
@@ -336,6 +354,7 @@ canvas#stars{position:fixed;inset:0;pointer-events:none;z-index:0;}
       <div class="sb-top">
         <span class="sb-icon">⌕</span>
         <input id="search-input" type="text" placeholder="varlık, soru, cevap ara…" autocomplete="off" spellcheck="false"/>
+        <span id="sb-count" style="font-size:.5rem;letter-spacing:.1em;color:var(--text-dim);flex-shrink:0;"></span>
         <span class="sb-kbd">ESC</span>
       </div>
       <div class="sb-filters">
@@ -452,84 +471,109 @@ function setSearchFilter(f){
 }
 
 // ── Search algorithm — exact + contains, ranked by relevance
+// Recent queries for state persistence
+const SEARCH_HISTORY = [];
+
 function runSearch(query){
   const q = query.trim().toLowerCase();
   if(!q || !S.universe) return [];
   const results = [];
   const MAX = 28;
 
-  function score(text){
+  // Score: exact=4, starts=3, word-start=2, contains=1
+  function score(text, typeBonus){
     const t = text.toLowerCase();
-    if(t === q) return 3;
-    if(t.startsWith(q)) return 2;
-    if(t.includes(q)) return 1;
+    if(t === q) return 4 + typeBonus;
+    if(t.startsWith(q)) return 3 + typeBonus;
+    // Word boundary match — "ali" matches "Saz Arkadaşı Ali"
+    if(new RegExp('\\b'+q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).test(t)) return 2 + typeBonus;
+    if(t.includes(q)) return 1 + typeBonus;
     return 0;
   }
 
-  function highlight(text, q){
+  function highlight(text){
     if(!q) return text;
-    const idx = text.toLowerCase().indexOf(q.toLowerCase());
-    if(idx < 0) return text;
-    return text.slice(0,idx)+'<mark>'+text.slice(idx,idx+q.length)+'</mark>'+text.slice(idx+q.length);
+    try{
+      const re = new RegExp('('+q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')', 'gi');
+      return text.replace(re, '<mark>$1</mark>');
+    }catch(e){ return text; }
   }
 
-  // Domains
+  // Context builder
+  function entityContext(e){
+    const domLabel = DOMAINS[e.domain]?.label||e.domain||'';
+    const typeLabel = ONTOLOGY.entity_types?.[e.type]?.label||e.type||'';
+    return [domLabel, typeLabel].filter(Boolean).join(' · ');
+  }
+
+  // Domains — highest priority
   if(SEARCH.filter==='all'||SEARCH.filter==='domain'){
     Object.keys(S.universe.domains).forEach(dId=>{
       const cfg = DOMAINS[dId]; if(!cfg) return;
-      const s = score(cfg.label)+score(dId);
-      if(s>0) results.push({
-        type:'domain', id:'domain_'+dId, domainId:dId,
-        label: highlight(cfg.label, query.trim()),
-        sub: dId,
-        color: cfg.color, score:s+10
-      });
+      const s = score(cfg.label, 10) || score(dId, 8);
+      if(s>0){
+        const entCount = S.universe.entities.filter(e=>e.domain===dId&&e.type!=='domain').length;
+        results.push({
+          type:'domain', id:'domain_'+dId, domainId:dId,
+          label: highlight(cfg.label),
+          ctx: `${entCount} varlık`,
+          color: cfg.color, score:s
+        });
+      }
     });
   }
 
-  // Entities
+  // Entities — second priority
   if(SEARCH.filter==='all'||SEARCH.filter==='entity'){
     S.universe.entities.filter(e=>e.type!=='domain').forEach(e=>{
-      const s = score(e.label);
-      if(s>0) results.push({
-        type:'entity', id:e.id,
-        label: highlight(e.label, query.trim()),
-        sub: DOMAINS[e.domain]?.label||e.domain,
-        entType: e.type, score:s+5
-      });
+      const s = score(e.label, 5);
+      if(s>0){
+        const answers = S.universe.answers.filter(a=>a.question_id&&
+          S.universe.links.find(l=>l.from===e.id&&l.relation==='asks_about'&&
+          S.universe.questions.find(q=>q.id===l.to)));
+        results.push({
+          type:'entity', id:e.id,
+          label: highlight(e.label),
+          ctx: entityContext(e),
+          entType: e.type, score:s
+        });
+      }
     });
   }
 
   // Questions
   if(SEARCH.filter==='all'||SEARCH.filter==='question'){
     S.universe.questions.forEach(q_=>{
-      const s = score(q_.text);
-      if(s>0) results.push({
-        type:'question', id:q_.id,
-        label: highlight(q_.text, query.trim()),
-        sub: q_.status==='answered'?'cevaplandı':'açık',
-        score:s+3
-      });
-    });
-  }
-
-  // Answers
-  if(SEARCH.filter==='all'||SEARCH.filter==='answer'){
-    S.universe.answers.forEach(a=>{
-      const s = score(a.value);
+      const s = score(q_.text, 3);
       if(s>0){
-        const parentQ = S.universe.questions.find(q_=>q_.id===a.question_id);
+        const ansCount = S.universe.answers.filter(a=>a.question_id===q_.id).length;
+        const domLabel = DOMAINS[q_.family]?.label||q_.family||'';
         results.push({
-          type:'answer', id:a.id, questionId:a.question_id,
-          label: highlight(a.value, query.trim()),
-          sub: parentQ ? parentQ.text.slice(0,35)+'…' : a.facet,
+          type:'question', id:q_.id,
+          label: highlight(q_.text),
+          ctx: [domLabel, ansCount>0?ansCount+' cevap':'açık'].filter(Boolean).join(' · '),
           score:s
         });
       }
     });
   }
 
-  // Sort by score desc, then alphabetically
+  // Answers
+  if(SEARCH.filter==='all'||SEARCH.filter==='answer'){
+    S.universe.answers.forEach(a=>{
+      const s = score(a.value, 0);
+      if(s>0){
+        const parentQ = S.universe.questions.find(q_=>q_.id===a.question_id);
+        results.push({
+          type:'answer', id:a.id, questionId:a.question_id,
+          label: highlight(a.value),
+          ctx: (parentQ ? parentQ.text.slice(0,30)+'…' : a.facet)||'',
+          score:s
+        });
+      }
+    });
+  }
+
   results.sort((a,b)=>b.score-a.score||(a.label.replace(/<[^>]+>/g,'')<b.label.replace(/<[^>]+>/g,'')?-1:1));
   return results.slice(0, MAX);
 }
@@ -540,19 +584,61 @@ function renderSearchResults(){
   SEARCH.query = query;
   const results = query.trim() ? runSearch(query) : [];
   SEARCH.results = results;
-
   const container = document.getElementById('search-results');
+
+  // Update count in input top area
+  const countEl = document.getElementById('sb-count');
+  if(countEl){
+    countEl.textContent = query.trim() ? (results.length>0?results.length+' sonuç':'') : '';
+  }
+
+  // Empty query — show recent or hint
   if(!query.trim()){
-    container.innerHTML = '<div class="sr-empty">yazmaya başla…</div>';
+    if(SEARCH_HISTORY.length){
+      container.innerHTML = '<div class="sr-section-lbl">Son aramalar</div>';
+      SEARCH_HISTORY.slice(-5).reverse().forEach(q=>{
+        const item=document.createElement('div');item.className='sr-item';
+        item.innerHTML=`<span class="sr-badge srb-entity" style="opacity:.5">geçmiş</span><span class="sr-main" style="color:var(--text-muted)">${q}</span>`;
+        item.onclick=()=>{ document.getElementById('search-input').value=q; renderSearchResults(); };
+        container.appendChild(item);
+      });
+    } else {
+      container.innerHTML='<div class="sr-empty">yazmaya başla…</div>';
+    }
     return;
   }
+
+  // No results — action suggestions
   if(!results.length){
-    container.innerHTML = '<div class="sr-empty">sonuç bulunamadı</div>';
+    const q = query.trim();
+    container.innerHTML = '';
+    const noRes = document.createElement('div');
+    noRes.className = 'sr-empty';
+    noRes.style.paddingBottom = '.5rem';
+    noRes.textContent = '"'+q+'" için sonuç yok';
+    container.appendChild(noRes);
+
+    // Action suggestions
+    const actions = [
+      {icon:'?', text:`"${q}" hakkında soru sor`, action:()=>{ _closeSearch(); document.getElementById('input-field').value=q+'?'; document.getElementById('input-field').focus(); }},
+      {icon:'⬡', text:`"${q}" varlık olarak ekle`, action:()=>{ _closeSearch(); document.getElementById('input-field').value=q; document.getElementById('input-field').focus(); }},
+    ];
+    actions.forEach(a=>{
+      const item=document.createElement('div');item.className='sr-item';
+      item.innerHTML=`<span class="sr-badge srb-question">${a.icon}</span><span class="sr-main" style="color:var(--text-muted)">${a.text}</span>`;
+      item.onclick=a.action;
+      container.appendChild(item);
+    });
     return;
+  }
+
+  // Save to history
+  if(query.trim().length>2 && !SEARCH_HISTORY.includes(query.trim())){
+    SEARCH_HISTORY.push(query.trim());
+    if(SEARCH_HISTORY.length>10) SEARCH_HISTORY.shift();
   }
 
   container.innerHTML = '';
-
   const badgeMap = {
     domain:   ['srb-domain',   'domain'],
     entity:   ['srb-entity',   'varlık'],
@@ -564,14 +650,12 @@ function renderSearchResults(){
     const item = document.createElement('div');
     item.className = 'sr-item' + (i===SEARCH.focusedIdx?' focused':'');
     item.dataset.idx = i;
-
     const [badgeCls, badgeTxt] = badgeMap[r.type]||['srb-entity','—'];
     const colorStyle = r.color ? `background:${hexAlpha(r.color,.12)};color:${hexAlpha(r.color,.8)};` : '';
-
     item.innerHTML = `
       <span class="sr-badge ${badgeCls}" style="${colorStyle}">${badgeTxt}</span>
       <span class="sr-main">${r.label}</span>
-      <span class="sr-sub">${r.sub||''}</span>
+      <span class="sr-sub">${r.ctx||''}</span>
     `;
     item.onclick = ()=>selectSearchResult(i);
     item.onmouseenter = ()=>{ SEARCH.focusedIdx=i; updateSearchFocus(); };
@@ -3135,84 +3219,203 @@ function openPanelDomain(ent){
 
 function openPanelEntity(entId){
   const ent=S.universe.entities.find(e=>e.id===entId);if(!ent)return;
-  setBadge(ent.type,ent.type==='domain'?'pb-domain':'pb-entity');
-  document.getElementById('ptitle').textContent=ent.label;
-  document.getElementById('ptitle').dataset.eid=ent.id;
-  document.getElementById('pmeta').textContent=new Date(ent.created_at).toLocaleString('tr-TR')+(ent.domain?` · ${DOMAINS[ent.domain]?.label||ent.domain}`:'');
-  const body=document.getElementById('pbody');body.innerHTML='';
+  const cfg=DOMAINS[ent.domain];
+  const domColor=cfg?.color||'#94a3b8';
 
-  // Related questions
-  const qLinks=S.universe.links.filter(l=>l.to===entId&&l.relation==='asks_about');
-  if(qLinks.length){
+  setBadge(ent.type,ent.type==='domain'?'pb-domain':'pb-entity');
+  const titleEl=document.getElementById('ptitle');
+  titleEl.textContent=ent.label; titleEl.dataset.eid=ent.id;
+  titleEl.style.borderLeft=`3px solid ${hexAlpha(domColor,.6)}`;
+  titleEl.style.paddingLeft='.5rem';
+
+  document.getElementById('pmeta').textContent=
+    new Date(ent.created_at).toLocaleString('tr-TR')+(ent.domain?` · ${cfg?.label||ent.domain}`:'');
+
+  const body=document.getElementById('pbody'); body.innerHTML='';
+
+  // ── STATS ROW
+  const allLinks=S.universe.links.filter(l=>l.from===entId||l.to===entId);
+  const qLinks=allLinks.filter(l=>l.relation==='asks_about');
+  const relLinks=allLinks.filter(l=>l.relation!=='asks_about'&&l.relation!=='belongs_to_domain');
+  const relatedQs=S.universe.questions.filter(q=>qLinks.some(l=>l.from===q.id));
+  const answeredQs=relatedQs.filter(q=>q.status==='answered');
+
+  const statsRow=document.createElement('div'); statsRow.className='p-stat-row';
+  [[relatedQs.length,'soru'],[answeredQs.length,'cevaplı'],[relLinks.length,'ilişki']].forEach(([v,l])=>{
+    const s=document.createElement('div'); s.className='p-stat';
+    s.innerHTML=`<span class="p-stat-val">${v}</span><span class="p-stat-lbl">${l}</span>`;
+    statsRow.appendChild(s);
+  });
+  body.appendChild(statsRow);
+
+  // ── COMPLETENESS (kişi/varlık için)
+  if(ent.type==='person'){
+    const filled=Object.keys(ent.properties||{}).filter(k=>!['is_self','is_role','is_real','relation_to_self','role_keyword'].includes(k)).length;
+    const total=5;
+    const pct=Math.min(100,Math.round(filled/total*100));
+    const compWrap=document.createElement('div');
+    compWrap.innerHTML=`
+      <div class="p-completeness-lbl"><span>profil doluluk</span><span>${pct}%</span></div>
+      <div class="p-completeness"><div class="p-completeness-fill" style="width:${pct}%;background:${hexAlpha(domColor,.6)};"></div></div>
+    `;
+    body.appendChild(compWrap);
+    body.appendChild(pHr());
+  }
+
+  // ── RELATED QUESTIONS
+  if(relatedQs.length){
     const sec=document.createElement('div');sec.className='psec';
     const lbl=document.createElement('div');lbl.className='plbl';lbl.textContent='Sorular';
     const rl=document.createElement('div');rl.className='p-rels';
-    qLinks.forEach(lnk=>{
-      const q=S.universe.questions.find(x=>x.id===lnk.from);if(!q)return;
+    relatedQs.slice(0,5).forEach(q=>{
       const item=document.createElement('div');item.className='p-rel';
-      item.innerHTML=`<span class="sug-arr">?</span><span>${q.text.slice(0,40)}</span>`;
+      const dot=q.status==='answered'?'<span class="qdot answered"></span>':'<span class="qdot open"></span>';
+      item.innerHTML=`${dot}<span>${q.text.slice(0,42)}</span>`;
       item.onclick=()=>openPanelQuestion(q.id);
       rl.appendChild(item);
     });
+    if(relatedQs.length>5){
+      const more=document.createElement('div');more.className='p-rel';
+      more.style.opacity='.45';more.style.fontSize='.6rem';
+      more.textContent=`+${relatedQs.length-5} daha…`;
+      rl.appendChild(more);
+    }
     sec.appendChild(lbl);sec.appendChild(rl);body.appendChild(sec);body.appendChild(pHr());
   }
 
-  // Relations
-  const rels=S.universe.links.filter(l=>(l.from===entId||l.to===entId)&&l.relation!=='asks_about'&&l.relation!=='belongs_to_domain');
-  if(rels.length){
+  // ── RELATIONS
+  if(relLinks.length){
     const sec=document.createElement('div');sec.className='psec';
     const lbl=document.createElement('div');lbl.className='plbl';lbl.textContent='İlişkiler';
     const rl=document.createElement('div');rl.className='p-rels';
-    rels.forEach(lnk=>{
+    relLinks.slice(0,6).forEach(lnk=>{
       const otherId=lnk.from===entId?lnk.to:lnk.from;
       const other=S.universe.entities.find(e=>e.id===otherId)||S.universe.questions.find(e=>e.id===otherId);
       if(!other)return;
       const label=other.label||other.text||'';
       const item=document.createElement('div');item.className='p-rel';
       const relLabel=RELATION_TYPES[lnk.relation]||lnk.relation;
-      item.innerHTML=`<span class="rel-type">${relLabel}</span><span class="rel-arrow">→</span><span>${label.slice(0,30)}</span>`;
-      item.onclick=()=>openPanelEntity(otherId);
+      const dir=lnk.from===entId?'→':'←';
+      item.innerHTML=`<span class="rel-type">${relLabel}</span><span class="rel-arrow">${dir}</span><span>${label.slice(0,28)}</span>`;
+      item.onclick=()=>{
+        const targetId=otherId;
+        if(S.universe.questions.find(q=>q.id===targetId)) openPanelQuestion(targetId);
+        else openPanelEntity(targetId);
+      };
       rl.appendChild(item);
     });
-    sec.appendChild(lbl);sec.appendChild(rl);body.appendChild(sec);
+    sec.appendChild(lbl);sec.appendChild(rl);body.appendChild(sec);body.appendChild(pHr());
   }
 
-  const btn=document.createElement('button');btn.className='p-btn';
-  btn.textContent='+ Soru sor';
-  btn.onclick=()=>{
-    closePanel();
-    document.getElementById('input-field').value=ent.label+' ';
-    document.getElementById('input-field').focus();
-  };
-  body.appendChild(btn);
+  // ── QUICK ACTIONS
+  const qa=document.createElement('div');qa.className='p-quick-actions';
+  const askBtn=document.createElement('button');askBtn.className='p-qa-btn primary';
+  askBtn.innerHTML='? Soru sor';
+  askBtn.onclick=()=>{ closePanel(); document.getElementById('input-field').value=ent.label+' '; document.getElementById('input-field').focus(); };
+  qa.appendChild(askBtn);
+
+  const searchBtn=document.createElement('button');searchBtn.className='p-qa-btn';
+  searchBtn.innerHTML='⌕ Ara';
+  searchBtn.onclick=()=>{ closePanel(); openSearch(); setTimeout(()=>{ document.getElementById('search-input').value=ent.label; renderSearchResults(); },100); };
+  qa.appendChild(searchBtn);
+
+  const focusBtn=document.createElement('button');focusBtn.className='p-qa-btn';
+  focusBtn.innerHTML='⊙ Odakla';
+  focusBtn.onclick=()=>{ closePanel(); focusEntity(ent.id); };
+  qa.appendChild(focusBtn);
+
+  body.appendChild(qa);
   document.getElementById('panel').classList.add('open');
 }
 
 function openPanelQuestion(qId){
   const q=S.universe.questions.find(x=>x.id===qId);if(!q)return;
   const answers=S.universe.answers.filter(a=>a.question_id===qId);
+  const domCfg=DOMAINS[q.family];
+  const domColor=domCfg?.color||'#60a5fa';
+
   setBadge('soru','pb-question');
   const te=document.getElementById('ptitle');
   te.innerHTML=`<span class="qdot ${q.status==='open'?'open':'answered'}"></span>${q.text}`;
   te.dataset.eid=q.id;
-  document.getElementById('pmeta').textContent=new Date(q.created_at).toLocaleString('tr-TR')+(q.family?` · ${DOMAINS[q.family]?.label||q.family}`:'');
-  const body=document.getElementById('pbody');body.innerHTML='';
+  te.style.borderLeft=`3px solid ${hexAlpha(domColor,.5)}`;
+  te.style.paddingLeft='.5rem';
+  document.getElementById('pmeta').textContent=
+    new Date(q.created_at).toLocaleString('tr-TR')+(q.family?` · ${domCfg?.label||q.family}`:'');
 
+  const body=document.getElementById('pbody'); body.innerHTML='';
+
+  // ── STATS ROW
+  const facets=getFacetsForQuestion(q);
+  const pct=facets.length>0?Math.min(100,Math.round(answers.length/facets.length*100)):0;
+  const statsRow=document.createElement('div');statsRow.className='p-stat-row';
+  [[answers.length,'cevap'],[facets.length,'boyut'],[pct+'%','doluluk']].forEach(([v,l])=>{
+    const s=document.createElement('div');s.className='p-stat';
+    s.innerHTML=`<span class="p-stat-val">${v}</span><span class="p-stat-lbl">${l}</span>`;
+    statsRow.appendChild(s);
+  });
+  body.appendChild(statsRow);
+
+  // Completeness bar
+  if(facets.length>0){
+    const compWrap=document.createElement('div');
+    compWrap.innerHTML=`
+      <div class="p-completeness-lbl"><span>cevap doluluk</span><span>${answers.length}/${facets.length}</span></div>
+      <div class="p-completeness"><div class="p-completeness-fill" style="width:${pct}%;background:${hexAlpha(domColor,.55)};"></div></div>
+    `;
+    body.appendChild(compWrap);
+  }
+  body.appendChild(pHr());
+
+  // ── ANSWERS
   if(answers.length){
     const sec=document.createElement('div');sec.className='psec';
     const lbl=document.createElement('div');lbl.className='plbl';lbl.textContent='Cevaplar';
     const al=document.createElement('div');al.className='p-answers';
-    answers.forEach(a=>{const i=document.createElement('div');i.className='p-ans';i.innerHTML=`<strong>${a.facet}</strong>${a.value}`;al.appendChild(i);});
+    answers.forEach(a=>{
+      const item=document.createElement('div');item.className='p-ans';
+      item.innerHTML=`<strong style="color:${hexAlpha(domColor,.8)}">${a.facet}</strong>${a.value}`;
+      // Cevap entity'si varsa tıklanabilir
+      const ansEnt=S.universe.entities.find(e=>e.label===a.value||e.id===a.id);
+      if(ansEnt){ item.style.cursor='pointer'; item.onclick=()=>openPanelEntity(ansEnt.id); }
+      al.appendChild(item);
+    });
     sec.appendChild(lbl);sec.appendChild(al);body.appendChild(sec);body.appendChild(pHr());
   }
 
-  const btn=document.createElement('button');btn.className='p-btn';
-  btn.textContent='+ Cevap ekle';btn.onclick=()=>{closePanel();openFacetPanel(q);};
-  body.appendChild(btn);
+  // ── RELATED ENTITIES
+  const relLinks=S.universe.links.filter(l=>l.from===qId&&l.relation==='asks_about');
+  const relEnts=relLinks.map(l=>S.universe.entities.find(e=>e.id===l.to)).filter(Boolean).filter(e=>e.type!=='domain');
+  if(relEnts.length){
+    const sec=document.createElement('div');sec.className='psec';
+    const lbl=document.createElement('div');lbl.className='plbl';lbl.textContent='İlgili varlıklar';
+    const rl=document.createElement('div');rl.className='p-rels';
+    relEnts.forEach(e=>{
+      const item=document.createElement('div');item.className='p-rel';
+      item.innerHTML=`<span class="rel-type">${e.type}</span><span class="rel-arrow">→</span><span>${e.label}</span>`;
+      item.onclick=()=>openPanelEntity(e.id);
+      rl.appendChild(item);
+    });
+    sec.appendChild(lbl);sec.appendChild(rl);body.appendChild(sec);body.appendChild(pHr());
+  }
+
+  // ── QUICK ACTIONS
+  const qa=document.createElement('div');qa.className='p-quick-actions';
+  const addBtn=document.createElement('button');addBtn.className='p-qa-btn primary';
+  addBtn.innerHTML='+ Cevap ekle';addBtn.onclick=()=>{closePanel();openFacetPanel(q);};
+  qa.appendChild(addBtn);
+  const focusBtn=document.createElement('button');focusBtn.className='p-qa-btn';
+  focusBtn.innerHTML='⊙ Odakla';focusBtn.onclick=()=>{closePanel();focusEntity(q.id);};
+  qa.appendChild(focusBtn);
+  body.appendChild(qa);
   document.getElementById('panel').classList.add('open');
 }
 
-function closePanel(){document.getElementById('panel').classList.remove('open');}
+function closePanel(){
+  document.getElementById('panel').classList.remove('open');
+  const t=document.getElementById('ptitle');
+  if(t){t.style.borderLeft='';t.style.paddingLeft='';}
+}
 
 // ══════════════════════════════════════════
 // KEYBOARD
