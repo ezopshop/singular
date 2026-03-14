@@ -290,16 +290,17 @@ const SESSION_KEY      = 'singular_session';
 // TAXONOMY
 // ══════════════════════════════════════════
 const DOMAINS = {
-  identity:  {label:'kimlik',   color:'#a78bfa', keywords:['ben','kim','kimlik','isim','adım','doğum','yaş']},
-  family:    {label:'aile',     color:'#f472b6', keywords:['anne','annem','baba','babam','kardeş','aile','eş','çocuk','nine','dede']},
-  music:     {label:'müzik',    color:'#34d399', keywords:['müzik','şarkı','albüm','bağlama','gitar','nota','konser','sanatçı']},
-  film:      {label:'film',     color:'#f59e0b', keywords:['film','dizi','sinema','izledim','izle','yönetmen','oyuncu']},
-  docs:      {label:'belgeler', color:'#60a5fa', keywords:['belge','evrak','şifre','parola','hesap','arşiv','dosya','link','url']},
-  projects:  {label:'projeler', color:'#fb923c', keywords:['proje','iş','görev','hedef','plan','startup','uygulama']},
-  finance:   {label:'para',     color:'#22d3ee', keywords:['para','bütçe','harcama','borç','gelir','vergi','banka','kart']},
-  health:    {label:'sağlık',   color:'#a3e635', keywords:['sağlık','hastalık','ilaç','doktor','egzersiz','diyet','uyku']},
-  edu:       {label:'eğitim',   color:'#e879f9', keywords:['okul','ders','kitap','öğren','kurs','sertifika','üniversite']},
-  knowledge: {label:'bilgi',    color:'#94a3b8', keywords:[]},
+  identity:  {label:'kimlik',   color:'#a78bfa', keywords:['ben kimim','adım','doğum','yaş','kimliğim','pasaport','tc kimlik','ehliyet','telefon','email','mail adres']},
+  family:    {label:'aile',     color:'#f472b6', keywords:['anne','annem','baba','babam','kardeş','aile','eş','çocuk','nine','dede','amca','hala','dayı','teyze','kuzen','yeğen']},
+  work:      {label:'iş',       color:'#fb923c', keywords:['iş','şirket','meslek','ofis','çalışıyorum','kariyer','ortağım','müşteri','toplantı']},
+  projects:  {label:'projeler', color:'#f59e0b', keywords:['proje','singular','cillop','geliştiriyorum','uygulama','startup','yazılım','kod']},
+  places:    {label:'yerler',   color:'#34d399', keywords:['adres','nerede yaşıyorum','ev adres','ofis adres','şehir','mahalle','ülke','bulunduğum']},
+  finance:   {label:'finans',   color:'#22d3ee', keywords:['para','bütçe','banka','iban','kredi kartı','borç','gelir','vergi no','finans']},
+  health:    {label:'sağlık',   color:'#a3e635', keywords:['sağlık','hastalık','ilaç','doktor','boy','kilo','spor','egzersiz','diyet']},
+  media:     {label:'medya',    color:'#e879f9', keywords:['film','dizi','müzik','şarkı','sanatçı','albüm','izledim','dinliyorum','sevdiğim film']},
+  memory:    {label:'anı',      color:'#f97316', keywords:['hatırlıyorum','ilk kez','ne zamandı','konser','üniversite başladım','aldım','gittim','yaşandı']},
+  knowledge: {label:'bilgi',    color:'#94a3b8', keywords:['nedir','nasıl çalışır','ne anlama','modal armoni','bağlama frekans','jazz fusion','tarih']},
+  docs:      {label:'belgeler', color:'#60a5fa', keywords:['şifre','parola','hesap','arşiv','dosya','link','url','numaram nedir']},
 };
 
 const Q_TEMPLATES = [
@@ -729,16 +730,23 @@ function animateCore(){
 
 // Relation weights: ne kadar güçlü çekim üretir
 const REL_SPRING = {
-  belongs_to_domain : { k: 0.055, restLen: 130 },  // entity → domain yıldızına güçlü çekim
-  child_of          : { k: 0.045, restLen: 90  },  // ben → anne güçlü bağ
-  parent_of         : { k: 0.045, restLen: 90  },  // anne → ben
-  part_of           : { k: 0.038, restLen: 100 },  // parça → bütün
-  is_a              : { k: 0.032, restLen: 80  },  // tür ilişkisi
-  related_to        : { k: 0.018, restLen: 160 },  // orta çekim
-  mentions          : { k: 0.008, restLen: 200 },  // zayıf bağ
-  asks_about        : { k: 0.010, restLen: 120 },  // soru → entity
-  answered_by       : { k: 0.040, restLen: 60  },  // cevap → soruya yapışık
-  created_by_user   : { k: 0.005, restLen: 250 },
+  belongs_to_domain : { k: 0.060, restLen: 120 },  // entity → domain yıldızı (en güçlü)
+  child_of          : { k: 0.050, restLen: 85  },  // ben → anne/baba (aile bağı)
+  parent_of         : { k: 0.050, restLen: 85  },
+  fills_role        : { k: 0.055, restLen: 70  },  // Ayşe → anne rolü (somut→rol)
+  is_a              : { k: 0.040, restLen: 75  },  // Ayşe is_a person
+  part_of           : { k: 0.035, restLen: 105 },
+  works_at          : { k: 0.030, restLen: 110 },  // ben → şirket
+  works_on          : { k: 0.030, restLen: 115 },  // ben → proje
+  lives_in          : { k: 0.025, restLen: 120 },  // ben → şehir
+  owns              : { k: 0.025, restLen: 130 },  // ben → banka hesabı
+  likes             : { k: 0.020, restLen: 140 },  // ben → film
+  remembers         : { k: 0.020, restLen: 150 },  // ben → anı
+  related_to        : { k: 0.015, restLen: 165 },
+  mentions          : { k: 0.007, restLen: 210 },
+  asks_about        : { k: 0.010, restLen: 115 },
+  answered_by       : { k: 0.045, restLen: 55  },  // cevap yapışık
+  created_by_user   : { k: 0.004, restLen: 260 },
 };
 
 // Node kütlesi: domain yıldızları ağır, savrulmaz
@@ -862,7 +870,7 @@ function getNodeColor(kind,domainOrId){
 }
 
 // Domain index → evenly spaced angles so stars spread out
-const DOMAIN_ORDER = ['identity','family','knowledge','docs','projects','finance','health','edu','music','film','preferences','places','media'];
+const DOMAIN_ORDER = ['identity','family','work','projects','places','finance','health','media','memory','knowledge','docs'];
 
 function spawnDomainNode(ent){
   if(S.nodes.find(n=>n.id===ent.id))return;
@@ -1018,16 +1026,23 @@ function spawnQuestionNode(q, domainId){
 
 // ── DRAW LINK — relation-aware visual language
 const LINK_STYLE = {
-  belongs_to_domain : { stroke:'rgba(167,139,250,.18)', width:'.6',  dash:null },
-  child_of          : { stroke:'rgba(244,114,182,.38)', width:'1',   dash:null },
-  parent_of         : { stroke:'rgba(244,114,182,.38)', width:'1',   dash:null },
-  part_of           : { stroke:'rgba(251,146,60,.25)',  width:'.7',  dash:'3 3' },
-  is_a              : { stroke:'rgba(163,230,53,.2)',   width:'.5',  dash:'2 4' },
-  related_to        : { stroke:'rgba(148,163,184,.15)', width:'.5',  dash:'1 5' },
-  mentions          : { stroke:'rgba(148,163,184,.08)', width:'.4',  dash:'1 6' },
+  belongs_to_domain : { stroke:'rgba(167,139,250,.2)',  width:'.6',  dash:null },
+  child_of          : { stroke:'rgba(244,114,182,.45)', width:'1.1', dash:null },
+  parent_of         : { stroke:'rgba(244,114,182,.45)', width:'1.1', dash:null },
+  fills_role        : { stroke:'rgba(244,114,182,.6)',  width:'1.4', dash:null },  // somut kişi → rol
+  is_a              : { stroke:'rgba(163,230,53,.25)',  width:'.6',  dash:'2 3' },
+  part_of           : { stroke:'rgba(251,146,60,.22)',  width:'.6',  dash:'3 3' },
+  works_at          : { stroke:'rgba(251,146,60,.3)',   width:'.7',  dash:null },
+  works_on          : { stroke:'rgba(251,146,60,.25)',  width:'.6',  dash:'2 3' },
+  lives_in          : { stroke:'rgba(52,211,153,.25)',  width:'.6',  dash:null },
+  owns              : { stroke:'rgba(34,211,238,.2)',   width:'.5',  dash:'3 4' },
+  likes             : { stroke:'rgba(233,121,249,.2)',  width:'.5',  dash:'2 4' },
+  remembers         : { stroke:'rgba(249,115,22,.2)',   width:'.5',  dash:'3 5' },
+  related_to        : { stroke:'rgba(148,163,184,.14)', width:'.5',  dash:'1 5' },
+  mentions          : { stroke:'rgba(148,163,184,.07)', width:'.4',  dash:'1 7' },
   asks_about        : { stroke:'rgba(96,165,250,.18)',  width:'.5',  dash:'3 4' },
-  answered_by       : { stroke:'rgba(52,211,153,.3)',   width:'.7',  dash:null },
-  created_by_user   : { stroke:'rgba(167,139,250,.06)', width:'.3',  dash:'1 8' },
+  answered_by       : { stroke:'rgba(52,211,153,.35)',  width:'.8',  dash:null },
+  created_by_user   : { stroke:'rgba(167,139,250,.05)', width:'.3',  dash:'1 9' },
 };
 
 function drawLink(fromId, toId, relation){
